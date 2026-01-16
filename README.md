@@ -1,5 +1,5 @@
-# LLM-Miscope: An LLM-Powered Autonomous Experimental System for Intelligent Microscopy
-LLM-Miscope is an intelligent agent system that deeply integrates the logical reasoning capabilities of **Large Language Models (LLMs)** with microscope hardware control. Through natural language interaction, it achieves a **fully automated closed-loop workflow** covering experimental instruction understanding, task planning, automated image acquisition, and real-time analysis.
+# Embodied Intelligence Enables Agentic Exploration in Microscopy
+Embodied Intelligence Microscope System (EIMS) is an intelligent platform that reconceptualizes the microscope from a passive imaging tool into an autonomous explorer capable of closing the loop between intent, perception, and action. Through natural language interaction, it achieves a **fully automated closed-loop workflow** covering experimental instruction understanding, task planning, automated image acquisition, and real-time analysis.
 
 This project is more than just a control script—it functions as an AI experimenter equipped with "perception-decision-execution-self-correction" capabilities. It is designed to address the pain points of traditional biological experiments, such as complex microscope operations, cumbersome workflows, and the difficulty of achieving fully automated closed-loop control.
 
@@ -374,4 +374,5 @@ llm_miscope/
 
 ## 🤝 Contribution
 Welcome to submit Issues or Pull Requests to improve this project! If you encounter problems during use, please check the log files in the output/ directory for troubleshooting.
+
 
