@@ -317,9 +317,7 @@ target_filename = "tumor_locations_list.json"
 say(f"[ACTION] Loading target locations from file {target_filename}")
 target_bounding_boxes = load_target_locations(target_filename)
 say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of suspected tumor regions")
-for i, bbox in enumerate(target_bounding_boxes):
-    x, y, width, height = bbox
-    say(f"[INFO] Target region {i+1} position: X={x} μm, Y={y} μm, Width={width} μm, Height={height} μm")
+
     
 # Example Input
 Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
@@ -391,8 +389,7 @@ Obtain the position of the 24-well plate
 
 say("[ACTION] Generating positions for each well in 24-well plate")
 wells_positions = create_24_wells_positions()
-for i, pos in enumerate(wells_positions):
-    say(f"[INFO] Position of well {i+1} in 24-well plate: {pos} μm")
+
 
 
 # Example Input
@@ -529,8 +526,6 @@ set_time_series(num_frames=num_frames, interval_sec=interval_sec)
 say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 1-hour intervals")
 
 say("[INFO] Configuring XY acquisition positions for all 96 wells")
-for i, (x, y) in enumerate(wells_positions):
-    add_acquisition_position(name=f"well_{i+1}", x=x, y=y, width=6500, height=6500)
 say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 96 wells")
 
 say("[INFO] Configuring acquisition channel parameters")
