@@ -100,10 +100,10 @@ Configure your LLM service:
 ```python
 openai_api_key = 'sk-...'       # Your LLM API key
 base_url = 'https://...'        # API endpoint (e.g., OpenAI or OpenRouter)
-model_name = 'gpt-4o'           # Recommended: gpt-4o or claude-3-5-sonnet
+model_name = 'claude-sonnet-4-5'           # Recommended: claude
 ```
 
-#### D. Adding New Tools (e.g., FRAP)
+#### D. (optional) Adding New Tools (e.g., FRAP)
 
 The system provides `create_tool.py` to auto-generate LMP prompts for new tools marked with `@tool_func`, enabling seamless integration.
 
@@ -114,7 +114,7 @@ The system provides `create_tool.py` to auto-generate LMP prompts for new tools 
 from tool.base import BaseTool, tool_func
 class Frap(BaseTool):
     """Example tool for image capture and motion control."""
-    
+  
     def __init__(self, device_id: int = 0, save_dir: str = "./output"):
         self.device = cv.VideoCapture(device_id)
         self.save_dir = save_dir
@@ -196,6 +196,16 @@ cfg_tabletop = {
         # ...
     }
 }
+```
+
+#### E. Program Execution
+
+To facilitate a quick understanding of the entire program workflow, we provide a runnable example implemented in a Jupyter Notebook. Together with detailed supporting documentation, it clearly describes the step-by-step procedure of program execution, how EIMS autonomously conducts planning, decision-making and microscope control, as well as the experimental results obtained from real‑world deployments.
+
+We recommend that interested researchers prioritize this section for a rapid and comprehensive grasp of the project. For the complete execution of the CLI version (which requires hardware support and adaptation), please refer to the section in the user guide.
+
+```python
+Hardware-Free-Demo.ipynb
 ```
 
 ## 📖 Key Specifications & Guidelines
@@ -320,3 +330,4 @@ This system only calls public APIs of Fiji and Micro-Manager without modifying t
 ## 🤝 Contributions
 
 Issues and Pull Requests are welcome!
+
