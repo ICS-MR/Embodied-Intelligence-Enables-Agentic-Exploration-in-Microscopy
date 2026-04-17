@@ -134,6 +134,7 @@ def show_cli_interaction_artifact(artifact: dict) -> None:
 
     title = str(artifact.get("title") or "Fiji Detection Result")
     notice = str(artifact.get("text") or f"Displaying annotated image: {os.path.basename(artifact_path)}")
+    display_seconds = max(0.0, float(artifact.get("display_seconds") or 3.0))
     print_scopebot_message(notice)
 
     try:
@@ -156,8 +157,11 @@ def show_cli_interaction_artifact(artifact: dict) -> None:
         axis.set_title(title)
         axis.axis("off")
         plt.show(block=False)
+        started_at = time.monotonic()
         while plt.fignum_exists(figure.number):
             plt.pause(0.1)
+            if display_seconds > 0 and (time.monotonic() - started_at) >= display_seconds:
+                break
     except Exception as exc:
         print_scopebot_message(f"Failed to display annotated image window: {exc}")
         print_scopebot_message(f"Annotated image saved at: {artifact_path}")

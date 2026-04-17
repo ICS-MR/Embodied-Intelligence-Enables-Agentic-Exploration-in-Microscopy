@@ -355,6 +355,7 @@ def _build_executor_execution_context(
     *,
     role: str,
     simulation_mode: bool,
+    env_obj: Any,
     system_module: Any,
     session_dir: str,
     output_dir: str,
@@ -370,6 +371,7 @@ def _build_executor_execution_context(
         "workdir": output_dir,
         "storage_manager": storage_manager,
         "say_capture": say_capture,
+        "artifact_emitter_getter": getattr(env_obj, "get_interaction_artifact_listener", lambda: None),
         "timeout_seconds": float(getattr(system_module, "fiji_executor_timeout_seconds", 300.0) or 300.0),
         "startup_retry_times": int(getattr(system_module, "fiji_executor_startup_retry_times", 2) or 2),
         "startup_retry_backoff_seconds": float(
@@ -469,6 +471,7 @@ def _build_runtime_context_from_manifest(
             execution_context=_build_executor_execution_context(
                 role=role,
                 simulation_mode=simulation_mode,
+                env_obj=env_obj,
                 system_module=system_module,
                 session_dir=session_dir,
                 output_dir=session_output_dir,

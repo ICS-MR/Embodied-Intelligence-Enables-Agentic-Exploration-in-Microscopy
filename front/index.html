@@ -649,6 +649,52 @@
             object-fit: contain;
         }
 
+        .artifact-preview-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2400;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(10, 14, 24, 0.54);
+            opacity: 1;
+            transition: opacity 180ms ease;
+            pointer-events: none;
+        }
+
+        .artifact-preview-overlay.is-hiding {
+            opacity: 0;
+        }
+
+        .artifact-preview-card {
+            max-width: min(88vw, 980px);
+            max-height: 88vh;
+            padding: 14px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .artifact-preview-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #9f1239;
+            letter-spacing: 0.02em;
+        }
+
+        .artifact-preview-image {
+            display: block;
+            max-width: min(82vw, 920px);
+            max-height: calc(88vh - 64px);
+            border-radius: 16px;
+            object-fit: contain;
+            background: #fff;
+        }
+
         .cursor::after {
             content: "|";
             animation: blink 1s infinite;
@@ -1567,6 +1613,43 @@
             return Promise.resolve();
         }
 
+        function showArtifactPreviewOverlay(payload) {
+            const displaySeconds = Number(payload.display_seconds || 0);
+            if (!(displaySeconds > 0) || !payload.url) {
+                return;
+            }
+
+            const existing = document.querySelector(".artifact-preview-overlay");
+            if (existing) {
+                existing.remove();
+            }
+
+            const overlay = document.createElement("div");
+            overlay.className = "artifact-preview-overlay";
+
+            const card = document.createElement("div");
+            card.className = "artifact-preview-card";
+
+            const titleDiv = document.createElement("div");
+            titleDiv.className = "artifact-preview-title";
+            titleDiv.textContent = String(payload.title || payload.text || "Detection Preview");
+
+            const image = document.createElement("img");
+            image.className = "artifact-preview-image";
+            image.src = payload.url;
+            image.alt = String(payload.title || payload.text || "artifact image");
+
+            card.appendChild(titleDiv);
+            card.appendChild(image);
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+
+            window.setTimeout(() => {
+                overlay.classList.add("is-hiding");
+                window.setTimeout(() => overlay.remove(), 220);
+            }, Math.max(300, Math.round(displaySeconds * 1000)));
+        }
+
         function addUserMessage(text) {
             const messageDiv = createMessageElement("user", text);
             $("chatMessages").appendChild(messageDiv);
@@ -1685,7 +1768,7 @@
             }
             if (msg.type === "artifact") {
                 if (msg.kind === "image" && msg.url) {
-                    await appendArtifactMessage("robot-action", msg);
+                    showArtifactPreviewOverlay(msg);
                 } else if (msg.text) {
                     await appendTypedMessage("robot-action", msg.text, true);
                 }

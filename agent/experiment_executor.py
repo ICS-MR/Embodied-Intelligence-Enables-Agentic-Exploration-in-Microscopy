@@ -179,6 +179,8 @@ class ExperimentExecuteAgent:
 
     def _run_fiji_subprocess(self, code_str: str) -> Dict[str, Any]:
         timeout_seconds = float(self._execution_context.get("timeout_seconds") or 300.0)
+        artifact_emitter_getter = self._execution_context.get("artifact_emitter_getter")
+        artifact_emitter = artifact_emitter_getter() if callable(artifact_emitter_getter) else None
         result = run_generated_fiji_code_in_subprocess(
             code_str,
             session_dir=self._execution_context["session_dir"],
@@ -186,6 +188,7 @@ class ExperimentExecuteAgent:
             timeout_seconds=timeout_seconds,
             storage_manager=self._execution_context.get("storage_manager"),
             say_capture=self._execution_context.get("say_capture"),
+            artifact_emitter=artifact_emitter,
             workdir=self._execution_context.get("workdir") or self._execution_context.get("output_dir"),
             max_startup_retries=int(self._execution_context.get("startup_retry_times") or 2),
             startup_retry_backoff_seconds=float(

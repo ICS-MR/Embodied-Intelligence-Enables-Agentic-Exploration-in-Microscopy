@@ -102,6 +102,85 @@ def _deduplicate_pixel_regions(
     return deduped
 
 
+def _sort_pixel_regions_reading_order(
+    regions: List[Tuple[float, float, float, float]],
+) -> List[Tuple[float, float, float, float]]:
+    if len(regions) <= 1:
+        return list(regions)
+
+    valid_heights = [max(0.0, float(region[3])) for region in regions if float(region[3]) > 0]
+    if valid_heights:
+        row_tolerance = max(8.0, float(np.median(valid_heights)) * 0.5)
+    else:
+        row_tolerance = 16.0
+
+    prelim_sorted = sorted(
+        regions,
+        key=lambda item: (
+            round(float(item[1]) / row_tolerance),
+            float(item[0]),
+            float(item[1]),
+        ),
+    )
+
+    sorted_regions: List[Tuple[float, float, float, float]] = []
+    current_row: List[Tuple[float, float, float, float]] = []
+    current_row_y: Optional[float] = None
+
+    for region in prelim_sorted:
+        region_y = float(region[1])
+        if current_row_y is None or abs(region_y - current_row_y) <= row_tolerance:
+            current_row.append(region)
+            if current_row_y is None:
+                current_row_y = region_y
+            else:
+                current_row_y = (current_row_y * (len(current_row) - 1) + region_y) / len(current_row)
+            continue
+
+        sorted_regions.extend(sorted(current_row, key=lambda item: (float(item[0]), float(item[1]))))
+        current_row = [region]
+        current_row_y = region_y
+
+    if current_row:
+        sorted_regions.extend(sorted(current_row, key=lambda item: (float(item[0]), float(item[1]))))
+
+    return sorted_regions
+
+
+def _draw_detection_box_with_index(
+    display_img: np.ndarray,
+    *,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    label: str,
+) -> None:
+    cv2 = _get_cv2()
+    cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 0, 255), thickness=4)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 2.2
+    text_thickness = 5
+    (text_width, text_height), baseline = cv2.getTextSize(label, font, font_scale, text_thickness)
+    pad = 12
+    label_left = max(0, x1)
+    label_top = max(0, y1 - text_height - baseline - pad * 2)
+    label_bottom = min(display_img.shape[0] - 1, label_top + text_height + baseline + pad * 2)
+    label_right = min(display_img.shape[1] - 1, label_left + text_width + pad * 2)
+
+    if label_bottom <= label_top or label_right <= label_left:
+        text_x = max(0, x1)
+        text_y = min(display_img.shape[0] - 1, max(text_height + 2, y1 + text_height + 2))
+        cv2.putText(display_img, label, (text_x, text_y), font, font_scale, (0, 0, 255), text_thickness)
+        return
+
+    cv2.rectangle(display_img, (label_left, label_top), (label_right, label_bottom), (0, 0, 255), thickness=-1)
+    text_x = label_left + pad
+    text_y = min(display_img.shape[0] - 1, label_bottom - baseline - pad)
+    cv2.putText(display_img, label, (text_x, text_y), font, font_scale, (255, 255, 255), text_thickness)
+
+
 def _touches_internal_tile_edge(
     *,
     center_x_px: float,
@@ -143,7 +222,9 @@ def _prepare_java_cache_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
     os.environ["CJDK_CACHE_DIR"] = str(cjdk_cache_dir)
-    sjconf.set_java_constraints(fetch="never")
+    # Prefer local Java/Maven when present, but allow scyjava/cjdk to fetch
+    # missing pieces automatically into our controlled cache locations.
+    sjconf.set_java_constraints(fetch="auto")
     sjconf.set_cache_dir(jgo_cache_dir)
     sjconf.set_m2_repo(m2_repo_dir)
 
@@ -161,25 +242,88 @@ def _resolve_project_path(path_value: str) -> str:
 
 def _ensure_maven_on_path() -> None:
     """
-    Prepend the configured Maven bin directory to PATH so jgo can find `mvn`
-    consistently regardless of how the app was launched.
+    Make a locally installed Maven visible to jgo when possible. If Maven is
+    still unavailable afterward, scyjava/cjdk can fall back to auto-download.
     """
-    if not MAVEN_BIN:
-        return
-    if not os.path.isdir(MAVEN_BIN):
-        logger.warning("Configured MAVEN_BIN does not exist: %s", MAVEN_BIN)
-        return
+    shutil = __import__("shutil")
+
+    def _add_candidate(candidates: list[str], value: str | None) -> None:
+        if not value:
+            return
+        candidate = str(value).strip().strip('"')
+        if not candidate:
+            return
+        candidate = os.path.expanduser(candidate)
+        if os.path.isfile(candidate):
+            name = os.path.basename(candidate).lower()
+            if name in {"mvn", "mvn.cmd", "mvn.bat", "mvn.exe"}:
+                candidates.append(os.path.dirname(candidate))
+            return
+        if os.path.isdir(candidate):
+            candidates.append(candidate)
 
     current_path = os.environ.get("PATH", "")
+    candidates: list[str] = []
+    _add_candidate(candidates, MAVEN_BIN)
+
+    for env_name in ("MAVEN_HOME", "M2_HOME"):
+        home = os.environ.get(env_name)
+        if home:
+            _add_candidate(candidates, os.path.join(home, "bin"))
+            _add_candidate(candidates, home)
+
+    for entry in current_path.split(os.pathsep):
+        _add_candidate(candidates, entry)
+
+    resolved_maven_bin = None
+    for candidate in candidates:
+        for executable_name in ("mvn.cmd", "mvn.bat", "mvn.exe", "mvn"):
+            if os.path.isfile(os.path.join(candidate, executable_name)):
+                resolved_maven_bin = candidate
+                break
+        if resolved_maven_bin:
+            break
+
+    if resolved_maven_bin is None:
+        which_result = shutil.which("mvn") or shutil.which("mvn.cmd") or shutil.which("mvn.bat")
+        if which_result:
+            resolved_maven_bin = os.path.dirname(which_result)
+
+    if resolved_maven_bin is None:
+        if MAVEN_BIN:
+            logger.warning("Configured MAVEN_BIN does not contain a Maven executable: %s", MAVEN_BIN)
+        return
+
     entries = current_path.split(os.pathsep) if current_path else []
-    normalized_target = os.path.normcase(os.path.normpath(MAVEN_BIN))
+    normalized_target = os.path.normcase(os.path.normpath(resolved_maven_bin))
     normalized_entries = {
-        os.path.normcase(os.path.normpath(entry))
+        os.path.normcase(os.path.normpath(entry.strip().strip('"')))
         for entry in entries
         if entry.strip()
     }
     if normalized_target not in normalized_entries:
-        os.environ["PATH"] = MAVEN_BIN + os.pathsep + current_path if current_path else MAVEN_BIN
+        os.environ["PATH"] = (
+            resolved_maven_bin + os.pathsep + current_path if current_path else resolved_maven_bin
+        )
+
+    if os.name == "nt":
+        current_pathext = os.environ.get("PATHEXT", "")
+        pathext_entries = {
+            item.strip().upper()
+            for item in current_pathext.split(os.pathsep)
+            if item.strip()
+        }
+        missing_extensions = [ext for ext in (".CMD", ".BAT", ".EXE") if ext not in pathext_entries]
+        if missing_extensions:
+            os.environ["PATHEXT"] = (
+                current_pathext + os.pathsep + os.pathsep.join(missing_extensions)
+                if current_pathext
+                else os.pathsep.join(missing_extensions)
+            )
+
+    maven_home = Path(resolved_maven_bin).parent
+    os.environ.setdefault("MAVEN_HOME", str(maven_home))
+    os.environ.setdefault("M2_HOME", str(maven_home))
 
 
 def _rescale_contrast_per_plane(
@@ -457,18 +601,28 @@ def _extract_filtered_pred_instances(result: Any, score_thr: float) -> tuple[np.
 def _resolve_target_detection_spec(target_type: str) -> dict[str, Any]:
     target_specs = load_detection_targets()
     normalized = str(target_type).strip()
+    resolved_spec: dict[str, Any] | None = None
     if normalized in target_specs:
-        return dict(target_specs[normalized])
+        resolved_spec = dict(target_specs[normalized])
 
-    lowered = normalized.lower()
-    for key, spec in target_specs.items():
-        if key.lower() == lowered:
-            return dict(spec)
+    if resolved_spec is None:
+        lowered = normalized.lower()
+        for key, spec in target_specs.items():
+            if key.lower() == lowered:
+                resolved_spec = dict(spec)
+                break
 
-    raise ValueError(
-        f"Unsupported target type: {target_type}. "
-        f"Available targets: {', '.join(target_specs.keys())}"
-    )
+    if resolved_spec is None:
+        raise ValueError(
+            f"Unsupported target type: {target_type}. "
+            f"Available targets: {', '.join(target_specs.keys())}"
+        )
+
+    for field_name in ("model_config", "model_checkpoint"):
+        field_value = str(resolved_spec.get(field_name) or "").strip()
+        if field_value:
+            resolved_spec[field_name] = _resolve_project_path(field_value)
+    return resolved_spec
 
 
 def _list_supported_target_types() -> list[str]:
@@ -516,12 +670,16 @@ class ImageJProcessor(BaseTool):
     ) -> None:
         self._interaction_artifact_listener = listener
 
+    def get_interaction_artifact_listener(self) -> Optional[Callable[[dict[str, Any]], None]]:
+        return self._interaction_artifact_listener
+
     def _emit_interaction_artifact(
         self,
         *,
         path: str,
         title: str,
         text: str = "",
+        display_seconds: float = 0.0,
     ) -> None:
         if self._interaction_artifact_listener is None:
             return
@@ -532,6 +690,7 @@ class ImageJProcessor(BaseTool):
                     "path": path,
                     "title": title,
                     "text": text,
+                    "display_seconds": max(0.0, float(display_seconds)),
                     "source": "fiji_target_detection",
                 }
             )
@@ -1315,10 +1474,20 @@ class ImageJProcessor(BaseTool):
     def _init_generic_model(self, config, checkpoint, device):
         if not hasattr(self, '_generic_model_cache'):
             self._generic_model_cache = {}
-        key = (config, checkpoint, device)
+        config_path = str(config or "").strip()
+        checkpoint_path = str(checkpoint or "").strip()
+        if not config_path:
+            raise ValueError("Detection model config path is empty")
+        if not checkpoint_path:
+            raise ValueError("Detection model checkpoint path is empty")
+        if not os.path.isfile(config_path):
+            raise FileNotFoundError(f"Detection model config not found: {config_path}")
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(f"Detection model checkpoint not found: {checkpoint_path}")
+        key = (config_path, checkpoint_path, device)
         if key not in self._generic_model_cache:
             init_detector, _ = _get_mmdet_apis()
-            self._generic_model_cache[key] = init_detector(config, checkpoint, device=device)
+            self._generic_model_cache[key] = init_detector(config_path, checkpoint_path, device=device)
         return self._generic_model_cache[key]
 
     def _safe_image_normalize(self, img: np.ndarray) -> np.ndarray:
@@ -1348,7 +1517,9 @@ class ImageJProcessor(BaseTool):
         target_size: int = 512,
         target_class_id: Optional[int] = 0,
         target_class_name: Optional[str] = None,
-        output_filename: str = 'target_locations_list.json'
+        output_filename: str = 'target_locations_list.json',
+        emit_preview: bool = True,
+        save_outputs: bool = True,
     ) -> List[Tuple[float, float, float, float]]:
         """
         Generic target position detection function
@@ -1521,10 +1692,33 @@ class ImageJProcessor(BaseTool):
                 dx_img = cx_px - image_center_x_px
                 dy_img = cy_px - image_center_y_px
                 cx_um = center_x_um + dx_img * pixel_size_x_um
-                cy_um = center_y_um - dy_img * pixel_size_y_um  # Y-axis flip
+                cy_um = center_y_um + dy_img * pixel_size_y_um
                 w_um = w_px * pixel_size_x_um
                 h_um = h_px * pixel_size_y_um
                 physical_regions.append([cx_um, cy_um, w_um, h_um])
+
+            pixel_regions = _sort_pixel_regions_reading_order(pixel_regions)
+            physical_regions = [
+                [
+                    center_x_um + (float(cx_px) - image_center_x_px) * pixel_size_x_um,
+                    center_y_um + (float(cy_px) - image_center_y_px) * pixel_size_y_um,
+                    float(w_px) * pixel_size_x_um,
+                    float(h_px) * pixel_size_y_um,
+                ]
+                for cx_px, cy_px, w_px, h_px in pixel_regions
+            ]
+            bboxes = np.asarray(
+                [
+                    [
+                        float(cx_px) - float(w_px) / 2.0,
+                        float(cy_px) - float(h_px) / 2.0,
+                        float(cx_px) + float(w_px) / 2.0,
+                        float(cy_px) + float(h_px) / 2.0,
+                    ]
+                    for cx_px, cy_px, w_px, h_px in pixel_regions
+                ],
+                dtype=np.float32,
+            )
 
             print(f"Total {len(pixel_regions)} valid targets detected")
 
@@ -1538,7 +1732,7 @@ class ImageJProcessor(BaseTool):
                 _safe_empty_cuda_cache()
 
         # === Save annotated image (with red boxes and numbering) ===
-        if len(bboxes) > 0:
+        if save_outputs and len(bboxes) > 0:
             # Use original grayscale image for display
             if len(orig_img.shape) == 2:
                 display_img = cv2.cvtColor(orig_img, cv2.COLOR_GRAY2BGR)
@@ -1547,38 +1741,38 @@ class ImageJProcessor(BaseTool):
 
             for idx, (x1, y1, x2, y2) in enumerate(bboxes, start=1):
                 x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-                cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 0, 255), thickness=2)
-                label = str(idx)
-                text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-                text_x = x1
-                text_y = y1 - 5 if y1 > 10 else y1 + text_size[1] + 5
-                # Black outline
-                cv2.putText(display_img, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), thickness=2)
-                # White text
-                cv2.putText(display_img, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), thickness=1)
+                _draw_detection_box_with_index(
+                    display_img,
+                    x1=x1,
+                    y1=y1,
+                    x2=x2,
+                    y2=y2,
+                    label=str(idx),
+                )
 
             # Save to self.output_directory without registration
             img_output_filename = output_filename.replace('.json', '_annotated.jpg')
             img_output_path = os.path.join(self.output_directory, img_output_filename)
             os.makedirs(os.path.dirname(img_output_path), exist_ok=True)
             saved = bool(cv2.imwrite(img_output_path, display_img))
-            if saved:
+            if saved and emit_preview:
                 self._emit_interaction_artifact(
                     path=img_output_path,
                     title="Fiji Detection Result",
                     text="Annotated image is ready for review.",
+                    display_seconds=3.0,
                 )
             else:
                 logger.warning("Failed to save Fiji annotated image to %s", img_output_path)
 
         # === Save: use physical coordinates ===
-        if len(physical_regions) > 0:
+        if save_outputs and len(physical_regions) > 0:
             output_path = os.path.join(self.output_directory, output_filename)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(physical_regions, f, indent=2)
             self._storagemanger.register_file(output_filename, description, 'analysis_platform', 'json')
-        else:
+        elif save_outputs:
             print(f"No valid targets, skipping file {output_filename} registration")
 
         # === Return: pixel coordinates ===
@@ -1685,7 +1879,7 @@ class ImageJProcessor(BaseTool):
             tile_center_x_px = (x0 + x1 - 1) / 2.0
             tile_center_y_px = (y0 + y1 - 1) / 2.0
             tile_center_x_um = image_center_x_um + (tile_center_x_px - image_center_x_px) * pixel_size_x_um
-            tile_center_y_um = image_center_y_um - (tile_center_y_px - image_center_y_px) * pixel_size_y_um
+            tile_center_y_um = image_center_y_um + (tile_center_y_px - image_center_y_px) * pixel_size_y_um
             tile_output_filename = f"{tile_output_root}/tile_{tile_index:03d}.json"
             tile_regions = self._analysis_platform_find_position(
                 image=tile,
@@ -1704,6 +1898,8 @@ class ImageJProcessor(BaseTool):
                 target_class_id=target_class_id if target_class_id is not None else spec["target_class_id"],
                 target_class_name=target_class_name or spec["target_class_name"],
                 output_filename=tile_output_filename,
+                emit_preview=False,
+                save_outputs=False,
             )
             for center_x_px, center_y_px, width_px, height_px in tile_regions:
                 if _touches_internal_tile_edge(
@@ -1734,6 +1930,7 @@ class ImageJProcessor(BaseTool):
                 aggregated_pixel_regions,
                 iou_threshold=float(global_iou_thr),
             )
+            aggregated_pixel_regions = _sort_pixel_regions_reading_order(aggregated_pixel_regions)
 
         physical_regions = []
         for cx_px, cy_px, w_px, h_px in aggregated_pixel_regions:
@@ -1742,7 +1939,7 @@ class ImageJProcessor(BaseTool):
             physical_regions.append(
                 [
                     image_center_x_um + dx_img * pixel_size_x_um,
-                    image_center_y_um - dy_img * pixel_size_y_um,
+                    image_center_y_um + dy_img * pixel_size_y_um,
                     float(w_px) * pixel_size_x_um,
                     float(h_px) * pixel_size_y_um,
                 ]
@@ -1763,13 +1960,14 @@ class ImageJProcessor(BaseTool):
             y1 = int(round(float(cy_px) - float(h_px) / 2.0))
             x2 = int(round(float(cx_px) + float(w_px) / 2.0))
             y2 = int(round(float(cy_px) + float(h_px) / 2.0))
-            cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 0, 255), thickness=2)
-            label = str(idx)
-            text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-            text_x = x1
-            text_y = y1 - 5 if y1 > 10 else y1 + text_size[1] + 5
-            cv2.putText(display_img, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), thickness=2)
-            cv2.putText(display_img, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), thickness=1)
+            _draw_detection_box_with_index(
+                display_img,
+                x1=x1,
+                y1=y1,
+                x2=x2,
+                y2=y2,
+                label=str(idx),
+            )
 
         img_output_filename = final_output_filename.replace('.json', '_annotated.jpg')
         img_output_path = os.path.join(self.output_directory, img_output_filename)
@@ -1780,6 +1978,7 @@ class ImageJProcessor(BaseTool):
                 path=img_output_path,
                 title="Fiji Detection Result",
                 text="Annotated image is ready for review.",
+                display_seconds=3.0,
             )
         else:
             logger.warning("Failed to save Fiji annotated image to %s", img_output_path)

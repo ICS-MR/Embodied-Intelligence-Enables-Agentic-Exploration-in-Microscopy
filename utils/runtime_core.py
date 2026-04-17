@@ -44,6 +44,7 @@ def apply_startup_state(env_olympus: Any, startup_config: Optional[StartupConfig
     _call_if_available(env_olympus, "set_channel", startup.channel)
     _call_if_available(env_olympus, "set_exposure", startup.exposure)
     _call_if_available(env_olympus, "set_brightness", startup.brightness)
+    _call_if_available(env_olympus, "set_x_y_position", startup.x_position, startup.y_position)
     _call_if_available(env_olympus, "set_z_position", startup.z_position)
 
 
@@ -130,9 +131,13 @@ def release_resources(system_components: RuntimeContext) -> None:
     env_imagej = system_components.env_imagej
 
     if env_olympus and hasattr(env_olympus, "shutdown"):
+        print("Shutting down microscope controller...")
         env_olympus.shutdown()
+        print("Microscope controller shutdown complete.")
 
     if env_imagej and hasattr(env_imagej, "fiji_shutdown"):
+        print("Shutting down Fiji/ImageJ...")
         env_imagej.fiji_shutdown()
+        print("Fiji/ImageJ shutdown complete.")
 
     system_components.storage_manager.clear_cache()

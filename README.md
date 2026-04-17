@@ -529,6 +529,7 @@ Web runtime:
 - Open `http://127.0.0.1:8000`
 - Complete the configuration form in the browser
 - Scopebot will stream plan previews, execution updates, checker warnings, and final summaries
+- Runtime-generated Fiji executor temp files are now written outside the project tree, so normal `uvicorn app:app --reload` can be used without those temp files triggering hot reload
 - For a lightweight mock demo flow that uses the same `config/runtime_config.json` settings but does not run the full planner/executor/checker stack, `uvicorn app_mock:app --reload` is also available
 
 CLI runtime:
