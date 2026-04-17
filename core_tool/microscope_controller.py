@@ -576,19 +576,20 @@ class MicroscopeController(BaseTool):
     def set_exposure(self, exposure_time: float):
         if exposure_time == self.current_exposure_time:
             return
-        was_continuous = False
         with self.device_lock:
-            if self.is_continuous:
+            was_continuous = self.is_continuous
+            if was_continuous:
                 self.core.stopSequenceAcquisition()
-                was_continuous = True
-        exposure_time = max(self.Min_exposure, min(exposure_time, self.Max_exposure))
-        self.core.setProperty(self.camera_device, 'Exposure', exposure_time)
-        self.core.waitForDevice(self.camera_device)
-        with self.device_lock:
-            self.current_exposure_time = exposure_time
-            if was_continuous and self.preview_running:
-                self.core.startContinuousSequenceAcquisition(0)
-                self.is_continuous = True
+                self.is_continuous = False
+            try:
+                exposure_time = max(self.Min_exposure, min(exposure_time, self.Max_exposure))
+                self.core.setProperty(self.camera_device, 'Exposure', exposure_time)
+                self.core.waitForDevice(self.camera_device)
+                self.current_exposure_time = exposure_time
+            finally:
+                if was_continuous and self.preview_running:
+                    self.core.startContinuousSequenceAcquisition(0)
+                    self.is_continuous = True
     @tool_func
     def get_exposure(self) -> float:
         exp = self.core.getProperty(self.camera_device, "Exposure")
@@ -1608,16 +1609,20 @@ class MicroscopeController(BaseTool):
     def shutdown(self):
         self.shutdown_event.set()
         if self.preview_running:
+            print("Microscope shutdown: stopping preview...")
             self.stop_preview()
         if self.acquisition_thread and self.acquisition_thread.is_alive():
+            print("Microscope shutdown: waiting for acquisition thread...")
             self.acquisition_thread.join(timeout=5.0)
         try:
             with self.device_lock:
+                print("Microscope shutdown: resetting hardware core...")
                 self._set_transmitted_brightness(self.Min_brightness)
                 with _silence_native_stdio():
                     self.core.stopSequenceAcquisition()
                     self.core.reset()
                     self.core.unloadAllDevices()
+                print("Microscope shutdown: hardware core reset complete.")
         except Exception as e:
             pass
     @tool_func
@@ -1693,15 +1698,15 @@ class MicroscopeController(BaseTool):
         """
         def z_stack_scan_params(magnification: float, is_fluorescence: bool) -> Dict[str, float]:
             if magnification < 5:
-                params = {"range": 200.0, "step": 10.0, "min_width": 30.0, "max_width": 300.0}
+                params = {"range": 250.0, "step": 30.0, "min_width": 40.0, "max_width": 350.0}
             elif magnification < 15:
-                params = {"range": 120.0, "step": 5.0, "min_width": 20.0, "max_width": 180.0}
+                params = {"range": 200.0, "step": 25.0, "min_width": 30.0, "max_width": 280.0}
             elif magnification < 30:
-                params = {"range": 60.0, "step": 2.0, "min_width": 10.0, "max_width": 90.0}
+                params = {"range": 150.0, "step": 20.0, "min_width": 20.0, "max_width": 220.0}
             elif magnification < 50:
-                params = {"range": 30.0, "step": 1.0, "min_width": 5.0, "max_width": 45.0}
+                params = {"range": 80.0, "step": 10.0, "min_width": 10.0, "max_width": 120.0}
             else:
-                params = {"range": 20.0, "step": 0.75, "min_width": 3.0, "max_width": 30.0}
+                params = {"range": 50.0, "step": 6.0, "min_width": 6.0, "max_width": 70.0}
             params["settle_time"] = 0.15 if is_fluorescence else 0.10
             params["roi_size"] = 1024.0
             params["threshold_ratio"] = 0.60
@@ -1918,7 +1923,7 @@ class MicroscopeController(BaseTool):
             cy_px = (y1 + y2) / 2.0
 
             offset_x_um = (cx_px - img_center_x_px) * pixel_size
-            offset_y_um = -(cy_px - img_center_y_px) * pixel_size
+            offset_y_um = (cy_px - img_center_y_px) * pixel_size
             center_x_um = image_center_x_um + offset_x_um
             center_y_um = image_center_y_um + offset_y_um
 

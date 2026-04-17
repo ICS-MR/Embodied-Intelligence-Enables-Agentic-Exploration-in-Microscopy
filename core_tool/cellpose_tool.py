@@ -695,7 +695,7 @@ class Cellpose2D(BaseTool):
             dx_px = cx_px - image_center_x_px
             dy_px = cy_px - image_center_y_px
             cx_um = metadata["center_x_um"] + dx_px * metadata["pixel_size_x_um"]
-            cy_um = metadata["center_y_um"] - dy_px * metadata["pixel_size_y_um"]
+            cy_um = metadata["center_y_um"] + dy_px * metadata["pixel_size_y_um"]
             width_um = width_px * metadata["pixel_size_x_um"]
             height_um = height_px * metadata["pixel_size_y_um"]
 

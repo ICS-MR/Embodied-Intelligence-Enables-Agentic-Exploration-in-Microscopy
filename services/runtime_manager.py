@@ -1,6 +1,8 @@
 ﻿import asyncio
 import json
 import logging
+import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -81,6 +83,35 @@ class RuntimeManager:
         self._preview_start_requested_at: Optional[float] = None
         self._preview_starting = False
         self._preview_started_once = False
+        self._artifact_preview_window_name = "Fiji Detection Result"
+
+    def _show_local_artifact_preview(self, artifact_path: str, *, title: str, display_seconds: float) -> None:
+        display_seconds = max(0.0, float(display_seconds))
+        if display_seconds <= 0:
+            return
+        preview_script = (self.root_dir / "scripts" / "show_timed_image_preview.py").resolve()
+        if not preview_script.exists():
+            logger.warning("Timed preview script not found: %s", preview_script)
+            return
+
+        try:
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    str(preview_script),
+                    "--image",
+                    str(Path(artifact_path).expanduser().resolve()),
+                    "--title",
+                    str(title or self._artifact_preview_window_name),
+                    "--seconds",
+                    str(display_seconds),
+                ],
+                cwd=str(self.root_dir),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            logger.exception("Failed to launch timed local artifact preview for %s", artifact_path)
 
     def bind_event_loop(self) -> None:
         try:
@@ -174,6 +205,8 @@ class RuntimeManager:
         artifact_path = str(artifact.get("path") or "").strip()
         if not artifact_path:
             return
+        title = str(artifact.get("title") or "")
+        display_seconds = max(0.0, float(artifact.get("display_seconds") or 0.0))
 
         try:
             output_dir = Path(self.runtime_context.output_dir).expanduser().resolve()
@@ -183,15 +216,10 @@ class RuntimeManager:
             logger.warning("Ignoring interaction artifact outside runtime output directory: %s", artifact_path)
             return
 
-        self.enqueue_output_message(
-            {
-                "type": "artifact",
-                "kind": artifact.get("kind", "image"),
-                "title": str(artifact.get("title") or ""),
-                "text": str(artifact.get("text") or ""),
-                "source": str(artifact.get("source") or ""),
-                "url": f"/api/artifacts/{quote(relative_path, safe='/')}",
-            }
+        self._show_local_artifact_preview(
+            str(resolved_path),
+            title=title or "Fiji Detection Result",
+            display_seconds=display_seconds,
         )
 
     def _set_system_status(

@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -156,11 +157,31 @@ def _cleanup_attempt_artifacts(paths: list[Path]) -> None:
             pass
 
 
+def _build_temp_executor_dir(session_path: Path) -> Path:
+    temp_root = Path(tempfile.gettempdir()).resolve() / "EIMS" / "fiji_executor"
+    session_label = session_path.name or "default_session"
+    temp_dir = temp_root / session_label
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    return temp_dir
+
+
 def _replay_say_messages(say_capture: Any, messages: list[str], *, skip: int = 0) -> None:
     if say_capture is None or not hasattr(say_capture, "say"):
         return
     for message in messages[max(skip, 0):]:
         say_capture.say(message)
+
+
+def _replay_artifacts(artifact_emitter: Any, artifacts: list[dict[str, Any]]) -> None:
+    if artifact_emitter is None or not callable(artifact_emitter):
+        return
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        try:
+            artifact_emitter(dict(artifact))
+        except Exception:
+            pass
 
 
 def _start_output_forwarder(
@@ -199,6 +220,7 @@ def run_generated_fiji_code_in_subprocess(
     timeout_seconds: float,
     storage_manager: Any = None,
     say_capture: Any = None,
+    artifact_emitter: Any = None,
     workdir: str | Path | None = None,
     max_startup_retries: int = 2,
     startup_retry_backoff_seconds: float = 2.0,
@@ -209,6 +231,7 @@ def run_generated_fiji_code_in_subprocess(
     session_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
     workdir_path.mkdir(parents=True, exist_ok=True)
+    temp_executor_path = _build_temp_executor_dir(session_path)
 
     attempts = max(int(max_startup_retries or 0), 0) + 1
     last_error: FijiSubprocessError | None = None
@@ -216,9 +239,9 @@ def run_generated_fiji_code_in_subprocess(
 
     for attempt in range(1, attempts + 1):
         run_id = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
-        code_path = session_path / f"fiji_executor_{run_id}.py"
-        result_path = session_path / f"fiji_executor_{run_id}_result.json"
-        log_path = session_path / f"fiji_executor_{run_id}.log"
+        code_path = temp_executor_path / f"fiji_executor_{run_id}.py"
+        result_path = temp_executor_path / f"fiji_executor_{run_id}_result.json"
+        log_path = temp_executor_path / f"fiji_executor_{run_id}.log"
         code_path.write_text(code_str, encoding="utf-8")
 
         command = [
@@ -300,6 +323,7 @@ def run_generated_fiji_code_in_subprocess(
             child_payload = _read_result_json(result_path)
             metadata = child_payload.get("metadata") or {}
             say_messages = list(child_payload.get("say_messages") or live_say_messages)
+            artifacts = list(child_payload.get("artifacts") or [])
             result = FijiSubprocessResult(
                 command=command,
                 code_path=code_path,
@@ -316,7 +340,9 @@ def run_generated_fiji_code_in_subprocess(
             if proc.returncode == 0:
                 _merge_child_metadata(storage_manager, metadata)
                 _replay_say_messages(say_capture, say_messages, skip=len(live_say_messages))
+                _replay_artifacts(artifact_emitter, artifacts)
                 _cleanup_attempt_artifacts(failed_attempt_artifacts)
+                _cleanup_attempt_artifacts([code_path, result_path, log_path])
                 return result
 
             _replay_say_messages(say_capture, say_messages, skip=len(live_say_messages))
