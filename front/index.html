@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EIMS Web HMI</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --panel: #ffffff;
+            --panel-soft: #fafafa;
+            --panel-muted: #f7f8fc;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --text-white: #ffffff;
+            --line: rgba(18, 24, 40, 0.08);
+            --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+            --gradient-main: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-soft: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.1));
+            --message-user-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --message-robot-bg: #ffffff;
+            --message-action-bg: #f8f9ff;
+            --danger: #d32f2f;
+            --radius-xl: 20px;
+            --radius-lg: 16px;
+            --radius-pill: 999px;
+            --font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+            --runtime-shell-pad: clamp(6px, 4vw, 32px);
+            /* single control for spacing between video and chat panels */
+            --runtime-gap: clamp(2px, 2vw, 42px);
+            --runtime-chat-col: clamp(280px, 34vw, 680px);
+            --runtime-design-width: 1920px;
+            --runtime-design-height: 1080px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            width: 100%;
+            min-height: 100%;
+        }
+
+        body {
+            min-height: 100dvh;
+            font-family: var(--font-family);
+            background: var(--bg);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .screen {
+            display: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            animation: fadeIn 0.28s ease;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .config-shell {
+            max-width: 1380px;
+            margin: 0 auto;
+            min-height: 100dvh;
+            padding: clamp(12px, 2vw, 20px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .config-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+            gap: 24px;
+            flex: 0 0 auto;
+        }
+
+        .hero-card,
+        .panel {
+            background: var(--panel);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--line);
+        }
+
+        .hero-main {
+            padding: 32px;
+            background: linear-gradient(145deg, #ffffff, #f8f9ff);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: var(--radius-pill);
+            background: rgba(102, 126, 234, 0.12);
+            color: #5a67d8;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .hero-main h1 {
+            margin-top: 18px;
+            font-size: clamp(2rem, 4vw, 3.4rem);
+            line-height: 1.08;
+        }
+
+        .hero-main p {
+            margin-top: 16px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-width: 58ch;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 24px;
+        }
+
+        .meta-card {
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            background: var(--gradient-soft);
+            border: 1px solid rgba(102, 126, 234, 0.12);
+        }
+
+        .meta-card strong {
+            display: block;
+            font-size: 1.1rem;
+            margin-bottom: 6px;
+        }
+
+        .meta-card span {
+            color: var(--text-secondary);
+            font-size: 0.94rem;
+            line-height: 1.5;
+        }
+
+        .hero-status {
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 18px;
+            background: var(--gradient-main);
+            color: var(--text-white);
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            width: fit-content;
+            padding: 10px 14px;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.18);
+            font-weight: 700;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .hero-status h2 {
+            font-size: 2rem;
+            margin-top: 16px;
+        }
+
+        .hero-status p,
+        .hero-status .status-summary {
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .panel {
+            padding: 24px;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .panel h3 {
+            font-size: 1.45rem;
+            margin-bottom: 8px;
+        }
+
+        .panel-subtitle {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
+        .upload-box {
+            padding: 18px;
+            border-radius: var(--radius-lg);
+            background: var(--panel-muted);
+            border: 1px dashed rgba(102, 126, 234, 0.28);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .upload-box label,
+        .field label {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            margin-bottom: 6px;
+        }
+
+        .visually-hidden-file {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .upload-file-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .file-name {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field input,
+        .field select,
+        .upload-box input,
+        .chat-input input {
+            width: 100%;
+            border: 1px solid rgba(18, 24, 40, 0.12);
+            border-radius: 14px;
+            padding: 12px 14px;
+            background: #ffffff;
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .field input:focus,
+        .field select:focus,
+        .upload-box input:focus,
+        .chat-input input:focus {
+            border-color: rgba(102, 126, 234, 0.6);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .btn-primary {
+            padding: 12px 20px;
+            border-radius: var(--radius-pill);
+            background: var(--gradient-main);
+            color: var(--text-white);
+            font-weight: 700;
+            box-shadow: 0 8px 18px rgba(102, 126, 234, 0.24);
+        }
+
+        .btn-secondary {
+            padding: 12px 18px;
+            border-radius: var(--radius-pill);
+            background: #ffffff;
+            color: var(--text-primary);
+            font-weight: 700;
+            border: 1px solid rgba(18, 24, 40, 0.1);
+        }
+
+        .feedback {
+            margin-top: 16px;
+            min-height: 24px;
+            color: #5a67d8;
+            line-height: 1.5;
+        }
+
+        .app-shell {
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--runtime-shell-pad);
+        }
+
+        .container {
+            display: flex;
+            gap: var(--runtime-gap);
+            width: min(100%, var(--runtime-design-width));
+            height: min(calc(100dvh - (var(--runtime-shell-pad) * 2)),
+                    var(--runtime-design-height));
+            max-height: var(--runtime-design-height);
+            justify-content: center;
+            align-items: stretch;
+            min-width: 0;
+        }
+
+        .video-section {
+            width: clamp(240px,
+                    min(calc(100dvh - (var(--runtime-shell-pad) * 2)),
+                        calc(100% - var(--runtime-chat-col) - var(--runtime-gap))),
+                    var(--runtime-design-height));
+            max-height: 100%;
+            aspect-ratio: 1 / 1;
+            min-height: 240px;
+            background: #000;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            flex: 0 1 auto;
+            align-self: center;
+        }
+
+        .video-section img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .video-overlay,
+        .video-badge {
+            position: absolute;
+            z-index: 2;
+            border-radius: var(--radius-pill);
+            color: var(--text-white);
+            backdrop-filter: blur(8px);
+        }
+
+        .video-overlay {
+            left: 18px;
+            top: 18px;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.35);
+            font-weight: 600;
+        }
+
+        .video-badge {
+            right: 18px;
+            top: 18px;
+            padding: 10px 14px;
+            background: rgba(102, 126, 234, 0.82);
+            font-weight: 700;
+        }
+
+        .chat-section {
+            width: var(--runtime-chat-col);
+            min-width: 280px;
+            height: 100%;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-soft);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            flex: 0 0 var(--runtime-chat-col);
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: var(--gradient-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            color: var(--text-white);
+        }
+
+        .chat-header-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .ai-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #667eea;
+            font-weight: 800;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+        }
+
+        .header-info h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header-info p {
+            font-size: 0.94rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-button {
+            padding: 10px 14px;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.16);
+            color: var(--text-white);
+            font-weight: 700;
+        }
+
+        .chat-console-status {
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(18, 24, 40, 0.06);
+            background: #ffffff;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            min-height: 0;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chat-input {
+            padding: 16px 20px;
+            background: #ffffff;
+            border-top: 1px solid #eeeeee;
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input input:disabled {
+            background-color: #f5f5f5;
+            color: var(--text-muted);
+        }
+
+        .chat-input button {
+            padding: 10px 20px;
+            border-radius: var(--radius-pill);
+            background: var(--gradient-main);
+            color: var(--text-white);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: slideIn 0.25s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-message {
+            align-self: flex-end;
+        }
+
+        .robot-message,
+        .robot-action {
+            align-self: flex-start;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .user-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--gradient-main);
+            color: var(--text-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.76rem;
+            flex-shrink: 0;
+        }
+
+        .user-name,
+        .robot-name,
+        .robot-action-name {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.84rem;
+        }
+
+        .robot-action-name {
+            color: var(--danger);
+        }
+
+        .message-content {
+            padding: 16px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            line-height: 1.6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+
+        .user-content {
+            background: var(--message-user-bg);
+            color: var(--text-white);
+            border-bottom-right-radius: 4px;
+        }
+
+        .robot-content {
+            background: var(--message-robot-bg);
+            color: var(--text-primary);
+            border: 1.5px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .robot-action-content {
+            background: var(--message-action-bg);
+            color: var(--text-primary);
+            border: 1px solid #e0e0ff;
+            white-space: pre-line;
+        }
+
+        .artifact-caption {
+            margin-bottom: 12px;
+        }
+
+        .artifact-image-frame {
+            overflow: hidden;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .artifact-image {
+            display: block;
+            width: 100%;
+            max-width: min(640px, 100%);
+            height: auto;
+            object-fit: contain;
+        }
+
+        .cursor::after {
+            content: "|";
+            animation: blink 1s infinite;
+            color: var(--text-primary);
+            margin-left: 4px;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 1560px) {
+            :root {
+                --runtime-chat-col: clamp(280px, 38vw, 620px);
+            }
+        }
+
+        @media (max-width: 1180px) {
+
+            .config-hero,
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .app-shell {
+                min-height: 100dvh;
+                align-items: flex-start;
+            }
+
+            .container {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                max-height: none;
+            }
+
+            .chat-section {
+                width: 100%;
+                min-width: 0;
+                height: clamp(340px, 48dvh, 640px);
+                flex: 1 1 auto;
+            }
+
+            .video-section {
+                width: min(100%, min(62dvh, 520px));
+                max-height: none;
+                min-height: 220px;
+            }
+        }
+
+        @media (max-width: 768px) {
+
+            .config-shell,
+            .app-shell {
+                padding: 12px;
+            }
+
+            .hero-main,
+            .hero-status,
+            .panel {
+                padding: 18px;
+            }
+
+            .meta-grid,
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chat-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .video-section {
+                width: min(100%, min(55dvh, 420px));
+                min-height: 180px;
+            }
+
+            .chat-section {
+                height: auto;
+                min-height: 54dvh;
+            }
+
+            .message {
+                max-width: 100%;
+            }
+
+            .chat-input {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-height: 820px) {
+            .chat-header {
+                padding: 14px 16px;
+            }
+
+            .chat-console-status {
+                padding: 10px 16px;
+            }
+
+            .chat-input {
+                padding: 12px 16px;
+            }
+
+            .chat-messages {
+                padding: 14px 16px;
+                gap: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <section id="configScreen" class="screen active">
+        <div class="config-shell">
+            <div class="config-hero">
+                <div class="hero-card hero-main">
+                    <span class="eyebrow">Configuration Gateway</span>
+                    <h1>Complete configuration to access the runtime interface</h1>
+                    <div class="meta-grid">
+                        <div class="meta-card"><strong>1</strong><span>Import `.cfg` to auto-detect device names & label
+                                mappings</span></div>
+                        <div class="meta-card"><strong>2</strong><span>Enter system paths & LLM / VLM API
+                                information</span></div>
+                        <div class="meta-card"><strong>3</strong><span>Save configuration first, then start the system
+                                when ready</span></div>
+                    </div>
+                </div>
+                <div class="hero-card hero-status">
+                    <div>
+                        <span class="status-chip"><span class="status-dot"></span><span id="configStatusBadge">Waiting
+                                for Configuration</span></span>
+                        <h2>Status Overview</h2>
+                        <p id="configStatusText">The page is loading the current configuration. You can upload a .cfg to
+                            auto-fill device names or edit all fields manually.</p>
+                    </div>
+                    <div id="configSummary" class="status-summary">Not initialized yet.</div>
+                </div>
+            </div>
+
+            <div class="config-grid">
+                <section class="panel">
+                    <h3>Microscope System Configuration</h3>
+                    <p class="panel-subtitle">We recommend importing a Micro-Manager config file first, then verify the
+                        detected device names match your actual hardware.</p>
+                    <div class="upload-box">
+                        <label for="cfgFile">Import Micro-Manager `.cfg`</label>
+                        <input id="cfgFile" class="visually-hidden-file" type="file" accept=".cfg">
+                        <div class="upload-file-row">
+                            <button id="chooseCfgBtn" type="button" class="btn-secondary">Choose `.cfg` File</button>
+                            <span id="cfgFileName" class="file-name">No file selected</span>
+                        </div>
+                        <div class="actions">
+                            <button id="uploadCfgBtn" class="btn-secondary">Import & Auto-Detect</button>
+                        </div>
+                    </div>
+                    <div class="field-grid">
+                        <div class="field full"><label for="configPath">CONFIG_PATH</label><input id="configPath"
+                                type="text" placeholder="Micro-Manager .cfg file path actually used at runtime"></div>
+                        <div class="field full"><label for="mmDir">MM_DIR</label><input id="mmDir" type="text"
+                                placeholder="Micro-Manager installation directory"></div>
+                        <div class="field full"><label for="fijiPath">FIJI_PATH</label><input id="fijiPath" type="text"
+                                placeholder="Fiji.app or Fiji installation directory"></div>
+                        <div class="field"><label for="cameraDevice">camera_device</label><input id="cameraDevice"
+                                type="text"></div>
+                        <div class="field"><label for="xyStageDevice">xy_stage_device</label><input id="xyStageDevice"
+                                type="text"></div>
+                        <div class="field"><label for="objectiveDevice">objective_device</label><input
+                                id="objectiveDevice" type="text"></div>
+                        <div class="field"><label for="transmittedIllumination">transmittedIllumination</label><input
+                                id="transmittedIllumination" type="text"></div>
+                        <div class="field"><label for="focusDrive">focus_drive</label><input id="focusDrive"
+                                type="text"></div>
+                        <div class="field"><label for="dichroicDevice">Dichroic</label><input id="dichroicDevice"
+                                type="text"></div>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h3>Model & API Configuration</h3>
+                    <p class="panel-subtitle">Save configuration first. The runtime will only initialize after you click Start System. Cellpose will use its default model resolution and cache behavior.</p>
+                    <div class="field-grid">
+                        <div class="field full"><label for="simulationMode">Simulation_mode</label><select
+                                id="simulationMode">
+                                <option value="true">True - Use Empty_function for hardware simulation</option>
+                                <option value="false">False - Connect to real hardware</option>
+                            </select></div>
+                        <div class="field full"><label for="clarifyEnabled">Clarify Agent</label><select
+                                id="clarifyEnabled">
+                                <option value="false">Disabled - use direct planner flow</option>
+                                <option value="true">Enabled - ask for missing planning details</option>
+                            </select></div>
+                        <div class="field full"><label for="checkerEnabled">Checker Agent</label><select
+                                id="checkerEnabled">
+                                <option value="true">Enabled - validate new microscope images</option>
+                                <option value="false">Disabled - skip checker validation and retries</option>
+                            </select></div>
+                        <div class="field full"><label for="openaiApiKey">LLM API Key</label><input id="openaiApiKey"
+                                type="password" placeholder="sk-..."></div>
+                        <div class="field full"><label for="baseUrl">LLM Base URL</label><input id="baseUrl" type="text"
+                                placeholder="https://..."></div>
+                        <div class="field full"><label for="modelName">LLM Model Name</label><input id="modelName"
+                                type="text" placeholder="gpt-4o / claude / qwen..."></div>
+                        <div class="field full"><label for="vlmApiKey">VLM API Key</label><input id="vlmApiKey"
+                                type="password" placeholder="your vlm key"></div>
+                        <div class="field full"><label for="vlmBaseUrl">VLM Base URL</label><input id="vlmBaseUrl"
+                                type="text" placeholder="https://..."></div>
+                        <div class="field full"><label for="vlmModelName">VLM Model Name</label><input id="vlmModelName"
+                                type="text" placeholder="qwen-vl / ..."></div>
+                    </div>
+                    <div class="actions">
+                        <button id="saveConfigBtn" class="btn-secondary">Save Configuration</button>
+                        <button id="startSystemBtn" class="btn-primary">Start System</button>
+                        <button id="refreshConfigBtn" class="btn-secondary">Refresh Current Configuration</button>
+                    </div>
+                    <div id="configFeedback" class="feedback"></div>
+                </section>
+
+            </div>
+        </div>
+    </section>
+
+    <section id="appScreen" class="screen">
+        <div class="app-shell">
+            <div class="container">
+                <div class="video-section">
+                    <img id="liveVideo" src="/video/stream" alt="Microscope preview">
+                    <div class="video-overlay" id="videoOverlay">Live preview</div>
+                    <div class="video-badge" id="videoModeBadge">Runtime Online</div>
+                </div>
+                <div class="chat-section">
+                    <div class="chat-header">
+                        <div class="chat-header-main">
+                            <div class="ai-avatar">AI</div>
+                            <div class="header-info">
+                                <h3>Microscope AI</h3>
+                                <p id="runtimeSubtitle">System connected, ready for experiment commands.</p>
+                            </div>
+                        </div>
+                        <div class="header-actions">
+                            <button id="restartPreviewBtn" class="header-button" style="display: none;">Restart Preview</button>
+                            <button id="backToConfigBtn" class="header-button">Back to Config</button>
+                        </div>
+                    </div>
+                    <div class="chat-console-status" id="consoleStatus">Awaiting Command</div>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="userInput" placeholder="Enter experiment command..." autocomplete="off"
+                            autocapitalize="off" spellcheck="false" disabled>
+                        <button id="sendBtn" disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const ROLE_NAMES = { user: "Researcher", robot: "Scopebot", robotAction: "Action" };
+        const USER_INITIAL = "R";
+        const uiState = {
+            eventSource: null,
+            isTaskRunning: false,
+            isWaitingForUserInput: false,
+            messageQueue: [],
+            isProcessingQueue: false,
+            streamStarted: false,
+            statusPollTimer: null,
+            previewStatusTimer: null,
+            previewAutoRetryTimer: null,
+            videoReconnectTimer: null,
+            activeLlmStreams: new Map(),
+            previewStatus: null,
+            systemPhase: "unconfigured",
+            previewAutoRetried: false,
+        };
+
+        function $(id) { return document.getElementById(id); }
+
+        function buildVideoStreamUrl() {
+            return `${VIDEO_STREAM_PATH}?t=${Date.now()}`;
+        }
+
+        function clearVideoReconnectTimer() {
+            if (uiState.videoReconnectTimer) {
+                clearTimeout(uiState.videoReconnectTimer);
+                uiState.videoReconnectTimer = null;
+            }
+        }
+
+        function connectVideoStream(forceRefresh = false) {
+            if (!$("appScreen").classList.contains("active")) {
+                return;
+            }
+            const liveVideo = $("liveVideo");
+            const nextUrl = buildVideoStreamUrl();
+            if (forceRefresh || !liveVideo.getAttribute("src") || !liveVideo.getAttribute("src").startsWith(VIDEO_STREAM_PATH)) {
+                liveVideo.src = nextUrl;
+            }
+        }
+
+        function disconnectVideoStream() {
+            const liveVideo = $("liveVideo");
+            liveVideo.removeAttribute("src");
+            liveVideo.src = "";
+        }
+
+        function scheduleVideoReconnect(delayMs = VIDEO_RECONNECT_DELAY_MS) {
+            clearVideoReconnectTimer();
+            uiState.videoReconnectTimer = setTimeout(() => {
+                connectVideoStream(true);
+            }, delayMs);
+        }
+
+        function bindVideoEvents() {
+            const liveVideo = $("liveVideo");
+            liveVideo.addEventListener("load", () => {
+                clearVideoReconnectTimer();
+                if ($("appScreen").classList.contains("active") && (!uiState.previewStatus || uiState.previewStatus.healthy)) {
+                    $("videoOverlay").textContent = "Live preview";
+                }
+            });
+            liveVideo.addEventListener("error", () => {
+                if (!$("appScreen").classList.contains("active")) {
+                    return;
+                }
+                $("videoOverlay").textContent = "Reconnecting preview...";
+                scheduleVideoReconnect();
+            });
+        }
+
+        function clearPreviewStatusPolling() {
+            if (uiState.previewStatusTimer) {
+                clearTimeout(uiState.previewStatusTimer);
+                uiState.previewStatusTimer = null;
+            }
+        }
+
+        // Config screen helpers
+        function setActiveScreen(screen) {
+            $("configScreen").classList.toggle("active", screen === "config");
+            $("appScreen").classList.toggle("active", screen === "app");
+            if (screen !== "app") {
+                clearPreviewStatusPolling();
+                clearPreviewAutoRetryTimer();
+                clearVideoReconnectTimer();
+                setPreviewRestartVisible(false);
+                disconnectVideoStream();
+            }
+        }
+
+        function showFeedback(text, isError = false) {
+            const el = $("configFeedback");
+            el.textContent = text;
+            el.style.color = isError ? "#d32f2f" : "#5a67d8";
+        }
+
+        function updateConfigStatus(text, detail, configured, initialized, initializing = false) {
+            $("configStatusBadge").textContent = text;
+            $("configStatusText").textContent = detail;
+            $("configSummary").textContent = configured
+                ? (initialized
+                    ? "Configuration complete, system initialized."
+                    : (initializing
+                        ? "Configuration saved, runtime switch in progress."
+                        : "Configuration saved, system not initialized."))
+                : "Configuration incomplete, please fill required fields.";
+        }
+
+        function fillConfigForm(data) {
+            const system = data.system || {};
+            const agent = data.agent || {};
+            $("mmDir").value = system.MM_DIR || "";
+            $("configPath").value = system.CONFIG_PATH || "";
+            $("fijiPath").value = system.FIJI_PATH || "";
+            $("cameraDevice").value = system.camera_device || "";
+            $("xyStageDevice").value = system.xy_stage_device || "";
+            $("objectiveDevice").value = system.objective_device || "";
+            $("transmittedIllumination").value = system.transmittedIllumination || "";
+            $("focusDrive").value = system.focus_drive || "";
+            $("dichroicDevice").value = system.Dichroic || "";
+            $("simulationMode").value = String(agent.Simulation_mode ?? true);
+            $("clarifyEnabled").value = String(agent.clarify_enabled ?? false);
+            $("checkerEnabled").value = String(agent.checker_enabled ?? true);
+            $("baseUrl").value = agent.base_url || "";
+            $("modelName").value = agent.model_name || "";
+            $("vlmBaseUrl").value = agent.vlm_base_url || "";
+            $("vlmModelName").value = agent.vlm_model_name || "";
+            $("openaiApiKey").placeholder = agent.masked?.openai_api_key || "sk-...";
+            $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
+        }
+
+        function buildConfigSavedMessage(message, effectiveConfigPath) {
+            const baseMessage = message || "Configuration saved.";
+            const configPath = String(effectiveConfigPath || "").trim();
+            if (!configPath) return baseMessage;
+            return `${baseMessage} Active CONFIG_PATH: ${configPath}`;
+        }
+        const STARTUP_RETRY_ATTEMPTS = 10;
+        const STARTUP_RETRY_DELAY_MS = 1200;
+        const STATUS_POLL_DELAY_MS = 1500;
+        const PREVIEW_STATUS_POLL_DELAY_MS = 1500;
+        const VIDEO_RECONNECT_DELAY_MS = 1500;
+        const VIDEO_STREAM_PATH = "/video/stream";
+        const PREVIEW_STATUS_PATH = "/api/stream/preview_status";
+        const TYPING_FRAME_DELAY_MS = 16;
+
+        function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        async function fetchJson(url, options) {
+            const res = await fetch(url, options);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.detail || data.message || `${res.status} ${res.statusText}`);
+            }
+            return data;
+        }
+
+        function clearConfigStatusPolling() {
+            if (uiState.statusPollTimer) {
+                clearTimeout(uiState.statusPollTimer);
+                uiState.statusPollTimer = null;
+            }
+        }
+
+        function clearPreviewAutoRetryTimer() {
+            if (uiState.previewAutoRetryTimer) {
+                clearTimeout(uiState.previewAutoRetryTimer);
+                uiState.previewAutoRetryTimer = null;
+            }
+        }
+
+        function setPreviewRestartVisible(visible) {
+            $("restartPreviewBtn").style.display = visible ? "inline-flex" : "none";
+        }
+
+        function updateStartSystemButton(data) {
+            const button = $("startSystemBtn");
+            const phase = data?.system_phase || "unconfigured";
+            const configured = Boolean(data?.configured);
+            button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
+            button.disabled = !configured || phase === "initializing" || phase === "resetting";
+        }
+
+        function setStartupConnectingState() {
+            updateConfigStatus("Connecting", "Waiting for backend service response...", false, false);
+            showFeedback("Connecting to backend service...", false);
+        }
+
+        function setStartupRetryState() {
+            updateConfigStatus("Connecting", "Waiting for backend service response...", false, false);
+            showFeedback("Backend starting, auto-retrying...", false);
+        }
+
+        function showStartupFailure(error) {
+            updateConfigStatus("Status Read Failed", String(error.message || error), false, false);
+            showFeedback("Failed to load configuration, please confirm the backend is running.", true);
+        }
+
+        async function enterRuntimeScreen() {
+            clearConfigStatusPolling();
+            setActiveScreen("app");
+            await startRuntime();
+        }
+
+        function requestConfigStatus() {
+            return fetchJson("/api/config/status");
+        }
+
+        function requestPreviewStatus() {
+            return fetchJson(PREVIEW_STATUS_PATH);
+        }
+
+        function updateConfigStatusFromPhase(data) {
+            const phase = data?.system_phase || "unconfigured";
+            if (phase === "ready") {
+                updateConfigStatus("System Ready", data.status_message || "System ready.", true, true);
+                return;
+            }
+            if (phase === "initializing" || phase === "resetting") {
+                updateConfigStatus("System Initializing", data.status_message || "System initialization in progress.", true, false, true);
+                return;
+            }
+            if (phase === "init_failed") {
+                updateConfigStatus("Initialization Failed", data.status_message || "Runtime initialization failed.", true, false);
+                return;
+            }
+            if (phase === "ready_to_start") {
+                updateConfigStatus("Ready to Start", data.status_message || "Configuration complete. Start the system when ready.", true, false);
+                return;
+            }
+            updateConfigStatus("Waiting for Configuration", data.status_message || "Please complete configuration.", false, false);
+        }
+
+        function applyPreviewStatus(status) {
+            uiState.previewStatus = status || null;
+            const overlay = $("videoOverlay");
+            overlay.textContent = status?.status_text || "Preview unavailable";
+            overlay.title = status?.detail || "";
+
+            const phase = status?.preview_phase || "idle";
+            if (phase === "live") {
+                clearPreviewAutoRetryTimer();
+                setPreviewRestartVisible(false);
+            } else if (uiState.previewAutoRetried && (phase === "failed" || phase === "stopped")) {
+                setPreviewRestartVisible(true);
+            }
+
+            if (!$("appScreen").classList.contains("active")) {
+                return status;
+            }
+
+            if (!uiState.isTaskRunning && !uiState.isWaitingForUserInput) {
+                if (phase === "live") {
+                    $("videoModeBadge").textContent = "Preview Live";
+                    $("runtimeSubtitle").textContent = "Connected | Ready";
+                } else if (phase === "starting") {
+                    $("videoModeBadge").textContent = "Preview Starting";
+                    $("runtimeSubtitle").textContent = status?.detail || "Starting live preview";
+                } else if (phase === "failed") {
+                    $("videoModeBadge").textContent = "Preview Failed";
+                    $("runtimeSubtitle").textContent = status?.detail || "Preview start failed";
+                } else if (phase === "stopped") {
+                    $("videoModeBadge").textContent = "Preview Stopped";
+                    $("runtimeSubtitle").textContent = status?.detail || "Preview stopped";
+                } else {
+                    $("videoModeBadge").textContent = "Preview Idle";
+                    $("runtimeSubtitle").textContent = status?.detail || status?.status_text || "Preview not started";
+                }
+            }
+            return status;
+        }
+
+        async function refreshPreviewStatus() {
+            const data = await requestPreviewStatus();
+            return applyPreviewStatus(data);
+        }
+
+        function schedulePreviewStatusRefresh(delayMs = PREVIEW_STATUS_POLL_DELAY_MS) {
+            clearPreviewStatusPolling();
+            uiState.previewStatusTimer = setTimeout(async () => {
+                try {
+                    await refreshPreviewStatus();
+                } catch (error) {
+                    applyPreviewStatus({
+                        status_text: "Preview status unavailable",
+                        detail: String(error.message || error),
+                        healthy: false,
+                        stream_state: "unavailable",
+                        preview_phase: "failed"
+                    });
+                } finally {
+                    if ($("appScreen").classList.contains("active")) {
+                        schedulePreviewStatusRefresh(delayMs);
+                    }
+                }
+            }, delayMs);
+        }
+
+        async function startPreviewStatusPolling() {
+            clearPreviewStatusPolling();
+            try {
+                await refreshPreviewStatus();
+            } catch (error) {
+                applyPreviewStatus({
+                    status_text: "Preview status unavailable",
+                    detail: String(error.message || error),
+                    healthy: false,
+                    stream_state: "unavailable",
+                    preview_phase: "failed"
+                });
+            }
+            schedulePreviewStatusRefresh();
+        }
+
+        function schedulePreviewAutoRetry(delayMs = 5000) {
+            clearPreviewAutoRetryTimer();
+            uiState.previewAutoRetryTimer = setTimeout(async () => {
+                if (!$("appScreen").classList.contains("active")) {
+                    return;
+                }
+                if (uiState.previewStatus?.preview_phase === "live") {
+                    return;
+                }
+                if (uiState.previewAutoRetried) {
+                    setPreviewRestartVisible(true);
+                    return;
+                }
+                uiState.previewAutoRetried = true;
+                try {
+                    await fetchJson("/api/preview/start", { method: "POST" });
+                } catch (_error) {
+                    // The retry outcome is reflected by the next preview status refresh.
+                }
+                connectVideoStream(true);
+                await refreshPreviewStatus().catch(() => null);
+                if (uiState.previewStatus?.preview_phase !== "live") {
+                    setPreviewRestartVisible(true);
+                }
+            }, delayMs);
+        }
+
+        function scheduleConfigStatusRefresh(delayMs = STATUS_POLL_DELAY_MS) {
+            clearConfigStatusPolling();
+            uiState.statusPollTimer = setTimeout(async () => {
+                try {
+                    await refreshConfigStatus();
+                } catch (_error) {
+                    scheduleConfigStatusRefresh(delayMs);
+                }
+            }, delayMs);
+        }
+
+        async function applyConfigStatus(data, options = {}) {
+            fillConfigForm(data);
+            uiState.systemPhase = data?.system_phase || "unconfigured";
+            updateStartSystemButton(data);
+            updateConfigStatusFromPhase(data);
+
+            const { allowEnterRuntime = true } = options;
+            if (uiState.systemPhase === "ready") {
+                if (allowEnterRuntime) {
+                    await enterRuntimeScreen();
+                }
+                return data;
+            }
+
+            setActiveScreen("config");
+            if (uiState.systemPhase === "initializing" || uiState.systemPhase === "resetting") {
+                showFeedback(data.status_message || "System initializing, page will auto-switch to console.", false);
+                scheduleConfigStatusRefresh();
+                return data;
+            }
+
+            clearConfigStatusPolling();
+            if (uiState.systemPhase === "init_failed") {
+                showFeedback(data.status_message || "Runtime initialization failed.", true);
+            } else if (uiState.systemPhase === "ready_to_start") {
+                showFeedback(data.status_message || "Configuration saved. Start the system when ready.", false);
+            }
+            return data;
+        }
+
+        async function refreshConfigStatus(options = {}) {
+            const data = await requestConfigStatus();
+            return applyConfigStatus(data, options);
+        }
+
+        async function loadConfigStatus(options = {}) {
+            const { startupRetries = 0, retryDelayMs = STARTUP_RETRY_DELAY_MS } = options;
+            try {
+                return await refreshConfigStatus();
+            } catch (error) {
+                if (startupRetries > 0) {
+                    setStartupRetryState();
+                    await sleep(retryDelayMs);
+                    return loadConfigStatus({ startupRetries: startupRetries - 1, retryDelayMs });
+                }
+                throw error;
+            }
+        }
+
+        async function initializeStartupFlow() {
+            setStartupConnectingState();
+            try {
+                await loadConfigStatus({
+                    startupRetries: STARTUP_RETRY_ATTEMPTS,
+                    retryDelayMs: STARTUP_RETRY_DELAY_MS,
+                });
+            } catch (error) {
+                showStartupFailure(error);
+            }
+        }
+
+        async function uploadCfgFile() {
+            const file = $("cfgFile").files[0];
+            if (!file) {
+                showFeedback("Please select a .cfg file first.", true);
+                return;
+            }
+            showFeedback("Importing cfg and detecting device names...");
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch("/api/config/upload-cfg", { method: "POST", body: formData });
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.detail || "cfg import failed");
+            }
+            await res.json();
+            await refreshConfigStatus();
+            showFeedback("cfg imported successfully, device names and label mappings synced automatically.");
+        }
+
+        function updateSelectedCfgFileName() {
+            const file = $("cfgFile").files[0];
+            $("cfgFileName").textContent = file ? file.name : "No file selected";
+        }
+
+        function collectConfigPayload() {
+            return {
+                mm_dir: $("mmDir").value.trim(),
+                config_path: $("configPath").value.trim(),
+                fiji_path: $("fijiPath").value.trim(),
+                camera_device: $("cameraDevice").value.trim(),
+                xy_stage_device: $("xyStageDevice").value.trim(),
+                objective_device: $("objectiveDevice").value.trim(),
+                transmittedIllumination: $("transmittedIllumination").value.trim(),
+                focus_drive: $("focusDrive").value.trim(),
+                Dichroic: $("dichroicDevice").value.trim(),
+                openai_api_key: $("openaiApiKey").value.trim(),
+                base_url: $("baseUrl").value.trim(),
+                model_name: $("modelName").value.trim(),
+                vlm_api_key: $("vlmApiKey").value.trim(),
+                vlm_base_url: $("vlmBaseUrl").value.trim(),
+                vlm_model_name: $("vlmModelName").value.trim(),
+                clarify_enabled: $("clarifyEnabled").value === "true",
+                checker_enabled: $("checkerEnabled").value === "true",
+                simulation_mode: $("simulationMode").value === "true"
+            };
+        }
+
+        async function saveConfigOnly() {
+            showFeedback("Saving configuration...");
+            const data = await fetchJson("/api/config/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(collectConfigPayload())
+            });
+            const status = await refreshConfigStatus({ allowEnterRuntime: false });
+            const effectiveConfigPath = data.effective_config_path || status?.system?.CONFIG_PATH || $("configPath").value.trim();
+            $("configPath").value = effectiveConfigPath;
+            showFeedback(buildConfigSavedMessage(data.message || status.status_message || "Configuration saved.", effectiveConfigPath), false);
+            return status;
+        }
+
+        async function startOrRestartSystem() {
+            const phase = uiState.systemPhase || "ready_to_start";
+            showFeedback(phase === "ready" ? "Resetting runtime and restarting system..." : "Starting system...");
+            const data = await fetchJson("/api/system/restart", { method: "POST" });
+            const status = await refreshConfigStatus();
+            if (data.initializing || status.initializing || ["initializing", "resetting"].includes(status.system_phase)) {
+                showFeedback(data.message || status.status_message || "Runtime initialization started.", false);
+                scheduleConfigStatusRefresh();
+                return;
+            }
+            if (status.system_phase === "ready") {
+                showFeedback(status.status_message || "System ready.", false);
+                return;
+            }
+            throw new Error(data.message || status.status_message || "System restart did not begin successfully");
+        }
+
+        // Chat and message rendering
+        function createMessageElement(type, text = "") {
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${type}-message`;
+            if (type === "user") {
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="user-icon">${USER_INITIAL}</div>
+                        <div class="user-name">${ROLE_NAMES.user}</div>
+                    </div>
+                    <div class="message-content user-content"></div>
+                `;
+                messageDiv.querySelector(".message-content").textContent = text;
+            } else if (type === "robot") {
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="robot-name">${ROLE_NAMES.robot}</div>
+                    </div>
+                    <div class="message-content robot-content"></div>
+                `;
+            } else {
+                messageDiv.className = "message robot-action";
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="robot-action-name">${ROLE_NAMES.robotAction}</div>
+                    </div>
+                    <div class="message-content robot-action-content"></div>
+                `;
+            }
+            return messageDiv;
+        }
+
+        function scrollToBottom() {
+            const box = $("chatMessages");
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function getTypingChunkSize(text) {
+            if (!text) return 1;
+            if (text.length > 1200) return text.length;
+            if (text.length > 500) return 12;
+            if (text.length > 240) return 8;
+            if (text.length > 120) return 5;
+            return 2;
+        }
+
+        function startStreamingMessage(streamId, role = "robot") {
+            const messageType = role === "robot-action" ? "robot-action" : "robot";
+            const messageDiv = createMessageElement(messageType);
+            const contentDiv = messageDiv.querySelector(".message-content");
+            contentDiv.textContent = "";
+            contentDiv.classList.add("cursor");
+            $("chatMessages").appendChild(messageDiv);
+            uiState.activeLlmStreams.set(streamId, messageDiv);
+            scrollToBottom();
+        }
+
+        function appendStreamingMessage(streamId, delta) {
+            const messageDiv = uiState.activeLlmStreams.get(streamId);
+            if (!messageDiv) return;
+            const contentDiv = messageDiv.querySelector(".message-content");
+            contentDiv.textContent += delta;
+            scrollToBottom();
+        }
+
+        function finishStreamingMessage(streamId) {
+            const messageDiv = uiState.activeLlmStreams.get(streamId);
+            if (!messageDiv) return;
+            const contentDiv = messageDiv.querySelector(".message-content");
+            contentDiv.classList.remove("cursor");
+            uiState.activeLlmStreams.delete(streamId);
+            scrollToBottom();
+        }
+
+        function typeMessage(messageDiv, text, forceInstant = false) {
+            return new Promise((resolve) => {
+                const contentDiv = messageDiv.querySelector(".message-content");
+                if (forceInstant || text.length > 1200) {
+                    contentDiv.textContent = text;
+                    contentDiv.classList.remove("cursor");
+                    scrollToBottom();
+                    resolve();
+                    return;
+                }
+                let index = 0;
+                const chunkSize = getTypingChunkSize(text);
+                contentDiv.classList.add("cursor");
+                function typeChunk() {
+                    if (index < text.length) {
+                        const nextIndex = Math.min(index + chunkSize, text.length);
+                        contentDiv.textContent += text.slice(index, nextIndex);
+                        index = nextIndex;
+                        scrollToBottom();
+                        const char = text.charAt(index - 1);
+                        let delay = TYPING_FRAME_DELAY_MS;
+                        if (/[.!?]/.test(char)) delay = 72;
+                        else if (/[,;:\n]/.test(char)) delay = 40;
+                        window.setTimeout(() => window.requestAnimationFrame(typeChunk), delay);
+                    } else {
+                        contentDiv.classList.remove("cursor");
+                        resolve();
+                    }
+                }
+                window.requestAnimationFrame(typeChunk);
+            });
+        }
+
+        function appendTypedMessage(type, text, forceInstant = false) {
+            const messageDiv = createMessageElement(type);
+            $("chatMessages").appendChild(messageDiv);
+            return typeMessage(messageDiv, text, forceInstant);
+        }
+
+        function appendArtifactMessage(type, payload) {
+            const messageDiv = createMessageElement(type);
+            const contentDiv = messageDiv.querySelector(".message-content");
+            contentDiv.textContent = "";
+
+            const caption = String(payload.text || payload.title || "").trim();
+            if (caption) {
+                const captionDiv = document.createElement("div");
+                captionDiv.className = "artifact-caption";
+                captionDiv.textContent = caption;
+                contentDiv.appendChild(captionDiv);
+            }
+
+            const frameDiv = document.createElement("div");
+            frameDiv.className = "artifact-image-frame";
+
+            const image = document.createElement("img");
+            image.className = "artifact-image";
+            image.src = payload.url;
+            image.alt = String(payload.title || payload.text || "artifact image");
+            image.loading = "lazy";
+            image.addEventListener("load", () => scrollToBottom(), { once: true });
+            image.addEventListener("error", () => {
+                if (!caption) {
+                    const errorDiv = document.createElement("div");
+                    errorDiv.className = "artifact-caption";
+                    errorDiv.textContent = "Image failed to load.";
+                    contentDiv.insertBefore(errorDiv, frameDiv);
+                }
+            }, { once: true });
+
+            frameDiv.appendChild(image);
+            contentDiv.appendChild(frameDiv);
+            $("chatMessages").appendChild(messageDiv);
+            scrollToBottom();
+            return Promise.resolve();
+        }
+
+        function addUserMessage(text) {
+            const messageDiv = createMessageElement("user", text);
+            $("chatMessages").appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function enableInput() {
+            $("userInput").disabled = false;
+            $("sendBtn").disabled = false;
+            $("sendBtn").textContent = "Send";
+            $("userInput").placeholder = "Enter experiment command...";
+            $("consoleStatus").textContent = "Awaiting Next Command";
+            $("runtimeSubtitle").textContent = "Connected • Ready";
+            $("videoModeBadge").textContent = "Runtime Online";
+        }
+
+        function setAwaitingUserInput(mode = "general") {
+            $("userInput").disabled = false;
+            $("sendBtn").disabled = false;
+            $("sendBtn").textContent = "Reply";
+            if (mode === "plan_confirmation") {
+                $("userInput").placeholder = "Reply \"continue/confirm\" or \"cancel\"";
+                $("consoleStatus").textContent = "Awaiting Confirmation/Edits";
+                $("runtimeSubtitle").textContent = "Awaiting confirmation or edits";
+                $("videoModeBadge").textContent = "Pending Confirmation";
+                return;
+            }
+            $("userInput").placeholder = "Enter additional info...";
+            $("consoleStatus").textContent = "Awaiting Confirmation/Edits";
+            $("runtimeSubtitle").textContent = "Awaiting user input";
+            $("videoModeBadge").textContent = "Awaiting Input";
+        }
+
+        function disableInput() {
+            $("userInput").disabled = true;
+            $("sendBtn").disabled = true;
+            $("sendBtn").textContent = "Executing...";
+            $("consoleStatus").textContent = "Task Executing";
+            $("runtimeSubtitle").textContent = "Executing current workflow";
+            $("videoModeBadge").textContent = "Task Running";
+        }
+
+        function resetTaskState() {
+            uiState.isTaskRunning = false;
+            uiState.isWaitingForUserInput = false;
+            enableInput();
+        }
+
+        // Backend requests and SSE processing
+        async function sendUserInputToBackend(text) {
+            await fetch("/api/stream/user_input", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text })
+            });
+        }
+
+        async function sendCommandToBackend(command) {
+            const res = await fetch("/api/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command })
+            });
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.detail || "Command execution failed");
+            }
+        }
+
+        function queueIncomingMessage(msg) {
+            uiState.messageQueue.push(msg);
+            processQueue();
+        }
+
+        function startGlobalMessageStream() {
+            if (uiState.streamStarted) return;
+            uiState.streamStarted = true;
+            uiState.eventSource = new EventSource("/api/stream/global");
+            uiState.eventSource.onmessage = (event) => {
+                try {
+                    queueIncomingMessage(JSON.parse(event.data));
+                } catch (_error) {
+                    // Ignore malformed frames and wait for the next event.
+                }
+            };
+            uiState.eventSource.onerror = () => {
+                uiState.streamStarted = false;
+                if (uiState.eventSource) uiState.eventSource.close();
+                setTimeout(startGlobalMessageStream, 2000);
+            };
+        }
+
+        async function handleQueuedMessage(msg, shouldSkipAnimation) {
+            if (msg.type === "llm_stream_start") {
+                startStreamingMessage(msg.stream_id, msg.role || "robot");
+                return;
+            }
+            if (msg.type === "llm_stream_delta") {
+                appendStreamingMessage(msg.stream_id, msg.delta || "");
+                return;
+            }
+            if (msg.type === "llm_stream_end") {
+                finishStreamingMessage(msg.stream_id);
+                if (msg.final_type === "task_complete") {
+                    resetTaskState();
+                }
+                return;
+            }
+            if (msg.type === "robot_say") {
+                await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
+                return;
+            }
+            if (msg.type === "robot_action") {
+                await appendTypedMessage("robot-action", msg.text, shouldSkipAnimation);
+                return;
+            }
+            if (msg.type === "artifact") {
+                if (msg.kind === "image" && msg.url) {
+                    await appendArtifactMessage("robot-action", msg);
+                } else if (msg.text) {
+                    await appendTypedMessage("robot-action", msg.text, true);
+                }
+                return;
+            }
+            if (msg.type === "ask_user") {
+                await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
+                uiState.isWaitingForUserInput = true;
+                setAwaitingUserInput(msg.mode || "general");
+                return;
+            }
+            if (msg.type === "task_complete") {
+                if (msg.text) {
+                    await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
+                }
+                resetTaskState();
+                return;
+            }
+            if (msg.type === "error") {
+                await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
+                $("consoleStatus").textContent = "System Error Reported";
+                $("runtimeSubtitle").textContent = "Error reported";
+                $("videoModeBadge").textContent = "Attention";
+                resetTaskState();
+            }
+        }
+
+        async function processQueue() {
+            if (uiState.isProcessingQueue || uiState.messageQueue.length === 0) return;
+            uiState.isProcessingQueue = true;
+            const msg = uiState.messageQueue.shift();
+            try {
+                const shouldSkipAnimation = uiState.messageQueue.length > 0;
+                await handleQueuedMessage(msg, shouldSkipAnimation);
+                scrollToBottom();
+            } finally {
+                uiState.isProcessingQueue = false;
+                window.setTimeout(processQueue, 0);
+            }
+        }
+
+        // User interaction wiring
+        async function handleUserCommand() {
+            const input = $("userInput");
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (uiState.isWaitingForUserInput) {
+                input.value = "";
+                addUserMessage(text);
+                uiState.isWaitingForUserInput = false;
+                disableInput();
+                await sendUserInputToBackend(text);
+                return;
+            }
+
+            if (!uiState.isTaskRunning) {
+                input.value = "";
+                uiState.isTaskRunning = true;
+                disableInput();
+                addUserMessage(text);
+                try {
+                    await sendCommandToBackend(text);
+                } catch (error) {
+                    resetTaskState();
+                    const el = createMessageElement("robot");
+                    el.querySelector(".message-content").textContent = String(error.message || error);
+                    $("chatMessages").appendChild(el);
+                    scrollToBottom();
+                }
+            }
+        }
+
+        async function startRuntime() {
+            startGlobalMessageStream();
+            enableInput();
+            $("runtimeSubtitle").textContent = "System connected. Starting live preview...";
+            $("videoOverlay").textContent = "Starting preview...";
+            $("videoModeBadge").textContent = "Preview Starting";
+            uiState.previewAutoRetried = false;
+            setPreviewRestartVisible(false);
+            clearPreviewAutoRetryTimer();
+            try {
+                await fetchJson("/api/preview/start", { method: "POST" });
+            } catch (error) {
+                $("runtimeSubtitle").textContent = String(error.message || error);
+            }
+            connectVideoStream(true);
+            await startPreviewStatusPolling();
+            schedulePreviewAutoRetry();
+        }
+
+        function bindConfigEvents() {
+            $("chooseCfgBtn").addEventListener("click", () => {
+                $("cfgFile").click();
+            });
+
+            $("cfgFile").addEventListener("change", () => {
+                updateSelectedCfgFileName();
+            });
+
+            $("uploadCfgBtn").addEventListener("click", async () => {
+                try {
+                    await uploadCfgFile();
+                } catch (error) {
+                    showFeedback(error.message || "cfg import failed", true);
+                }
+            });
+
+            $("saveConfigBtn").addEventListener("click", async () => {
+                try {
+                    await saveConfigOnly();
+                } catch (error) {
+                    showFeedback(error.message || "Save failed", true);
+                }
+            });
+
+            $("startSystemBtn").addEventListener("click", async () => {
+                try {
+                    await startOrRestartSystem();
+                } catch (error) {
+                    showFeedback(error.message || "System start failed", true);
+                }
+            });
+
+            $("refreshConfigBtn").addEventListener("click", async () => {
+                try {
+                    await refreshConfigStatus();
+                    showFeedback("Current configuration refreshed.");
+                } catch (error) {
+                    showFeedback(error.message || "Refresh failed", true);
+                }
+            });
+
+            $("restartPreviewBtn").addEventListener("click", async () => {
+                try {
+                    uiState.previewAutoRetried = false;
+                    setPreviewRestartVisible(false);
+                    clearPreviewAutoRetryTimer();
+                    $("runtimeSubtitle").textContent = "Restarting live preview...";
+                    await fetchJson("/api/preview/start", { method: "POST" });
+                    connectVideoStream(true);
+                    await startPreviewStatusPolling();
+                    schedulePreviewAutoRetry();
+                } catch (error) {
+                    setPreviewRestartVisible(true);
+                    $("runtimeSubtitle").textContent = String(error.message || error);
+                }
+            });
+
+            $("backToConfigBtn").addEventListener("click", () => setActiveScreen("config"));
+        }
+
+        function bindChatEvents() {
+            $("sendBtn").addEventListener("click", handleUserCommand);
+            $("userInput").addEventListener("keydown", (event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+                    event.preventDefault();
+                    handleUserCommand();
+                }
+            });
+        }
+
+        window.addEventListener("DOMContentLoaded", async () => {
+            bindConfigEvents();
+            bindChatEvents();
+            bindVideoEvents();
+            await initializeStartupFlow();
+        });
+
+        window.addEventListener("beforeunload", () => {
+            clearConfigStatusPolling();
+            clearPreviewAutoRetryTimer();
+            clearVideoReconnectTimer();
+            if (uiState.eventSource) uiState.eventSource.close();
+        });
+    </script>
+</body>
+
+</html>
+
+
+
