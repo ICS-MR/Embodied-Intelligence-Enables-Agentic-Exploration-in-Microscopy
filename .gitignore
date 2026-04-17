@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.uv-cache
+.runtime/
+
+# Local runtime configuration
+.env
+config/runtime_config.json
+
+# Test and runtime artifacts
+.pytest_cache/
+te/
+*.log
+*.tmp.py
+.ipynb_checkpoints/
+.micro-manager/
+
+# Python cache directories anywhere in the repo
+**/__pycache__/
