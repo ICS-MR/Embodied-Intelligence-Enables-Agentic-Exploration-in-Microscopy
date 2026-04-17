@@ -22,6 +22,11 @@ te/
 *.tmp.py
 .ipynb_checkpoints/
 .micro-manager/
+scripts/*
+!scripts/setup_models.py
+model/*
+!model/Download link.txt
+!model/README.md
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
