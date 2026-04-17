@@ -1,0 +1,86 @@
+### frap
+- Create empty plan: Create an empty FRAP point plan.
+- Validate point plan: Validate and normalize a FRAP point plan.
+- Save point plan: Save a validated or draft point plan as JSON.
+- Load point plan: Load a saved FRAP point plan.
+- Build linear mapping: Define a linear image-to-screen mapping.
+- Save mapping: Save a mapping definition as JSON.
+- Load mapping: Load a saved mapping definition.
+- Map point plan: Convert image-space points into screen-space click points.
+- Save click plan: Save a click plan as JSON.
+- Load click plan: Load a saved click plan.
+- Create ui profile: Create a GUI profile for a FRAP-capable desktop application.
+- Save ui profile: Save a FRAP GUI profile as JSON.
+- Load ui profile: Load a saved FRAP GUI profile.
+- Wait for window: Wait until a visible desktop window matching the title keyword appears.
+- Activate window: Activate a desktop window by title keyword.
+- Click window relative: Click a point expressed as an offset relative to the attached window.
+- Press hotkey: Press one or more keyboard shortcuts.
+- Type text: Type text into the currently focused application.
+- Build mapping from ui profile: Build a linear mapping from a point plan and a live GUI profile attachment.
+- Run ui actions: Run a named batch of GUI actions described by a saved UI profile.
+- Run frap workflow: Run a GUI-driven FRAP workflow using a point plan and a saved UI profile.
+- Preview point plan: Draw a point plan on top of an image and save the preview.
+- Inspect window: Inspect a desktop window by title keyword.
+- Click screen point: Click one point on the screen.
+- Execute click plan: Execute a saved click plan by issuing sequential mouse clicks.
+- Preferred usage: Use this tool when a task already has FRAP points or needs to save, validate, map, preview, or execute a point plan, or when a GUI-based FRAP software workflow needs to be driven through a calibrated window profile. Pattern design can be implemented in normal Python before calling this tool.
+---
+
+# Capability Summary
+- Manages FRAP point plans including creation, validation with spatial constraints, and persistence
+- Defines and stores linear coordinate transformations between image space and screen space
+- Converts image-based point plans into executable screen-space click plans
+- Creates and manages GUI profiles that describe application window layouts and control mappings
+- Locates, inspects, and activates desktop application windows by title matching
+- Executes GUI automation actions including mouse clicks, keyboard shortcuts, and text input
+- Orchestrates complete FRAP workflows by coordinating point plans with GUI profiles
+- Generates visual previews of point plans overlaid on source images
+
+# Task Example
+# Example input
+I need to run a FRAP experiment on my microscopy software. I have a cell image where I want to bleach 5 circular regions arranged in a grid pattern. Please set up the point plan, configure the GUI profile for my microscopy application called "MicroManager", find and activate the application window, then execute the complete FRAP workflow and show me a preview of where the bleach points will be on my image.
+
+# Example output
+<Task Ready>
+{"Status": "OK"}
+</Task Ready>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "frap",
+        "command": "Create a FRAP point plan with 5 circular bleach regions arranged in a grid pattern on the provided cell image, applying spatial constraints to ensure points are within valid cell boundaries"
+    },
+    {
+        "subtask_index": 2,
+        "module": "frap",
+        "command": "Define and store a linear coordinate transformation mapping image space coordinates to screen space coordinates for the microscopy display"
+    },
+    {
+        "subtask_index": 3,
+        "module": "frap",
+        "command": "Convert the image-based FRAP point plan into an executable screen-space click plan using the stored coordinate transformation"
+    },
+    {
+        "subtask_index": 4,
+        "module": "frap",
+        "command": "Create and store a GUI profile for the MicroManager application describing its window layout, control locations, and FRAP-related button mappings"
+    },
+    {
+        "subtask_index": 5,
+        "module": "frap",
+        "command": "Locate the MicroManager desktop application window by title matching, inspect its state, and activate it for automation"
+    },
+    {
+        "subtask_index": 6,
+        "module": "frap",
+        "command": "Orchestrate the complete FRAP workflow by coordinating the screen-space click plan with the MicroManager GUI profile to execute all bleaching actions"
+    },
+    {
+        "subtask_index": 7,
+        "module": "frap",
+        "command": "Generate a visual preview of the FRAP point plan overlaid on the source cell image to confirm bleach point placement"
+    }
+]
+</Task steps>

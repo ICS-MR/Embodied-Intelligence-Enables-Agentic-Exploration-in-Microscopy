@@ -1,0 +1,510 @@
+Tool ID: frap
+
+Tool class: Frap
+
+You are generating Python code for this tool only.
+
+Use only the public methods listed below and respect their parameter types, defaults, and docstrings.
+
+Available API methods:
+
+def create_empty_plan(image_width: 'int', image_height: 'int') -> 'dict':
+    """
+    Create an empty FRAP point plan.
+    
+            Args:
+                image_width: Width of the source image in pixels.
+                image_height: Height of the source image in pixels.
+    
+            Returns:
+                A FRAP point plan dictionary with no targets.
+    """
+
+def validate_point_plan(point_plan: 'dict', border_margin_px: 'int' = 0, min_spacing_px: 'int' = 0, max_targets: 'int' = 0, sort_mode: 'str' = 'none') -> 'dict':
+    """
+    Validate and normalize a FRAP point plan.
+    
+            Args:
+                point_plan: A candidate point plan dictionary.
+                border_margin_px: Reject points closer than this many pixels to the image border.
+                min_spacing_px: Reject points that are too close to previously accepted points.
+                max_targets: Keep at most this many points. Use 0 to disable.
+                sort_mode: Sorting strategy applied before spacing and truncation.
+                    Supported values are "none", "xy", and "yx".
+    
+            Returns:
+                A normalized FRAP point plan dictionary.
+    """
+
+def save_point_plan(point_plan: 'dict', filename: 'str' = 'frap_points.json') -> 'str':
+    """
+    Save a validated or draft point plan as JSON.
+    
+            Args:
+                point_plan: Point plan to serialize.
+                filename: Output JSON filename.
+    
+            Returns:
+                Absolute path to the saved point plan.
+    """
+
+def load_point_plan(filename: 'str') -> 'dict':
+    """
+    Load a saved FRAP point plan.
+    
+            Args:
+                filename: Relative or absolute path to a point plan JSON file.
+    
+            Returns:
+                Parsed point plan dictionary.
+    """
+
+def build_linear_mapping(image_width: 'int', image_height: 'int', screen_left: 'int', screen_top: 'int', screen_width: 'int', screen_height: 'int', flip_x: 'bool' = False, flip_y: 'bool' = False, mapping_name: 'str' = 'default') -> 'dict':
+    """
+    Define a linear image-to-screen mapping.
+    
+            Args:
+                image_width: Width of the source image in pixels.
+                image_height: Height of the source image in pixels.
+                screen_left: Left edge of the target FRAP screen region.
+                screen_top: Top edge of the target FRAP screen region.
+                screen_width: Width of the target FRAP screen region.
+                screen_height: Height of the target FRAP screen region.
+                flip_x: Whether to mirror the x axis during mapping.
+                flip_y: Whether to mirror the y axis during mapping.
+                mapping_name: Human-readable mapping label.
+    
+            Returns:
+                A linear mapping dictionary.
+    """
+
+def save_mapping(mapping: 'dict', filename: 'str' = 'frap_mapping.json') -> 'str':
+    """
+    Save a mapping definition as JSON.
+    
+            Args:
+                mapping: Mapping definition to save.
+                filename: Output JSON filename.
+    
+            Returns:
+                Absolute path to the saved mapping file.
+    """
+
+def load_mapping(filename: 'str') -> 'dict':
+    """
+    Load a saved mapping definition.
+    
+            Args:
+                filename: Relative or absolute path to a mapping JSON file.
+    
+            Returns:
+                Parsed mapping dictionary.
+    """
+
+def map_point_plan(point_plan: 'dict', mapping: 'dict', clamp_to_region: 'bool' = True) -> 'dict':
+    """
+    Convert image-space points into screen-space click points.
+    
+            Args:
+                point_plan: FRAP point plan.
+                mapping: Linear image-to-screen mapping.
+                clamp_to_region: Clamp clicks to the target screen region.
+    
+            Returns:
+                A click plan dictionary.
+    """
+
+def save_click_plan(click_plan: 'dict', filename: 'str' = 'frap_click_plan.json') -> 'str':
+    """
+    Save a click plan as JSON.
+    
+            Args:
+                click_plan: Click plan to save.
+                filename: Output JSON filename.
+    
+            Returns:
+                Absolute path to the saved click plan.
+    """
+
+def load_click_plan(filename: 'str') -> 'dict':
+    """
+    Load a saved click plan.
+    
+            Args:
+                filename: Relative or absolute path to a click plan JSON file.
+    
+            Returns:
+                Parsed click plan dictionary.
+    """
+
+def create_ui_profile(profile_name: 'str', window_title_keyword: 'str', image_left: 'int', image_top: 'int', image_width: 'int', image_height: 'int', controls: 'dict | None' = None, workflow: 'dict | None' = None, activate_before_action: 'bool' = True, click_interval_sec: 'float' = 0.15, move_duration_sec: 'float' = 0.0, flip_x: 'bool' = False, flip_y: 'bool' = False) -> 'dict':
+    """
+    Create a GUI profile for a FRAP-capable desktop application.
+    
+            Args:
+                profile_name: Human-readable profile label.
+                window_title_keyword: Partial window title used to attach to the application.
+                image_left: Left offset of the image region relative to the window.
+                image_top: Top offset of the image region relative to the window.
+                image_width: Width of the image region relative to the window.
+                image_height: Height of the image region relative to the window.
+                controls: Optional mapping of named GUI actions.
+                workflow: Optional workflow configuration with pre/post action lists.
+                activate_before_action: Whether to activate the window before a batch of actions.
+                click_interval_sec: Default delay between click actions.
+                move_duration_sec: Default mouse move duration.
+                flip_x: Whether to mirror the x axis when mapping image points into the image region.
+                flip_y: Whether to mirror the y axis when mapping image points into the image region.
+    
+            Returns:
+                A normalized FRAP GUI profile dictionary.
+    """
+
+def save_ui_profile(ui_profile: 'dict', filename: 'str' = 'frap_ui_profile.json') -> 'str':
+    """
+    Save a FRAP GUI profile as JSON.
+    
+            Args:
+                ui_profile: GUI profile dictionary.
+                filename: Output JSON filename.
+    
+            Returns:
+                Absolute path to the saved profile.
+    """
+
+def load_ui_profile(filename: 'str') -> 'dict':
+    """
+    Load a saved FRAP GUI profile.
+    
+            Args:
+                filename: Relative or absolute path to a GUI profile JSON file.
+    
+            Returns:
+                Parsed and normalized GUI profile dictionary.
+    """
+
+def wait_for_window(title_keyword: 'str', timeout_sec: 'float' = 15.0, poll_interval_sec: 'float' = 0.2) -> 'dict':
+    """
+    Wait until a visible desktop window matching the title keyword appears.
+    
+            Args:
+                title_keyword: Partial window title used to locate the application window.
+                timeout_sec: Maximum time to wait.
+                poll_interval_sec: Delay between polling attempts.
+    
+            Returns:
+                A dictionary containing the matched window title and bounds.
+    """
+
+def activate_window(title_keyword: 'str', dry_run: 'bool' = True) -> 'dict':
+    """
+    Activate a desktop window by title keyword.
+    
+            Args:
+                title_keyword: Partial window title used to locate the application window.
+                dry_run: When True, only report the planned activation.
+    
+            Returns:
+                A dictionary describing the planned or executed activation.
+    """
+
+def click_window_relative(title_keyword: 'str', offset_x: 'int', offset_y: 'int', move_duration_sec: 'float' = 0.0, dry_run: 'bool' = True) -> 'dict':
+    """
+    Click a point expressed as an offset relative to the attached window.
+    
+            Args:
+                title_keyword: Partial window title used to locate the application window.
+                offset_x: Horizontal offset from the window's left edge.
+                offset_y: Vertical offset from the window's top edge.
+                move_duration_sec: Mouse move duration before clicking.
+                dry_run: When True, only report the planned click.
+    
+            Returns:
+                A dictionary describing the planned or executed click.
+    """
+
+def press_hotkey(keys: 'list[str] | tuple[str, ...] | str', interval_sec: 'float' = 0.0, dry_run: 'bool' = True) -> 'dict':
+    """
+    Press one or more keyboard shortcuts.
+    
+            Args:
+                keys: A string key name or a list/tuple of keys passed to pyautogui.hotkey.
+                interval_sec: Delay between keys in the hotkey sequence.
+                dry_run: When True, only report the planned hotkey action.
+    
+            Returns:
+                A dictionary describing the planned or executed hotkey.
+    """
+
+def type_text(text: 'str', interval_sec: 'float' = 0.0, dry_run: 'bool' = True) -> 'dict':
+    """
+    Type text into the currently focused application.
+    
+            Args:
+                text: Text to type.
+                interval_sec: Delay between characters.
+                dry_run: When True, only report the planned text entry.
+    
+            Returns:
+                A dictionary describing the planned or executed text entry.
+    """
+
+def build_mapping_from_ui_profile(point_plan: 'dict', ui_profile: 'dict', clamp_to_window: 'bool' = True) -> 'dict':
+    """
+    Build a linear mapping from a point plan and a live GUI profile attachment.
+    
+            Args:
+                point_plan: FRAP point plan.
+                ui_profile: GUI profile containing a relative image region and window title.
+                clamp_to_window: Whether to verify the image region stays within the attached window.
+    
+            Returns:
+                A linear mapping dictionary using absolute screen coordinates.
+    """
+
+def run_ui_actions(profile_path: 'str', action_names: 'list[str] | tuple[str, ...]', dry_run: 'bool' = True) -> 'dict':
+    """
+    Run a named batch of GUI actions described by a saved UI profile.
+    
+            Args:
+                profile_path: Relative or absolute path to a saved UI profile JSON file.
+                action_names: Control names to execute in order.
+                dry_run: When True, only report the planned actions.
+    
+            Returns:
+                A dictionary summarizing the executed or planned action batch.
+    """
+
+def run_frap_workflow(point_plan_path: 'str', profile_path: 'str', dry_run: 'bool' = True) -> 'dict':
+    """
+    Run a GUI-driven FRAP workflow using a point plan and a saved UI profile.
+    
+            Args:
+                point_plan_path: Relative or absolute path to a saved point plan JSON file.
+                profile_path: Relative or absolute path to a saved UI profile JSON file.
+                dry_run: When True, only report the planned GUI actions and clicks.
+    
+            Returns:
+                A dictionary summarizing the FRAP GUI workflow result.
+    """
+
+def preview_point_plan(image_path: 'str', point_plan_path: 'str', output_name: 'str' = 'frap_points_preview.png', marker_radius_px: 'int' = 10, draw_labels: 'bool' = True) -> 'str':
+    """
+    Draw a point plan on top of an image and save the preview.
+    
+            Args:
+                image_path: Relative or absolute path to the source image.
+                point_plan_path: Relative or absolute path to a saved point plan JSON file.
+                output_name: Output preview PNG filename.
+                marker_radius_px: Circle radius around each point.
+                draw_labels: Whether to annotate labels or target ids.
+    
+            Returns:
+                Absolute path to the saved preview image.
+    """
+
+def inspect_window(title_keyword: 'str') -> 'dict':
+    """
+    Inspect a desktop window by title keyword.
+    
+            Args:
+                title_keyword: Partial window title used to locate the FRAP software window.
+    
+            Returns:
+                A dictionary containing the matched window title and bounds.
+    """
+
+def click_screen_point(screen_x: 'int', screen_y: 'int', move_duration_sec: 'float' = 0.0, dry_run: 'bool' = True) -> 'dict':
+    """
+    Click one point on the screen.
+    
+            Args:
+                screen_x: Horizontal screen coordinate.
+                screen_y: Vertical screen coordinate.
+                move_duration_sec: Mouse move duration before clicking.
+                dry_run: When True, return the planned click without touching the mouse.
+    
+            Returns:
+                A dictionary describing the executed or planned click.
+    """
+
+def execute_click_plan(click_plan_path: 'str', click_interval_sec: 'float' = 0.15, activate_window: 'bool' = False, window_title_keyword: 'str' = '', move_duration_sec: 'float' = 0.0, dry_run: 'bool' = True) -> 'dict':
+    """
+    Execute a saved click plan by issuing sequential mouse clicks.
+    
+            Args:
+                click_plan_path: Relative or absolute path to a saved click plan JSON file.
+                click_interval_sec: Delay between clicks in seconds.
+                activate_window: Whether to activate the FRAP window before clicking.
+                window_title_keyword: Partial window title used when activate_window is True.
+                move_duration_sec: Mouse move duration for each click.
+                dry_run: When True, only simulate execution and return the planned clicks.
+    
+            Returns:
+                A dictionary summarizing the click execution result.
+    """
+
+def say(message: str):
+    """
+    Outputs a log message with `[ACTION]`, `[INFO]`, or `[ERROR]` prefix. Ensures consistent logging format.
+    """
+    print(f'robot says: {message}')
+
+Execution guidance:
+Create or load a frap_point_plan, validate it before execution, build a linear image-to-screen mapping or a frap_ui_profile, preview the points on the image, then run the click plan or GUI workflow in dry_run mode before real execution.
+
+# Usage Example
+# Example input
+Build and execute a complete FRAP workflow: create a point plan, validate it, map it to screen coordinates, save all artifacts, and run a dry-run GUI workflow with preview.
+
+# Example output
+import os
+
+# --- Step 1: Create and validate a FRAP point plan ---
+plan = create_empty_plan(image_width=512, image_height=512)
+say("Created empty point plan.")
+
+# Manually inject some target points into the plan for demonstration
+plan["targets"] = [
+    {"id": 1, "x": 80,  "y": 90,  "label": "cell_A"},
+    {"id": 2, "x": 200, "y": 150, "label": "cell_B"},
+    {"id": 3, "x": 310, "y": 300, "label": "cell_C"},
+    {"id": 4, "x": 5,   "y": 5,   "label": "too_close_to_border"},  # will be rejected
+    {"id": 5, "x": 205, "y": 155, "label": "too_close_to_cell_B"},  # will be rejected
+]
+
+# Validate: reject border points, enforce minimum spacing, limit to 3 targets, sort by xy
+validated_plan = validate_point_plan(
+    plan,
+    border_margin_px=20,
+    min_spacing_px=30,
+    max_targets=3,
+    sort_mode="xy"
+)
+say(f"Validated plan contains {len(validated_plan.get('targets', []))} target(s).")
+
+# --- Step 2: Save and reload the point plan ---
+plan_path = save_point_plan(validated_plan, filename="my_frap_points.json")
+say(f"Point plan saved to: {plan_path}")
+
+loaded_plan = load_point_plan("my_frap_points.json")
+say("Point plan reloaded successfully.")
+
+# --- Step 3: Build a linear image-to-screen mapping ---
+mapping = build_linear_mapping(
+    image_width=512,
+    image_height=512,
+    screen_left=100,
+    screen_top=150,
+    screen_width=800,
+    screen_height=800,
+    flip_x=False,
+    flip_y=True,
+    mapping_name="microscope_screen"
+)
+say("Linear mapping created.")
+
+mapping_path = save_mapping(mapping, filename="my_frap_mapping.json")
+say(f"Mapping saved to: {mapping_path}")
+
+loaded_mapping = load_mapping("my_frap_mapping.json")
+say("Mapping reloaded successfully.")
+
+# --- Step 4: Map the point plan to screen-space click coordinates ---
+click_plan = map_point_plan(loaded_plan, loaded_mapping, clamp_to_region=True)
+say(f"Click plan generated with {len(click_plan.get('clicks', []))} click(s).")
+
+click_plan_path = save_click_plan(click_plan, filename="my_frap_click_plan.json")
+say(f"Click plan saved to: {click_plan_path}")
+
+loaded_click_plan = load_click_plan("my_frap_click_plan.json")
+say("Click plan reloaded successfully.")
+
+# --- Step 5: Create and save a GUI profile for the FRAP application ---
+ui_profile = create_ui_profile(
+    profile_name="FRAPSoft v2",
+    window_title_keyword="FRAPSoft",
+    image_left=60,
+    image_top=80,
+    image_width=512,
+    image_height=512,
+    controls={
+        "start_frap": {"type": "click", "offset_x": 700, "offset_y": 50},
+        "reset":      {"type": "hotkey", "keys": ["ctrl", "r"]},
+    },
+    workflow={
+        "pre_actions":  ["reset"],
+        "post_actions": ["start_frap"],
+    },
+    activate_before_action=True,
+    click_interval_sec=0.2,
+    move_duration_sec=0.05,
+    flip_x=False,
+    flip_y=False,
+)
+say("UI profile created.")
+
+profile_path = save_ui_profile(ui_profile, filename="my_frap_profile.json")
+say(f"UI profile saved to: {profile_path}")
+
+loaded_profile = load_ui_profile("my_frap_profile.json")
+say("UI profile reloaded successfully.")
+
+# --- Step 6: Inspect the FRAP application window (dry-run safe) ---
+window_info = inspect_window(title_keyword="FRAPSoft")
+say(f"Window inspection result: {window_info}")
+
+# --- Step 7: Simulate individual GUI actions (dry_run=True) ---
+activation_result = activate_window(title_keyword="FRAPSoft", dry_run=True)
+say(f"Activate window (dry run): {activation_result}")
+
+click_result = click_window_relative(
+    title_keyword="FRAPSoft",
+    offset_x=700, offset_y=50,
+    move_duration_sec=0.05,
+    dry_run=True
+)
+say(f"Window-relative click (dry run): {click_result}")
+
+hotkey_result = press_hotkey(keys=["ctrl", "r"], interval_sec=0.05, dry_run=True)
+say(f"Hotkey (dry run): {hotkey_result}")
+
+type_result = type_text(text="FRAP_experiment_01", interval_sec=0.02, dry_run=True)
+say(f"Type text (dry run): {type_result}")
+
+# --- Step 8: Execute the click plan (dry_run=True) ---
+exec_result = execute_click_plan(
+    click_plan_path="my_frap_click_plan.json",
+    click_interval_sec=0.2,
+    activate_window=True,
+    window_title_keyword="FRAPSoft",
+    move_duration_sec=0.05,
+    dry_run=True
+)
+say(f"Click plan execution (dry run): {exec_result}")
+
+# --- Step 9: Run named UI actions from the profile (dry_run=True) ---
+actions_result = run_ui_actions(
+    profile_path="my_frap_profile.json",
+    action_names=["reset", "start_frap"],
+    dry_run=True
+)
+say(f"UI actions batch (dry run): {actions_result}")
+
+# --- Step 10: Run the full FRAP workflow (dry_run=True) ---
+workflow_result = run_frap_workflow(
+    point_plan_path="my_frap_points.json",
+    profile_path="my_frap_profile.json",
+    dry_run=True
+)
+say(f"Full FRAP workflow (dry run): {workflow_result}")
+
+# --- Step 11: Generate a visual preview of the point plan on the source image ---
+preview_path = preview_point_plan(
+    image_path="sample_microscope_image.png",
+    point_plan_path="my_frap_points.json",
+    output_name="frap_points_preview.png",
+    marker_radius_px=12,
+    draw_labels=True
+)
+say(f"Preview image saved to: {preview_path}")

@@ -1,0 +1,44 @@
+{
+  "system": {
+    "MM_DIR": "C:/Path/To/Micro-Manager",
+    "CONFIG_PATH": "uploaded_cfg/MMConfig_demo2.cfg",
+    "FIJI_PATH": "C:/Path/To/Fiji.app",
+    "fiji_executor_timeout_seconds": 300.0
+  },
+  "model": {
+    "Simulation_mode": true,
+    "checker_enabled": true,
+    "openai_api_key": "",
+    "base_url": "https://api.openai.com/v1",
+    "model_name": "gpt-4.1",
+    "vlm_api_key": "",
+    "vlm_base_url": "https://api.openai.com/v1",
+    "vlm_model_name": "gpt-4.1"
+  },
+  "startup": {
+    "objective": "2-SOB",
+    "channel": "1-NONE",
+    "exposure": 10.0,
+    "brightness": 100,
+    "z_position": 3500.0,
+    "x_position": 50000.0,
+    "y_position": 50000.0,
+    "start_preview": true
+  },
+  "detection_targets": {
+    "organoid": {
+      "target_class_id": 0,
+      "target_class_name": "organoid",
+      "output_filename": "organoid_locations_list.json",
+      "model_config": "configs/organoid.py",
+      "model_checkpoint": "weights/organoid.pth"
+    },
+    "mitosis": {
+      "target_class_id": 0,
+      "target_class_name": "mitosis",
+      "output_filename": "mitosis_locations_list.json",
+      "model_config": "",
+      "model_checkpoint": ""
+    }
+  }
+}

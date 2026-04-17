@@ -1,0 +1,23 @@
+{
+  "system_tools": {
+    "microscope": {
+      "real_class_path": "core_tool.microscope:MicroscopeController",
+      "simulation_class_path": "Empty_function:MicroscopeController",
+      "constructor_kind": "microscope",
+      "validate_real_stack": true
+    },
+    "image_analysis": {
+      "real_class_path": "core_tool.fiji:ImageJProcessor",
+      "simulation_class_path": "Empty_function:ImageJProcessor",
+      "constructor_kind": "storage_output",
+      "validate_real_stack": true
+    },
+    "segmentation": {
+      "real_class_path": "core_tool.cellpose_tool:Cellpose2D",
+      "simulation_class_path": "Empty_function:Cellpose2D",
+      "constructor_kind": "storage_output",
+      "validate_real_stack": true
+    }
+  },
+  "user_tools": []
+}
