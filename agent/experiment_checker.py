@@ -147,6 +147,21 @@ class ExperimentCheckAgent:
                 return value.strip()
         return fallback
 
+    def _pick_reason_for_defect(
+        self,
+        parsed: Optional[Dict[str, Any]],
+        defect_key: str,
+        fallback: str,
+    ) -> str:
+        if not parsed:
+            return fallback
+        reason_value = parsed.get("reason")
+        if isinstance(reason_value, dict):
+            defect_reason = reason_value.get(defect_key)
+            if isinstance(defect_reason, str) and defect_reason.strip():
+                return defect_reason.strip()
+        return self._pick_reason(parsed, fallback)
+
     def _normalize_vlm_result(self, parsed: Optional[Dict[str, Any]], defect_key: str) -> Dict[str, Any]:
         if not parsed:
             return {defect_key: False, "reason": "Detection failed"}
@@ -169,7 +184,7 @@ class ExperimentCheckAgent:
 
         return {
             defect_key: detected,
-            "reason": self._pick_reason(parsed, "Detection completed"),
+            "reason": self._pick_reason_for_defect(parsed, defect_key, "Detection completed"),
         }
 
     def _result_is_defect_free(self, result: CheckResult) -> bool:
@@ -427,24 +442,18 @@ class ExperimentCheckAgent:
                     indexer["Z"] = 0
                 plane = img.get_image_data("YX", **indexer)
 
-                linear_uint8 = self._array_to_linear_uint8(plane)
                 contrast_uint8 = self._array_to_contrast_uint8(plane)
-                b64_linear = self._uint8_to_base64_png(linear_uint8)
                 b64_contrast = self._uint8_to_base64_png(contrast_uint8)
 
-                # 1. No target
-                no_target_res, no_target_raw = self._call_vlm_custom(b64_contrast, self._cfg.get('prompt_no_target'))
-                no_target_info = self._normalize_vlm_result(no_target_res, "no_target")
+                quality_res, quality_raw = self._call_vlm_custom(
+                    b64_contrast,
+                    self._cfg.get('prompt_quality_check'),
+                )
+                no_target_info = self._normalize_vlm_result(quality_res, "no_target")
                 no_target = no_target_info["no_target"]
-
-                # 2. Overexposure
-                over_exposed_res, over_exposed_raw = self._call_vlm_custom(b64_linear, self._cfg.get('prompt_over_exposed'))
-                over_exposed_info = self._normalize_vlm_result(over_exposed_res, "over_exposed")
+                over_exposed_info = self._normalize_vlm_result(quality_res, "over_exposed")
                 over_exposed = over_exposed_info["over_exposed"]
-
-                # 3. Out of focus
-                out_of_focus_res, out_of_focus_raw = self._call_vlm_custom(b64_contrast, self._cfg.get('prompt_out_of_focus'))
-                out_of_focus_info = self._normalize_vlm_result(out_of_focus_res, "out_of_focus")
+                out_of_focus_info = self._normalize_vlm_result(quality_res, "out_of_focus")
                 out_of_focus = out_of_focus_info["out_of_focus"]
 
                 defects = []
@@ -473,7 +482,7 @@ class ExperimentCheckAgent:
                     "reason": combined_reason
                 }
                 channel_defects_list.append(channel_defect)
-                raw_responses.extend([no_target_raw, over_exposed_raw, out_of_focus_raw])
+                raw_responses.append(quality_raw)
 
             # Overall defects
             final_no_target = any(cd["no_target"] for cd in channel_defects_list)
