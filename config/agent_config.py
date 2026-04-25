@@ -10,6 +10,7 @@ from prompts.prompt_check import (
     prompt_no_target,
     prompt_out_of_focus,
     prompt_over_exposed,
+    prompt_quality_check,
 )
 from prompts.task_manager_full_stateful import prompt_manger
 
@@ -166,6 +167,7 @@ def build_checker_lmp_config() -> Dict[str, Any]:
         "prompt_no_target": prompt_no_target,
         "prompt_over_exposed": prompt_over_exposed,
         "prompt_out_of_focus": prompt_out_of_focus,
+        "prompt_quality_check": prompt_quality_check,
         "instruction_prompt_with_no_target": instruction_prompt_with_no_target,
         "instruction_prompt_without_no_target": instruction_prompt_without_no_target,
         "engine": model_name,

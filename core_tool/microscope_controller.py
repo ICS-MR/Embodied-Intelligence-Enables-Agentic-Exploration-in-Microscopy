@@ -1357,25 +1357,28 @@ class MicroscopeController(BaseTool):
         is_fluorescence: bool,
     ) -> Dict[str, float]:
         if magnification < 5:
-            params = {"search_range": 300.0, "coarse_step": 40.0, "tolerance": 2.0}
+            params = {"search_range": 400.0, "coarse_step": 40.0, "tolerance": 2.0, "max_search_range": 800.0}
         elif magnification < 15:
-            params = {"search_range": 150.0, "coarse_step": 20.0, "tolerance": 1.0}
+            params = {"search_range": 220.0, "coarse_step": 25.0, "tolerance": 1.0, "max_search_range": 600.0}
         elif magnification < 30:
-            params = {"search_range": 80.0, "coarse_step": 10.0, "tolerance": 0.5}
+            params = {"search_range": 180.0, "coarse_step": 12.0, "tolerance": 0.5, "max_search_range": 500.0}
         elif magnification < 50:
-            params = {"search_range": 50.0, "coarse_step": 5.0, "tolerance": 0.5}
+            params = {"search_range": 90.0, "coarse_step": 8.0, "tolerance": 0.5, "max_search_range": 300.0}
         else:
-            params = {"search_range": 30.0, "coarse_step": 3.0, "tolerance": 0.5}
+            params = {"search_range": 60.0, "coarse_step": 5.0, "tolerance": 0.5, "max_search_range": 180.0}
 
-        params["center_roi_size"] = 1024.0
+        if not is_fluorescence and magnification < 15:
+            params["center_roi_size"] = 768.0
+        else:
+            params["center_roi_size"] = 1024.0
         params["settle_time_sec"] = 0.10 if is_fluorescence else 0.05
         return params
 
     # ====== Auto Focus / Brightness ======
     @tool_func
-    def perform_autofocus(self, tolerance=0.5, use_auto_params=True, search_range=500.0) -> float:
+    def perform_autofocus(self, tolerance=0.5, use_auto_params=False, search_range=600.0) -> float:
         state = self._capture_runtime_state(include_xy=False, include_preview=True)
-        center_z = float(state["z"])
+        base_center_z = float(state["z"])
         current_channel = self.get_channel()
         current_objective = self.get_objective()
         magnification = float(objective_labels.get(current_objective, 10.0))
@@ -1388,7 +1391,7 @@ class MicroscopeController(BaseTool):
             tolerance = max(tolerance, auto_params["tolerance"])
             search_range = max(tolerance, min(requested_search_range, auto_params["search_range"]))
             coarse_step = min(auto_params["coarse_step"], search_range)
-            expansion_cap = max(requested_search_range, search_range)
+            expansion_cap = max(requested_search_range, auto_params["max_search_range"], search_range)
         else:
             search_range = requested_search_range
             coarse_step = max(tolerance * 4.0, min(50.0, search_range))
@@ -1417,11 +1420,13 @@ class MicroscopeController(BaseTool):
             scores[cache_key] = score
             return score
 
-        def search_once(active_search_range: float, active_coarse_step: float) -> Tuple[float, float, float, float]:
-            lower_z = max(float(self.Min_Z_position), center_z - active_search_range)
-            upper_z = min(float(self.Max_Z_position), center_z + active_search_range)
-            best_z = center_z
-            best_score = score_at(center_z, lower_z, upper_z)
+        def search_once(
+            search_center_z: float,
+            active_search_range: float,
+            active_coarse_step: float,
+        ) -> Tuple[float, float, float, float]:
+            lower_z = max(float(self.Min_Z_position), search_center_z - active_search_range)
+            upper_z = min(float(self.Max_Z_position), search_center_z + active_search_range)
             coarse_positions = np.arange(
                 lower_z,
                 upper_z + active_coarse_step * 0.5,
@@ -1429,8 +1434,11 @@ class MicroscopeController(BaseTool):
                 dtype=float,
             )
             if coarse_positions.size == 0:
-                coarse_positions = np.array([center_z], dtype=float)
-            for z_position in coarse_positions:
+                coarse_positions = np.array([search_center_z], dtype=float)
+
+            best_z = float(coarse_positions[0])
+            best_score = score_at(best_z, lower_z, upper_z)
+            for z_position in coarse_positions[1:]:
                 score = score_at(float(z_position), lower_z, upper_z)
                 if score > best_score:
                     best_score = score
@@ -1454,7 +1462,7 @@ class MicroscopeController(BaseTool):
             return best_z, best_score, lower_z, upper_z
 
         def is_near_search_boundary(best_z: float, lower_z: float, upper_z: float, active_coarse_step: float) -> bool:
-            boundary_margin = max(tolerance, active_coarse_step * 0.75)
+            boundary_margin = max(tolerance, active_coarse_step * 0.5)
             lower_available = lower_z > float(self.Min_Z_position) + tolerance
             upper_available = upper_z < float(self.Max_Z_position) - tolerance
             return (
@@ -1464,26 +1472,44 @@ class MicroscopeController(BaseTool):
             )
 
         try:
-            best_z, best_score, lower_z, upper_z = search_once(search_range, coarse_step)
+            active_center_z = base_center_z
+            active_search_range = search_range
             active_coarse_step = coarse_step
-            if (
+            expansion_round = 0
+            max_expansion_rounds = 4
+
+            best_z, best_score, lower_z, upper_z = search_once(
+                active_center_z,
+                active_search_range,
+                active_coarse_step,
+            )
+            while (
                 use_auto_params
-                and search_range < expansion_cap
-                and is_near_search_boundary(best_z, lower_z, upper_z, coarse_step)
+                and active_search_range < expansion_cap
+                and expansion_round < max_expansion_rounds
+                and is_near_search_boundary(best_z, lower_z, upper_z, active_coarse_step)
             ):
-                expanded_range = min(expansion_cap, search_range * 2.0)
-                expanded_coarse_step = min(max(coarse_step * 2.0, tolerance * 4.0), 50.0, expanded_range)
+                expanded_range = min(expansion_cap, max(active_search_range * 2.0, active_search_range + active_coarse_step))
+                expanded_coarse_step = min(active_coarse_step, expanded_range)
                 logger.warning(
                     "Autofocus best Z %.3f is near search boundary [%.3f, %.3f]; "
-                    "expanding search range from %.3f to %.3f um",
+                    "expanding search range from %.3f to %.3f um around %.3f um",
                     best_z,
                     lower_z,
                     upper_z,
-                    search_range,
+                    active_search_range,
                     expanded_range,
+                    best_z,
                 )
-                best_z, best_score, lower_z, upper_z = search_once(expanded_range, expanded_coarse_step)
+                active_center_z = best_z
+                active_search_range = expanded_range
                 active_coarse_step = expanded_coarse_step
+                best_z, best_score, lower_z, upper_z = search_once(
+                    active_center_z,
+                    active_search_range,
+                    active_coarse_step,
+                )
+                expansion_round += 1
 
             if is_near_search_boundary(best_z, lower_z, upper_z, active_coarse_step):
                 logger.warning(
