@@ -1,5 +1,6 @@
 ﻿import os
 import tempfile
+import shutil
 import time
 import warnings
 import logging
@@ -222,9 +223,9 @@ def _prepare_java_cache_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
     os.environ["CJDK_CACHE_DIR"] = str(cjdk_cache_dir)
-    # Prefer local Java/Maven when present, but allow scyjava/cjdk to fetch
-    # missing pieces automatically into our controlled cache locations.
-    sjconf.set_java_constraints(fetch="auto")
+    # Java is intentionally not auto-installed by EIMS. Users should install a
+    # Java/JDK runtime and verify `java -version` in the same terminal.
+    sjconf.set_java_constraints(fetch=False)
     sjconf.set_cache_dir(jgo_cache_dir)
     sjconf.set_m2_repo(m2_repo_dir)
 
@@ -701,12 +702,36 @@ class ImageJProcessor(BaseTool):
     def fiji_initialize(self, fiji_path=FIJI_PATH):
         """Synchronously initialize ImageJ environment (directly inline private interface logic without hierarchical calls)"""
         print("Initializing ImageJ environment...")
+        if not fiji_path:
+            raise FileNotFoundError(
+                "FIJI_PATH is empty. Configure Fiji first, for example:\n"
+                "  uv run python system_config_wizard.py --setup-fiji"
+            )
         if not os.path.exists(fiji_path):
-            raise FileNotFoundError(f"Fiji.app path does not exist: {fiji_path}")
-        _ensure_maven_on_path()
-        _prepare_java_cache_dirs()
-        self.ij = imagej.init(fiji_path, mode=imagej.Mode.INTERACTIVE)
-        print(f"ImageJ version: {self.ij.getVersion()}")
+            raise FileNotFoundError(
+                f"Fiji.app path does not exist: {fiji_path}\n"
+                "Configure Fiji first, for example:\n"
+                "  uv run python system_config_wizard.py --setup-fiji"
+            )
+        if shutil.which("java") is None:
+            raise RuntimeError(
+                "Java was not found on PATH. pyimagej requires a working Java/JDK environment.\n"
+                "Install Java/JDK and ensure `java -version` works in the same terminal, then run:\n"
+                "  uv run python system_config_wizard.py --check-fiji"
+            )
+        try:
+            _ensure_maven_on_path()
+            _prepare_java_cache_dirs()
+            self.ij = imagej.init(fiji_path, mode=imagej.Mode.INTERACTIVE)
+            print(f"ImageJ version: {self.ij.getVersion()}")
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to initialize Fiji through pyimagej.\n"
+                f"- FIJI_PATH: {fiji_path}\n"
+                "- pyimagej requires Fiji plus a Java/JDK environment visible in this terminal.\n"
+                "- Run `uv run python system_config_wizard.py --check-java` and "
+                "`uv run python system_config_wizard.py --check-fiji` for diagnostics."
+            ) from exc
 
     # ----------------- File IO -----------------    
     @tool_func

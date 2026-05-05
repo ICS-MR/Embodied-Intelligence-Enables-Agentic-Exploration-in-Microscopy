@@ -117,11 +117,11 @@ class ModelConfig:
     Simulation_mode: bool = True
     clarify_enabled: bool = False
     checker_enabled: bool = False
-    openai_api_key: str = "sk-ngWYYJ3lt5pFB9YF5mTCuFRp7KQQtRATn0NdsV0X21rHRoSt"
-    base_url: str = "https://jeniya.top/v1"
+    openai_api_key: str = ""
+    base_url: str = "https://api.openai.com/v1"
     model_name: str = "claude-sonnet-4-6"
-    vlm_api_key: str = "sk-ngWYYJ3lt5pFB9YF5mTCuFRp7KQQtRATn0NdsV0X21rHRoSt"
-    vlm_base_url: str = "https://jeniya.top/v1"
+    vlm_api_key: str = ""
+    vlm_base_url: str = "https://api.openai.com/v1"
     vlm_model_name: str = "claude-sonnet-4-6"
     CROSS_ENCODER_MODEL_PATH: str = r"model\bge-m3"
     task_similarity_threshold: float = 0.17
