@@ -106,6 +106,7 @@ Use this path for real microscope control and Fiji-backed image processing.
 uv run python system_config_wizard.py --install-mmcore
 
 # Fiji for real image-processing runtime
+# Install Fiji manually first: https://imagej.net/software/fiji/
 uv run python system_config_wizard.py --setup-fiji
 
 # Open external tools for verification
@@ -151,7 +152,8 @@ Notes:
 - Use `uv run python system_config_wizard.py --install-mmcore --reuse-existing` to directly reuse the latest existing install.
 - Use `uv run python system_config_wizard.py --install-mmcore --clean-dest` to remove existing `Micro-Manager*` directories and reinstall.
 - To open a different install explicitly, use `uv run python system_config_wizard.py --open-mmstudio --mm-dir "C:\\Path\\To\\Micro-Manager"`.
-- `uv run python system_config_wizard.py --setup-fiji` first reuses an existing Fiji installation when one can be found; otherwise it downloads and extracts Fiji under `%LOCALAPPDATA%\\EIMS\\Fiji\\` by default and writes `FIJI_PATH` to `config/runtime_config.json`.
+- Install Fiji manually from https://imagej.net/software/fiji/ before running Fiji-dependent features.
+- `uv run python system_config_wizard.py --setup-fiji` detects an existing Fiji installation and writes `FIJI_PATH` to `config/runtime_config.json`.
 - Fiji image-processing runtime uses `pyimagej`, which requires a working Java/JDK environment. The wizard does not install Java automatically. Before running Fiji-dependent features, ensure `java -version` works in the same terminal.
 - To point at an existing Fiji install explicitly, use `uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"`.
 - Use `uv run python system_config_wizard.py --check-java` and `uv run python system_config_wizard.py --check-fiji` for Fiji/Java diagnostics.

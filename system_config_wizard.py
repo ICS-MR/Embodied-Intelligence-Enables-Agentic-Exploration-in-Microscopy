@@ -1,13 +1,9 @@
 import argparse
-import hashlib
 import os
 import re
 import shutil
 import subprocess
 import sys
-import urllib.error
-import urllib.request
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -40,8 +36,6 @@ FILTER_COLOR_HINTS: Tuple[Tuple[Tuple[str, ...], Tuple[int, int, int]], ...] = (
 
 DEFAULT_MMCORE_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Micro-Manager"
 DEFAULT_FIJI_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Fiji"
-FIJI_DOWNLOAD_URL = "https://downloads.imagej.net/fiji/latest/fiji-latest-portable-nojava.zip"
-FIJI_DOWNLOAD_SHA256_URL = f"{FIJI_DOWNLOAD_URL}.sha256"
 FIJI_MANUAL_DOWNLOAD_URL = "https://imagej.net/software/fiji/"
 
 
@@ -521,9 +515,8 @@ def detect_fiji(fiji_dir: Optional[Path], *, update_runtime_config: bool) -> Pat
         if not roots:
             raise FileNotFoundError(
                 "Could not auto-detect a Fiji installation.\n"
-                "Install it with:\n"
-                f"  uv run python system_config_wizard.py --install-fiji\n"
-                "Or point to an existing install:\n"
+                f"Download and install Fiji manually from: {FIJI_MANUAL_DOWNLOAD_URL}\n"
+                "Then point to the installed Fiji.app:\n"
                 '  uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"'
             )
         fiji_root = roots[0]
@@ -536,124 +529,6 @@ def detect_fiji(fiji_dir: Optional[Path], *, update_runtime_config: bool) -> Pat
     if update_runtime_config:
         save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
         print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
-    return fiji_root
-
-
-def download_file(url: str, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with urllib.request.urlopen(url, timeout=60) as response, destination.open("wb") as output:
-            shutil.copyfileobj(response, output)
-    except (urllib.error.URLError, OSError) as exc:
-        raise RuntimeError(
-            "Fiji download failed.\n"
-            f"- URL: {url}\n"
-            f"- Destination: {destination}\n"
-            f"- Error: {exc}\n"
-            f"Manual download: {FIJI_MANUAL_DOWNLOAD_URL}"
-        ) from exc
-
-
-def download_text(url: str) -> str:
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            return response.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, OSError) as exc:
-        raise RuntimeError(f"Could not download checksum from {url}: {exc}") from exc
-
-
-def file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def verify_fiji_archive(archive_path: Path) -> None:
-    checksum_text = download_text(FIJI_DOWNLOAD_SHA256_URL)
-    expected = checksum_text.strip().split()[0].lower()
-    actual = file_sha256(archive_path)
-    if actual.lower() != expected:
-        raise RuntimeError(
-            "Fiji archive checksum verification failed.\n"
-            f"- Expected: {expected}\n"
-            f"- Actual:   {actual}\n"
-            f"- Archive:  {archive_path}"
-        )
-    print("Verified Fiji archive SHA256 checksum.")
-
-
-def safe_extract_zip(archive_path: Path, dest: Path) -> None:
-    dest_root = dest.resolve()
-    with zipfile.ZipFile(archive_path) as archive:
-        for member in archive.infolist():
-            member_path = (dest_root / member.filename).resolve()
-            if dest_root != member_path and dest_root not in member_path.parents:
-                raise RuntimeError(f"Refusing to extract unsafe zip member: {member.filename}")
-        archive.extractall(dest_root)
-
-
-def install_fiji(
-    dest: Path,
-    *,
-    update_runtime_config: bool,
-    clean_dest: bool,
-    reuse_existing: bool,
-) -> Path:
-    target_dest = dest.expanduser().resolve()
-    target_dest.mkdir(parents=True, exist_ok=True)
-
-    existing_installs = list_fiji_install_dirs(target_dest)
-    if existing_installs:
-        if reuse_existing:
-            fiji_root = existing_installs[0]
-            print(f"Reusing existing Fiji install: {fiji_root}")
-            if update_runtime_config:
-                save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
-                print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
-            return fiji_root
-        if clean_dest:
-            print("Cleaning existing Fiji installs from destination ...")
-            for install_root in existing_installs:
-                shutil.rmtree(install_root)
-        else:
-            discovered = "\n".join(f"  - {path}" for path in existing_installs)
-            raise RuntimeError(
-                "Detected existing Fiji installs in destination.\n"
-                f"{discovered}\n"
-                "To avoid accidental overwrite, installation is stopped.\n"
-                "Use one of the following options:\n"
-                "  --reuse-existing   Use the latest existing install and skip reinstall.\n"
-                "  --clean-dest       Remove existing Fiji.app directories then install."
-            )
-
-    archive_path = target_dest / "fiji-latest-portable-nojava.zip"
-    print(f"Downloading Fiji into {archive_path} ...")
-    print(f"Source: {FIJI_DOWNLOAD_URL}")
-    download_file(FIJI_DOWNLOAD_URL, archive_path)
-    verify_fiji_archive(archive_path)
-
-    print(f"Extracting Fiji into {target_dest} ...")
-    try:
-        safe_extract_zip(archive_path, target_dest)
-    except zipfile.BadZipFile as exc:
-        raise RuntimeError(f"Downloaded Fiji archive is not a valid zip file: {archive_path}") from exc
-
-    installs = list_fiji_install_dirs(target_dest)
-    if not installs:
-        raise RuntimeError(
-            "Fiji archive extracted, but no valid Fiji.app directory was found.\n"
-            f"Inspect: {target_dest}\n"
-            f"Manual download: {FIJI_MANUAL_DOWNLOAD_URL}"
-        )
-
-    fiji_root = installs[0]
-    print(f"Detected Fiji root: {fiji_root}")
-    if update_runtime_config:
-        save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
-        print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
-    print("Note: pyimagej still requires a working Java/JDK environment in this terminal.")
     return fiji_root
 
 
@@ -732,23 +607,12 @@ def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
 
 def setup_fiji(
     fiji_dir: Optional[Path],
-    fiji_dest: Path,
     *,
     update_runtime_config: bool,
-    clean_dest: bool,
-    reuse_existing: bool,
     interactive: bool,
 ) -> Path:
-    print("Setting up Fiji. Java will be checked but not installed or modified.")
-    try:
-        fiji_root = detect_fiji(fiji_dir, update_runtime_config=update_runtime_config)
-    except FileNotFoundError:
-        fiji_root = install_fiji(
-            fiji_dest,
-            update_runtime_config=update_runtime_config,
-            clean_dest=clean_dest,
-            reuse_existing=reuse_existing,
-        )
+    print("Setting up Fiji from an existing installation. Java will be checked but not installed or modified.")
+    fiji_root = detect_fiji(fiji_dir, update_runtime_config=update_runtime_config)
 
     print("\nJava reminder:")
     print("Fiji image-processing runtime uses pyimagej, which requires a working Java/JDK environment.")
@@ -885,17 +749,12 @@ def main() -> None:
     parser.add_argument(
         "--setup-fiji",
         action="store_true",
-        help="Detect or install Fiji, update FIJI_PATH, and check Java/pyimagej.",
+        help="Detect an existing Fiji install, update FIJI_PATH, and check Java/pyimagej.",
     )
     parser.add_argument(
         "--detect-fiji",
         action="store_true",
         help="Detect an existing Fiji installation and update FIJI_PATH.",
-    )
-    parser.add_argument(
-        "--install-fiji",
-        action="store_true",
-        help="Download and extract Fiji, then update FIJI_PATH.",
     )
     parser.add_argument(
         "--open-fiji",
@@ -931,12 +790,6 @@ def main() -> None:
         help=f"Parent directory used by `mmcore install`. Default: {DEFAULT_MMCORE_DEST}",
     )
     parser.add_argument(
-        "--fiji-dest",
-        type=Path,
-        default=DEFAULT_FIJI_DEST,
-        help=f"Parent directory used by --install-fiji. Default: {DEFAULT_FIJI_DEST}",
-    )
-    parser.add_argument(
         "--mmcore-release",
         default="latest-compatible",
         help="Release passed to `mmcore install` (for example: latest-compatible, latest, or YYYYMMDD).",
@@ -959,7 +812,7 @@ def main() -> None:
     parser.add_argument(
         "--reuse-existing",
         action="store_true",
-        help="Reuse the latest existing install in --mmcore-dest or --fiji-dest and skip reinstall.",
+        help="Reuse the latest existing Micro-Manager install in --mmcore-dest and skip reinstall.",
     )
     parser.add_argument(
         "--interactive",
@@ -991,10 +844,7 @@ def main() -> None:
         try:
             setup_fiji(
                 args.fiji_dir,
-                args.fiji_dest,
                 update_runtime_config=not args.skip_config_update,
-                clean_dest=args.clean_dest,
-                reuse_existing=args.reuse_existing,
                 interactive=args.interactive,
             )
         except (FileNotFoundError, RuntimeError) as exc:
@@ -1005,21 +855,6 @@ def main() -> None:
     if args.detect_fiji:
         try:
             detect_fiji(args.fiji_dir, update_runtime_config=not args.skip_config_update)
-        except (FileNotFoundError, RuntimeError) as exc:
-            print(exc)
-            raise SystemExit(1) from exc
-        return
-
-    if args.install_fiji:
-        if args.clean_dest and args.reuse_existing:
-            parser.error("--clean-dest and --reuse-existing cannot be used together.")
-        try:
-            install_fiji(
-                args.fiji_dest,
-                update_runtime_config=not args.skip_config_update,
-                clean_dest=args.clean_dest,
-                reuse_existing=args.reuse_existing,
-            )
         except (FileNotFoundError, RuntimeError) as exc:
             print(exc)
             raise SystemExit(1) from exc
