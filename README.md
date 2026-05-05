@@ -148,9 +148,9 @@ Notes:
 - The one-click installer above calls the official `mmcore install` command, installs Micro-Manager under `%LOCALAPPDATA%\\EIMS\\Micro-Manager\\` by default on Windows, and writes the detected install path back to `config/runtime_config.json` as `MM_DIR`.
 - If you already have a working Micro-Manager installation, you can skip the one-click step and point `MM_DIR` to your existing install.
 - If you want a specific nightly or only the test adapters, use `uv run python system_config_wizard.py --install-mmcore --mmcore-release 20210219` or add `--test-adapters`.
-- If `--mmcore-dest` already contains `Micro-Manager*` directories, installation now stops by default to avoid accidental overwrite.
+- If `--mmcore-dest` already contains `Micro-Manager*` directories, installation removes them by default before reinstalling.
 - Use `uv run python system_config_wizard.py --install-mmcore --reuse-existing` to directly reuse the latest existing install.
-- Use `uv run python system_config_wizard.py --install-mmcore --clean-dest` to remove existing `Micro-Manager*` directories and reinstall.
+- `--clean-dest` is still accepted for explicit overwrite/reinstall behavior, but it matches the default.
 - To open a different install explicitly, use `uv run python system_config_wizard.py --open-mmstudio --mm-dir "C:\\Path\\To\\Micro-Manager"`.
 - Install Fiji manually from https://imagej.net/software/fiji/ before running Fiji-dependent features.
 - `uv run python system_config_wizard.py --setup-fiji` detects an existing Fiji installation and writes `FIJI_PATH` to `config/runtime_config.json`.
