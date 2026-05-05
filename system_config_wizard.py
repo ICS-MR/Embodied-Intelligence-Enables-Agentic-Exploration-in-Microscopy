@@ -1,9 +1,13 @@
 import argparse
+import hashlib
 import os
 import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -35,6 +39,10 @@ FILTER_COLOR_HINTS: Tuple[Tuple[Tuple[str, ...], Tuple[int, int, int]], ...] = (
 )
 
 DEFAULT_MMCORE_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Micro-Manager"
+DEFAULT_FIJI_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Fiji"
+FIJI_DOWNLOAD_URL = "https://downloads.imagej.net/fiji/latest/fiji-latest-portable-nojava.zip"
+FIJI_DOWNLOAD_SHA256_URL = f"{FIJI_DOWNLOAD_URL}.sha256"
+FIJI_MANUAL_DOWNLOAD_URL = "https://imagej.net/software/fiji/"
 
 
 @dataclass
@@ -390,6 +398,366 @@ def open_mmstudio(mm_dir: Optional[Path] = None) -> Path:
     return executable
 
 
+def is_fiji_root(path: Path) -> bool:
+    if not path.exists() or not path.is_dir():
+        return False
+    has_launcher = any(
+        (path / name).exists()
+        for name in (
+            "ImageJ-win64.exe",
+            "ImageJ-win32.exe",
+            "ImageJ.exe",
+            "Fiji.exe",
+            "ImageJ-linux64",
+            "ImageJ-macosx",
+        )
+    ) or any(candidate.is_file() for candidate in path.glob("ImageJ*"))
+    has_fiji_layout = (path / "jars").is_dir() or (path / "plugins").is_dir()
+    return has_launcher and has_fiji_layout
+
+
+def resolve_fiji_root(fiji_dir: Path) -> Path:
+    candidate = fiji_dir.expanduser().resolve()
+    if candidate.is_file():
+        candidate = candidate.parent
+    candidates = [candidate]
+    if candidate.name.lower() != "fiji.app":
+        candidates.append(candidate / "Fiji.app")
+    for item in candidates:
+        if is_fiji_root(item):
+            return item
+    raise FileNotFoundError(
+        f"Fiji installation not found or incomplete: {candidate}\n"
+        "Expected a Fiji.app directory containing an ImageJ launcher and jars/ or plugins/.\n"
+        f"Manual download: {FIJI_MANUAL_DOWNLOAD_URL}"
+    )
+
+
+def list_fiji_install_dirs(dest: Path) -> List[Path]:
+    installs: List[Path] = []
+    if not dest.exists():
+        return installs
+    candidates = [dest / "Fiji.app"]
+    candidates.extend(path for path in dest.glob("Fiji*") if path.is_dir())
+    candidates.extend(path / "Fiji.app" for path in dest.glob("*") if path.is_dir())
+    for candidate in candidates:
+        try:
+            root = resolve_fiji_root(candidate)
+        except FileNotFoundError:
+            continue
+        if root not in installs:
+            installs.append(root)
+    installs.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return installs
+
+
+def discover_fiji_roots() -> List[Path]:
+    configured_path = load_system_config().FIJI_PATH
+    search_dirs = [
+        Path(configured_path) if configured_path else None,
+        DEFAULT_FIJI_DEST,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs",
+        Path(os.environ.get("LOCALAPPDATA", "")),
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")),
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")),
+        Path.home() / "Downloads",
+        Path.home() / "Desktop",
+        ROOT_DIR.parent,
+    ]
+    roots: List[Path] = []
+    for raw_dir in search_dirs:
+        if raw_dir is None or not str(raw_dir):
+            continue
+        candidates = [raw_dir]
+        if raw_dir.exists() and raw_dir.is_dir():
+            candidates.extend(path for path in raw_dir.glob("Fiji*") if path.is_dir())
+            candidates.extend(path / "Fiji.app" for path in raw_dir.glob("*") if path.is_dir())
+        for candidate in candidates:
+            try:
+                root = resolve_fiji_root(candidate)
+            except FileNotFoundError:
+                continue
+            if root not in roots:
+                roots.append(root)
+    roots.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return roots
+
+
+def resolve_fiji_executable(fiji_root: Path) -> Path:
+    candidates = [
+        fiji_root / "ImageJ-win64.exe",
+        fiji_root / "ImageJ-win32.exe",
+        fiji_root / "ImageJ.exe",
+        fiji_root / "Fiji.exe",
+        fiji_root / "ImageJ-linux64",
+        fiji_root / "ImageJ-macosx",
+    ]
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    for candidate in fiji_root.glob("ImageJ*"):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"Could not find a Fiji/ImageJ launcher under {fiji_root}")
+
+
+def configured_fiji_path() -> Path:
+    configured_path = load_system_config().FIJI_PATH
+    if not configured_path:
+        raise FileNotFoundError(
+            "FIJI_PATH is empty. Configure Fiji first:\n"
+            "  uv run python system_config_wizard.py --setup-fiji\n"
+            "Or point to an existing install:\n"
+            '  uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"'
+        )
+    return Path(configured_path)
+
+
+def detect_fiji(fiji_dir: Optional[Path], *, update_runtime_config: bool) -> Path:
+    if fiji_dir is not None:
+        fiji_root = resolve_fiji_root(fiji_dir)
+    else:
+        roots = discover_fiji_roots()
+        if not roots:
+            raise FileNotFoundError(
+                "Could not auto-detect a Fiji installation.\n"
+                "Install it with:\n"
+                f"  uv run python system_config_wizard.py --install-fiji\n"
+                "Or point to an existing install:\n"
+                '  uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"'
+            )
+        fiji_root = roots[0]
+        if len(roots) > 1:
+            print("Detected multiple Fiji installs; using the most recently modified one:")
+            for root in roots[:5]:
+                print(f"  - {root}")
+
+    print(f"Detected Fiji root: {fiji_root}")
+    if update_runtime_config:
+        save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
+        print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
+    return fiji_root
+
+
+def download_file(url: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(url, timeout=60) as response, destination.open("wb") as output:
+            shutil.copyfileobj(response, output)
+    except (urllib.error.URLError, OSError) as exc:
+        raise RuntimeError(
+            "Fiji download failed.\n"
+            f"- URL: {url}\n"
+            f"- Destination: {destination}\n"
+            f"- Error: {exc}\n"
+            f"Manual download: {FIJI_MANUAL_DOWNLOAD_URL}"
+        ) from exc
+
+
+def download_text(url: str) -> str:
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return response.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, OSError) as exc:
+        raise RuntimeError(f"Could not download checksum from {url}: {exc}") from exc
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_fiji_archive(archive_path: Path) -> None:
+    checksum_text = download_text(FIJI_DOWNLOAD_SHA256_URL)
+    expected = checksum_text.strip().split()[0].lower()
+    actual = file_sha256(archive_path)
+    if actual.lower() != expected:
+        raise RuntimeError(
+            "Fiji archive checksum verification failed.\n"
+            f"- Expected: {expected}\n"
+            f"- Actual:   {actual}\n"
+            f"- Archive:  {archive_path}"
+        )
+    print("Verified Fiji archive SHA256 checksum.")
+
+
+def safe_extract_zip(archive_path: Path, dest: Path) -> None:
+    dest_root = dest.resolve()
+    with zipfile.ZipFile(archive_path) as archive:
+        for member in archive.infolist():
+            member_path = (dest_root / member.filename).resolve()
+            if dest_root != member_path and dest_root not in member_path.parents:
+                raise RuntimeError(f"Refusing to extract unsafe zip member: {member.filename}")
+        archive.extractall(dest_root)
+
+
+def install_fiji(
+    dest: Path,
+    *,
+    update_runtime_config: bool,
+    clean_dest: bool,
+    reuse_existing: bool,
+) -> Path:
+    target_dest = dest.expanduser().resolve()
+    target_dest.mkdir(parents=True, exist_ok=True)
+
+    existing_installs = list_fiji_install_dirs(target_dest)
+    if existing_installs:
+        if reuse_existing:
+            fiji_root = existing_installs[0]
+            print(f"Reusing existing Fiji install: {fiji_root}")
+            if update_runtime_config:
+                save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
+                print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
+            return fiji_root
+        if clean_dest:
+            print("Cleaning existing Fiji installs from destination ...")
+            for install_root in existing_installs:
+                shutil.rmtree(install_root)
+        else:
+            discovered = "\n".join(f"  - {path}" for path in existing_installs)
+            raise RuntimeError(
+                "Detected existing Fiji installs in destination.\n"
+                f"{discovered}\n"
+                "To avoid accidental overwrite, installation is stopped.\n"
+                "Use one of the following options:\n"
+                "  --reuse-existing   Use the latest existing install and skip reinstall.\n"
+                "  --clean-dest       Remove existing Fiji.app directories then install."
+            )
+
+    archive_path = target_dest / "fiji-latest-portable-nojava.zip"
+    print(f"Downloading Fiji into {archive_path} ...")
+    print(f"Source: {FIJI_DOWNLOAD_URL}")
+    download_file(FIJI_DOWNLOAD_URL, archive_path)
+    verify_fiji_archive(archive_path)
+
+    print(f"Extracting Fiji into {target_dest} ...")
+    try:
+        safe_extract_zip(archive_path, target_dest)
+    except zipfile.BadZipFile as exc:
+        raise RuntimeError(f"Downloaded Fiji archive is not a valid zip file: {archive_path}") from exc
+
+    installs = list_fiji_install_dirs(target_dest)
+    if not installs:
+        raise RuntimeError(
+            "Fiji archive extracted, but no valid Fiji.app directory was found.\n"
+            f"Inspect: {target_dest}\n"
+            f"Manual download: {FIJI_MANUAL_DOWNLOAD_URL}"
+        )
+
+    fiji_root = installs[0]
+    print(f"Detected Fiji root: {fiji_root}")
+    if update_runtime_config:
+        save_runtime_settings(system_updates={"FIJI_PATH": str(fiji_root)})
+        print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
+    print("Note: pyimagej still requires a working Java/JDK environment in this terminal.")
+    return fiji_root
+
+
+def open_fiji(fiji_dir: Optional[Path] = None) -> Path:
+    configured_dir = fiji_dir or configured_fiji_path()
+    fiji_root = resolve_fiji_root(configured_dir)
+    executable = resolve_fiji_executable(fiji_root)
+    subprocess.Popen([str(executable)], cwd=str(executable.parent))
+    print(f"Started Fiji from {executable}")
+    return executable
+
+
+def check_java() -> bool:
+    print("Checking Java for pyimagej ...")
+    try:
+        java_result = subprocess.run(["java", "-version"], capture_output=True, text=True)
+    except FileNotFoundError:
+        print("Java check failed: `java` was not found on PATH.")
+        print("Install a Java/JDK runtime and ensure `java -version` works in this same terminal.")
+        return False
+    java_output = (java_result.stderr or java_result.stdout).strip()
+    if java_result.returncode != 0:
+        print("Java check failed: `java -version` did not run successfully.")
+        if java_output:
+            print(java_output)
+        print("Install a Java/JDK runtime and ensure `java -version` works in this same terminal.")
+        return False
+    print(java_output.splitlines()[0] if java_output else "`java -version` succeeded.")
+
+    try:
+        import jpype
+
+        jvm_path = jpype.getDefaultJVMPath()
+    except Exception as exc:
+        print("JPype could not locate a JVM for pyimagej.")
+        print(f"Error: {exc}")
+        print("Install a Java/JDK runtime that JPype can find before using Fiji-dependent features.")
+        return False
+
+    print(f"JPype JVM path: {jvm_path}")
+    return True
+
+
+def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
+    fiji_root = resolve_fiji_root(fiji_dir or configured_fiji_path())
+    print(f"Checking Fiji root: {fiji_root}")
+    resolve_fiji_executable(fiji_root)
+
+    if not check_java():
+        print("Skipping pyimagej initialization because Java/JVM is not ready.")
+        return False
+
+    try:
+        import imagej
+        import scyjava.config as sjconf
+
+        runtime_root = ROOT_DIR / ".runtime"
+        jgo_cache_dir = runtime_root / "jgo"
+        m2_repo_dir = Path.home() / ".m2" / "repository"
+        jgo_cache_dir.mkdir(parents=True, exist_ok=True)
+        m2_repo_dir.mkdir(parents=True, exist_ok=True)
+        sjconf.set_java_constraints(fetch=False)
+        sjconf.set_cache_dir(jgo_cache_dir)
+        sjconf.set_m2_repo(m2_repo_dir)
+        mode = imagej.Mode.INTERACTIVE if interactive else imagej.Mode.HEADLESS
+        print(f"Initializing pyimagej in {mode} mode ...")
+        ij = imagej.init(str(fiji_root), mode=mode)
+        print(f"ImageJ version: {ij.getVersion()}")
+        return True
+    except Exception as exc:
+        print("pyimagej initialization failed.")
+        print(f"Error: {exc}")
+        print("Fiji-dependent features require Fiji plus a Java/JDK environment usable by pyimagej.")
+        return False
+
+
+def setup_fiji(
+    fiji_dir: Optional[Path],
+    fiji_dest: Path,
+    *,
+    update_runtime_config: bool,
+    clean_dest: bool,
+    reuse_existing: bool,
+    interactive: bool,
+) -> Path:
+    print("Setting up Fiji. Java will be checked but not installed or modified.")
+    try:
+        fiji_root = detect_fiji(fiji_dir, update_runtime_config=update_runtime_config)
+    except FileNotFoundError:
+        fiji_root = install_fiji(
+            fiji_dest,
+            update_runtime_config=update_runtime_config,
+            clean_dest=clean_dest,
+            reuse_existing=reuse_existing,
+        )
+
+    print("\nJava reminder:")
+    print("Fiji image-processing runtime uses pyimagej, which requires a working Java/JDK environment.")
+    print("This wizard does not install Java automatically. Ensure `java -version` works in this terminal.")
+    print("")
+    check_fiji(fiji_root, interactive=interactive)
+    return fiji_root
+
+
 def build_mmcore_install_command(
     mmcore_executable: str,
     dest: Path,
@@ -485,7 +853,7 @@ def install_mmcore(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Auto-detect or suggest device names for config/system_config.py from a real Micro-Manager cfg."
+        description="Configure EIMS external runtimes and suggest device names from a real Micro-Manager cfg."
     )
     parser.add_argument(
         "--mm-config",
@@ -515,16 +883,58 @@ def main() -> None:
         help="Open the Micro-Manager GUI from the configured MM_DIR.",
     )
     parser.add_argument(
+        "--setup-fiji",
+        action="store_true",
+        help="Detect or install Fiji, update FIJI_PATH, and check Java/pyimagej.",
+    )
+    parser.add_argument(
+        "--detect-fiji",
+        action="store_true",
+        help="Detect an existing Fiji installation and update FIJI_PATH.",
+    )
+    parser.add_argument(
+        "--install-fiji",
+        action="store_true",
+        help="Download and extract Fiji, then update FIJI_PATH.",
+    )
+    parser.add_argument(
+        "--open-fiji",
+        action="store_true",
+        help="Open Fiji from the configured FIJI_PATH.",
+    )
+    parser.add_argument(
+        "--check-java",
+        action="store_true",
+        help="Check whether Java/JVM is available for pyimagej. Does not install Java.",
+    )
+    parser.add_argument(
+        "--check-fiji",
+        action="store_true",
+        help="Validate FIJI_PATH and try pyimagej initialization.",
+    )
+    parser.add_argument(
         "--mm-dir",
         type=Path,
         default=None,
         help="Override MM_DIR when opening the Micro-Manager GUI.",
     )
     parser.add_argument(
+        "--fiji-dir",
+        type=Path,
+        default=None,
+        help="Override or provide a Fiji.app directory for Fiji commands.",
+    )
+    parser.add_argument(
         "--mmcore-dest",
         type=Path,
         default=DEFAULT_MMCORE_DEST,
         help=f"Parent directory used by `mmcore install`. Default: {DEFAULT_MMCORE_DEST}",
+    )
+    parser.add_argument(
+        "--fiji-dest",
+        type=Path,
+        default=DEFAULT_FIJI_DEST,
+        help=f"Parent directory used by --install-fiji. Default: {DEFAULT_FIJI_DEST}",
     )
     parser.add_argument(
         "--mmcore-release",
@@ -539,7 +949,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-config-update",
         action="store_true",
-        help="Do not write the detected Micro-Manager path back into config/runtime_config.json.",
+        help="Do not write detected Micro-Manager/Fiji paths back into config/runtime_config.json.",
     )
     parser.add_argument(
         "--clean-dest",
@@ -549,7 +959,12 @@ def main() -> None:
     parser.add_argument(
         "--reuse-existing",
         action="store_true",
-        help="Reuse the latest existing Micro-Manager install in --mmcore-dest and skip reinstall.",
+        help="Reuse the latest existing install in --mmcore-dest or --fiji-dest and skip reinstall.",
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Use interactive mode for --check-fiji or --setup-fiji instead of headless mode.",
     )
     args = parser.parse_args()
 
@@ -568,6 +983,68 @@ def main() -> None:
 
     if args.open_mmstudio:
         open_mmstudio(args.mm_dir)
+        return
+
+    if args.setup_fiji:
+        if args.clean_dest and args.reuse_existing:
+            parser.error("--clean-dest and --reuse-existing cannot be used together.")
+        try:
+            setup_fiji(
+                args.fiji_dir,
+                args.fiji_dest,
+                update_runtime_config=not args.skip_config_update,
+                clean_dest=args.clean_dest,
+                reuse_existing=args.reuse_existing,
+                interactive=args.interactive,
+            )
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(exc)
+            raise SystemExit(1) from exc
+        return
+
+    if args.detect_fiji:
+        try:
+            detect_fiji(args.fiji_dir, update_runtime_config=not args.skip_config_update)
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(exc)
+            raise SystemExit(1) from exc
+        return
+
+    if args.install_fiji:
+        if args.clean_dest and args.reuse_existing:
+            parser.error("--clean-dest and --reuse-existing cannot be used together.")
+        try:
+            install_fiji(
+                args.fiji_dest,
+                update_runtime_config=not args.skip_config_update,
+                clean_dest=args.clean_dest,
+                reuse_existing=args.reuse_existing,
+            )
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(exc)
+            raise SystemExit(1) from exc
+        return
+
+    if args.open_fiji:
+        try:
+            open_fiji(args.fiji_dir)
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(exc)
+            raise SystemExit(1) from exc
+        return
+
+    if args.check_java:
+        if not check_java():
+            raise SystemExit(1)
+        return
+
+    if args.check_fiji:
+        try:
+            if not check_fiji(args.fiji_dir, interactive=args.interactive):
+                raise SystemExit(1)
+        except (FileNotFoundError, RuntimeError) as exc:
+            print(exc)
+            raise SystemExit(1) from exc
         return
 
     system_config_path = args.system_config

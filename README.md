@@ -34,20 +34,9 @@ The system adopts a clean three-layer modular design, ensuring clear responsibil
 
 Built on `pymmcore-plus`, providing standardized control over mainstream microscopes (e.g., Olympus), minimizing device-specific integration effort.
 
-## Developer Docs
-
-For contributors working on runtime internals, API contracts, or new tool integrations, see [`docs/developer-guide.md`](docs/developer-guide.md).
-
-The guide covers:
-
-- the current post-refactor module layout
-- runtime and API contracts
-- extension points for tools, planner skills, and execution safety
-- recommended test commands and maintenance rules
-
 ## 🚀 Quick Deployment Guide
 
-Follow these steps to initialize the system:
+Follow these steps from the project root. The recommended path targets a real microscope runtime with an NVIDIA GPU. Hardware-free simulation and CPU-only setup are fallback paths for demos and debugging.
 
 ### 1. Prerequisites
 
@@ -58,7 +47,7 @@ Follow these steps to initialize the system:
   - [Fiji (ImageJ)](https://imagej.net/software/fiji/) (required only for real image-processing runtime)
 - **Hardware**: NVIDIA GPU with CUDA support (recommended for accelerating Cellpose and MMDetection inference)
 
-### 2. Install Dependencies
+### 2. Recommended GPU Setup
 
 The default `uv sync` flow installs the officially validated GPU environment for this project on Windows. Before syncing, make sure your NVIDIA driver is installed and `nvidia-smi` works from a terminal.
 
@@ -71,12 +60,83 @@ uv venv --python 3.10
 # 2. Sync all pinned dependencies from pyproject.toml
 uv sync
 
-# 3. One-click install a compatible Micro-Manager build for the current pymmcore version
+# 3. Create local config files ignored by git
+Copy-Item config\runtime_config.example.json config\runtime_config.json
+Copy-Item .env.example .env
+
+# 4. Fill API keys and model endpoints in .env, then download local model assets
+uv run python scripts/setup_models.py
+```
+
+Edit `.env` before running LLM-backed workflows:
+
+```dotenv
+EIMS_OPENAI_API_KEY=your-openai-compatible-api-key
+EIMS_BASE_URL=https://api.openai.com/v1
+EIMS_MODEL_NAME=gpt-4.1
+EIMS_VLM_API_KEY=your-vlm-api-key
+EIMS_VLM_BASE_URL=https://api.openai.com/v1
+EIMS_VLM_MODEL_NAME=gpt-4.1
+```
+
+### 3. GPU Validation
+
+After `uv sync`, validate the official GPU stack with these commands:
+
+```bash
+uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
+uv run python -c "from cellpose import models; model = models.CellposeModel(gpu=True); print('cellpose gpu model initialized')"
+uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__); print(mmengine.__version__); print(mmdet.__version__)"
+```
+
+Expected results:
+
+- PyTorch reports `2.1.0`
+- CUDA reports `11.8`
+- `torch.cuda.is_available()` is `True`
+- Cellpose initialization succeeds and prints `_use_GPU: True`
+- `mmcv`, `mmengine`, and `mmdet` import successfully as `2.1.0`, `0.10.7`, and `3.3.0`
+
+### 4. Real Hardware Runtime Setup
+
+Use this path for real microscope control and Fiji-backed image processing.
+
+```bash
+# Micro-Manager / MMCore for real microscope control
 uv run python system_config_wizard.py --install-mmcore
 
-# 4. Open the installed Micro-Manager GUI (MMStudio / ImageJ)
+# Fiji for real image-processing runtime
+uv run python system_config_wizard.py --setup-fiji
+
+# Open external tools for verification
 uv run python system_config_wizard.py --open-mmstudio
+uv run python system_config_wizard.py --open-fiji
+uv run python system_config_wizard.py --check-fiji
 ```
+
+Then point `CONFIG_PATH` to your real Micro-Manager `.cfg`, detect device names, and switch to the real hardware chain:
+
+```bash
+uv run python system_config_wizard.py --mm-config "C:\Path\To\YourMicroscope.cfg" --apply
+```
+
+In `config/runtime_config.json`, set:
+
+```json
+{
+  "model": {
+    "Simulation_mode": false
+  }
+}
+```
+
+Start the full Web runtime:
+
+```bash
+uv run uvicorn app:app --reload
+```
+
+Open `http://127.0.0.1:8000` after the server starts.
 
 Notes:
 
@@ -91,32 +151,30 @@ Notes:
 - Use `uv run python system_config_wizard.py --install-mmcore --reuse-existing` to directly reuse the latest existing install.
 - Use `uv run python system_config_wizard.py --install-mmcore --clean-dest` to remove existing `Micro-Manager*` directories and reinstall.
 - To open a different install explicitly, use `uv run python system_config_wizard.py --open-mmstudio --mm-dir "C:\\Path\\To\\Micro-Manager"`.
+- `uv run python system_config_wizard.py --setup-fiji` first reuses an existing Fiji installation when one can be found; otherwise it downloads and extracts Fiji under `%LOCALAPPDATA%\\EIMS\\Fiji\\` by default and writes `FIJI_PATH` to `config/runtime_config.json`.
+- Fiji image-processing runtime uses `pyimagej`, which requires a working Java/JDK environment. The wizard does not install Java automatically. Before running Fiji-dependent features, ensure `java -version` works in the same terminal.
+- To point at an existing Fiji install explicitly, use `uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"`.
+- Use `uv run python system_config_wizard.py --check-java` and `uv run python system_config_wizard.py --check-fiji` for Fiji/Java diagnostics.
 
-### 2.1 GPU Validation
+### 5. Hardware-Free Fallback
 
-After `uv sync`, validate the official GPU stack with these commands:
+Use simulation mode only when hardware is unavailable or when you want a lightweight UI/planning demo.
+
+Keep `model.Simulation_mode=true` in `config/runtime_config.json`, then run:
 
 ```bash
-uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
-uv run python scripts/test_cellpose_api.py --model cpsam --gpu --skip-segment
-uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__); print(mmengine.__version__); print(mmdet.__version__)"
+uv run uvicorn app_mock:app --reload
 ```
 
-Expected results:
+The mock runtime uses the same saved configuration but does not run the full planner/executor/checker stack.
 
-- PyTorch reports `2.1.0`
-- CUDA reports `11.8`
-- `torch.cuda.is_available()` is `True`
-- Cellpose initialization succeeds and prints `_use_GPU: True`
-- `mmcv`, `mmengine`, and `mmdet` import successfully as `2.1.0`, `0.10.7`, and `3.3.0`
-
-### 2.2 CPU Compatibility Mode
+### 6. CPU Compatibility Mode
 
 CPU-only installation is supported as a fallback for demo, debugging, or environments without a usable NVIDIA GPU, but it is not the recommended runtime. In particular, `cpsam` segmentation is much slower on CPU.
 
 If you need a CPU-only environment, create a separate virtual environment and install the CPU variants manually instead of using the default project `uv sync`. Keep `numpy==1.26.4` unchanged, use the CPU PyTorch index, and swap the `mmcv` wheel to the matching CPU build for `torch==2.1.0`.
 
-### 3. Core Configuration (Critical Step)
+### 7. Core Configuration (Critical Step)
 
 Before running, update the runtime configuration to match your setup.
 
