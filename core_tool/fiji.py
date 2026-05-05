@@ -223,9 +223,10 @@ def _prepare_java_cache_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
     os.environ["CJDK_CACHE_DIR"] = str(cjdk_cache_dir)
-    # Java is intentionally not auto-installed by EIMS. Users should install a
-    # Java/JDK runtime and verify `java -version` in the same terminal.
-    sjconf.set_java_constraints(fetch=False)
+    # Java is checked before Fiji initialization. Keeping fetch="auto" lets
+    # scyjava/cjdk prepare Maven when it is missing, without requiring users to
+    # install Maven manually.
+    sjconf.set_java_constraints(fetch="auto")
     sjconf.set_cache_dir(jgo_cache_dir)
     sjconf.set_m2_repo(m2_repo_dir)
 
@@ -243,58 +244,49 @@ def _resolve_project_path(path_value: str) -> str:
 
 def _ensure_maven_on_path() -> None:
     """
-    Make a locally installed Maven visible to jgo when possible. If Maven is
-    still unavailable afterward, scyjava/cjdk can fall back to auto-download.
-    """
-    shutil = __import__("shutil")
+    Make Maven available to jgo.
 
-    def _add_candidate(candidates: list[str], value: str | None) -> None:
+    A user-configured MAVEN_BIN is honored when valid. Otherwise, EIMS avoids
+    auto-discovered system Maven installations because they can be broken or
+    incompatible, and asks scyjava/cjdk to fetch a project-cached Maven instead.
+    """
+    def _resolve_maven_bin(value: str | None) -> str | None:
         if not value:
-            return
+            return None
         candidate = str(value).strip().strip('"')
         if not candidate:
-            return
+            return None
         candidate = os.path.expanduser(candidate)
         if os.path.isfile(candidate):
             name = os.path.basename(candidate).lower()
             if name in {"mvn", "mvn.cmd", "mvn.bat", "mvn.exe"}:
-                candidates.append(os.path.dirname(candidate))
-            return
+                return os.path.dirname(candidate)
+            return None
         if os.path.isdir(candidate):
-            candidates.append(candidate)
+            for executable_name in ("mvn.cmd", "mvn.bat", "mvn.exe", "mvn"):
+                if os.path.isfile(os.path.join(candidate, executable_name)):
+                    return candidate
+        return None
 
-    current_path = os.environ.get("PATH", "")
-    candidates: list[str] = []
-    _add_candidate(candidates, MAVEN_BIN)
-
-    for env_name in ("MAVEN_HOME", "M2_HOME"):
-        home = os.environ.get(env_name)
-        if home:
-            _add_candidate(candidates, os.path.join(home, "bin"))
-            _add_candidate(candidates, home)
-
-    for entry in current_path.split(os.pathsep):
-        _add_candidate(candidates, entry)
-
-    resolved_maven_bin = None
-    for candidate in candidates:
-        for executable_name in ("mvn.cmd", "mvn.bat", "mvn.exe", "mvn"):
-            if os.path.isfile(os.path.join(candidate, executable_name)):
-                resolved_maven_bin = candidate
-                break
-        if resolved_maven_bin:
-            break
+    resolved_maven_bin = _resolve_maven_bin(MAVEN_BIN)
+    if MAVEN_BIN and resolved_maven_bin is None:
+        logger.warning("Configured MAVEN_BIN does not contain a Maven executable: %s", MAVEN_BIN)
 
     if resolved_maven_bin is None:
-        which_result = shutil.which("mvn") or shutil.which("mvn.cmd") or shutil.which("mvn.bat")
-        if which_result:
-            resolved_maven_bin = os.path.dirname(which_result)
+        try:
+            from scyjava._cjdk_fetch import cjdk_fetch_maven
 
-    if resolved_maven_bin is None:
-        if MAVEN_BIN:
-            logger.warning("Configured MAVEN_BIN does not contain a Maven executable: %s", MAVEN_BIN)
+            logger.info("Preparing project-managed Maven through scyjava/cjdk.")
+            cjdk_fetch_maven()
+        except Exception as exc:
+            raise RuntimeError(
+                "Maven is required by pyimagej/scyjava, and automatic project-level Maven setup failed.\n"
+                "- EIMS does not rely on auto-detected system Maven because it may be unavailable or broken.\n"
+                "- Retry with network access, or configure a valid EIMS_MAVEN_BIN / system.MAVEN_BIN."
+            ) from exc
         return
 
+    current_path = os.environ.get("PATH", "")
     entries = current_path.split(os.pathsep) if current_path else []
     normalized_target = os.path.normcase(os.path.normpath(resolved_maven_bin))
     normalized_entries = {
@@ -720,8 +712,18 @@ class ImageJProcessor(BaseTool):
                 "  uv run python system_config_wizard.py --check-fiji"
             )
         try:
-            _ensure_maven_on_path()
+            import jpype
+
+            jpype.getDefaultJVMPath()
+        except Exception as exc:
+            raise RuntimeError(
+                "JPype could not locate a JVM. pyimagej requires a working Java/JDK environment.\n"
+                "Install Java/JDK and ensure JPype can find the JVM, then run:\n"
+                "  uv run python system_config_wizard.py --check-java"
+            ) from exc
+        try:
             _prepare_java_cache_dirs()
+            _ensure_maven_on_path()
             self.ij = imagej.init(fiji_path, mode=imagej.Mode.INTERACTIVE)
             print(f"ImageJ version: {self.ij.getVersion()}")
         except Exception as exc:

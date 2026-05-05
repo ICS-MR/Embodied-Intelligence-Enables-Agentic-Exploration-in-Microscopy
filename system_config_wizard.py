@@ -572,6 +572,21 @@ def check_java() -> bool:
     return True
 
 
+def ensure_project_maven() -> bool:
+    try:
+        from scyjava._cjdk_fetch import cjdk_fetch_maven
+
+        print("Preparing project-managed Maven through scyjava/cjdk ...")
+        cjdk_fetch_maven()
+        print("Project-managed Maven is ready for pyimagej.")
+        return True
+    except Exception as exc:
+        print("Project-managed Maven setup failed.")
+        print(f"Error: {exc}")
+        print("Retry with network access, or configure a valid EIMS_MAVEN_BIN / system.MAVEN_BIN.")
+        return False
+
+
 def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
     fiji_root = resolve_fiji_root(fiji_dir or configured_fiji_path())
     print(f"Checking Fiji root: {fiji_root}")
@@ -590,9 +605,11 @@ def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
         m2_repo_dir = Path.home() / ".m2" / "repository"
         jgo_cache_dir.mkdir(parents=True, exist_ok=True)
         m2_repo_dir.mkdir(parents=True, exist_ok=True)
-        sjconf.set_java_constraints(fetch=False)
+        sjconf.set_java_constraints(fetch="auto")
         sjconf.set_cache_dir(jgo_cache_dir)
         sjconf.set_m2_repo(m2_repo_dir)
+        if not ensure_project_maven():
+            return False
         mode = imagej.Mode.INTERACTIVE if interactive else imagej.Mode.HEADLESS
         print(f"Initializing pyimagej in {mode} mode ...")
         ij = imagej.init(str(fiji_root), mode=mode)
@@ -666,19 +683,14 @@ def install_mmcore(
             print("Next step: make sure CONFIG_PATH points to your real Micro-Manager .cfg file.")
             return install_root
 
+        discovered = "\n".join(f"  - {path}" for path in existing_installs)
+        print("Detected existing Micro-Manager installs in destination:")
+        print(discovered)
         if clean_dest:
             print("Cleaning existing Micro-Manager installs from destination ...")
-            remove_mm_install_dirs(existing_installs)
         else:
-            discovered = "\n".join(f"  - {path}" for path in existing_installs)
-            raise RuntimeError(
-                "Detected existing Micro-Manager installs in destination.\n"
-                f"{discovered}\n"
-                "To avoid accidental overwrite, installation is stopped.\n"
-                "Use one of the following options:\n"
-                "  --reuse-existing   Use the latest existing install and skip reinstall.\n"
-                "  --clean-dest       Remove existing Micro-Manager* directories then install."
-            )
+            print("Defaulting to overwrite: cleaning existing Micro-Manager installs before reinstalling ...")
+        remove_mm_install_dirs(existing_installs)
 
     mmcore_executable = resolve_mmcore_executable()
     command = build_mmcore_install_command(
@@ -807,7 +819,7 @@ def main() -> None:
     parser.add_argument(
         "--clean-dest",
         action="store_true",
-        help="Remove existing Micro-Manager* directories in --mmcore-dest before reinstalling.",
+        help="Remove existing Micro-Manager* directories in --mmcore-dest before reinstalling. This is now the default unless --reuse-existing is used.",
     )
     parser.add_argument(
         "--reuse-existing",
