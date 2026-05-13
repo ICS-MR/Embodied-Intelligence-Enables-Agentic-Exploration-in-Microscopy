@@ -12,6 +12,7 @@ from typing import Any, List, Dict, Tuple, Optional, Sequence, Literal
 import numpy as np
 import os
 import pandas as pd
+import json
 
 try:
     from aicsimageio.types import PhysicalPixelSizes
@@ -294,18 +295,9 @@ class MicroscopeController(BaseTool):
             if overlap < 0.05 or overlap >= 0.5:
                 raise ValueError("Overlap rate must be between 5% and 50%")
 
-            fov_width = self.current_img_width * self.pixel_size
-            fov_height = self.current_img_height * self.pixel_size
-            step_x = fov_width * (1 - overlap)
-            step_y = fov_height * (1 - overlap)
-            cols = max(1, math.ceil(width_micro / step_x))
-            rows = max(1, math.ceil(height_micro / step_y))
-
-            mosaic_height = self.current_img_height * rows
-            mosaic_width = self.current_img_width * cols
-            mosaic = self._deterministic_image(mosaic_height, mosaic_width, fill=int(width_micro + height_micro))
-
-            return mosaic
+            # Simulation mode should preserve control-flow semantics without
+            # allocating full stitched mosaics for large-area scans.
+            return self._deterministic_image(fill=int(width_micro + height_micro))
 
     @tool_func
     def add_acquisition_position(self, name: str, x: float, y: float, width: float, height: float) -> None:
@@ -440,11 +432,8 @@ class MicroscopeController(BaseTool):
 
                     self.set_x_y_position(pos["x"], pos["y"])
                     self.set_z_position(init_z)
-                    frame_height = self.current_img_height
-                    frame_width = self.current_img_width
                     if pos["width"] and pos["height"]:
-                        mock_image = self._acquire_stitch_mosaic(pos["width"], pos["height"])
-                        frame_height, frame_width = mock_image.shape
+                        mock_image = self._deterministic_image(fill=int(pos["width"] + pos["height"]))
                     else:
                         mock_image = self._acquire_single_image()
 
@@ -452,7 +441,7 @@ class MicroscopeController(BaseTool):
                         if frame_idx == 0:
                             frame_image = mock_image
                         else:
-                            frame_image = self._deterministic_image(frame_height, frame_width, fill=frame_idx * 17)
+                            frame_image = self._deterministic_image(fill=frame_idx * 17)
 
                         acquisition_results.append(
                             ImagingData(
@@ -518,6 +507,7 @@ class MicroscopeController(BaseTool):
     @tool_func
     def perform_autobrightness(
         self,
+        tolerance: float = None,
         target_high_percentile: float = 0.82,
         high_percentile: float = 99.5,
         max_saturation_ratio: float = 0.002,
@@ -526,7 +516,7 @@ class MicroscopeController(BaseTool):
         settle_time_sec: float = 0.15,
     ) -> int:
         print("Running function: perform_autobrightness")
-        del target_high_percentile, high_percentile, max_saturation_ratio, min_median_ratio, max_iterations, settle_time_sec
+        del tolerance, target_high_percentile, high_percentile, max_saturation_ratio, min_median_ratio, max_iterations, settle_time_sec
         best_brightness = int(self.current_brightness + 5)
         best_brightness = max(self.Min_brightness, min(best_brightness, self.Max_brightness))
         self.set_brightness(best_brightness)
@@ -555,6 +545,8 @@ class MicroscopeController(BaseTool):
             (54300.0, 33800.0, 500, 500),
             (54415.9, 34164.4, 500, 500),
             (54550.0, 34500.0, 500, 500),
+            (54680.0, 34820.0, 500, 500),
+            (54810.0, 35140.0, 500, 500),
         ]
 
     @tool_func
@@ -593,9 +585,8 @@ class MicroscopeController(BaseTool):
     @tool_func
     def detect_targets_in_image(
             self,
-            image: np.ndarray,
+            image_data: ImagingData,
             target_class: str,
-            pixel_size: float,
             confidence_threshold: float = 0.5,
             device: Optional[Any] = None
     ) -> List[Dict[str, float]]:
@@ -603,9 +594,14 @@ class MicroscopeController(BaseTool):
         del target_class
         del device
 
-        image_2d = _coerce_detection_image_to_2d(image)
-        if pixel_size <= 0:
-            raise ValueError("pixel_size must be positive")
+        if not isinstance(image_data, ImagingData):
+            raise TypeError("image_data must be an ImagingData instance")
+
+        if image_data.pixel_size is None or float(image_data.pixel_size) <= 0:
+            raise ValueError("image_data.pixel_size must be positive")
+
+        image_2d = _coerce_detection_image_to_2d(image_data.image)
+        pixel_size = float(image_data.pixel_size)
 
         image_f = image_2d.astype(np.float32, copy=False)
         if image_f.size == 0:
@@ -629,7 +625,8 @@ class MicroscopeController(BaseTool):
         h, w = image_2d.shape
         img_center_x_px = (w - 1) / 2.0
         img_center_y_px = (h - 1) / 2.0
-        image_center_x_um, image_center_y_um = self.get_x_y_position()
+        image_center_x_um = float(image_data.center_x)
+        image_center_y_um = float(image_data.center_y)
 
         visited = np.zeros(mask.shape, dtype=bool)
         results: List[Dict[str, float]] = []
@@ -951,7 +948,31 @@ class ImageJProcessor(BaseTool):
     ) -> ImageWithMetadata:
         print("Running function: merge_channels")
         del preview_seconds
-        resolved_colors = colors or ['Red', 'Green', 'Blue']
+        def normalize_merge_color(color):
+            raw_color = str(color).strip()
+            color_key = " ".join(raw_color.replace("-", " ").replace("_", " ").split()).lower()
+            aliases = {
+                "brightfield": "Gray",
+                "bright field": "Gray",
+                "bf": "Gray",
+                "transmitted": "Gray",
+                "transmitted light": "Gray",
+                "brightfield transmitted": "Gray",
+                "gray": "Gray",
+                "grey": "Grey",
+                "red": "Red",
+                "green": "Green",
+                "blue": "Blue",
+                "cyan": "Cyan",
+                "magenta": "Magenta",
+                "yellow": "Yellow",
+            }
+            if color_key not in aliases:
+                available_colors = ['Red', 'Green', 'Blue', 'Gray', 'Grey', 'Cyan', 'Magenta', 'Yellow', 'Brightfield']
+                raise ValueError(f"Unsupported color: {color}, available colors: {available_colors}")
+            return aliases[color_key]
+
+        resolved_colors = [normalize_merge_color(color) for color in (colors or ['Red', 'Green', 'Blue'])]
         output_path = Path(self.output_directory, outpath).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.touch(exist_ok=True)
@@ -1008,6 +1029,55 @@ class ImageJProcessor(BaseTool):
         print("Running function: z_projection")
         source = image_meta if isinstance(image_meta, ImageWithMetadata) else self._coerce_image_meta(image_meta)
         return self._clone_image_meta(source, dataset=f"mock_proj_{method}_{source.dataset}")
+
+    @tool_func
+    def trackmate_tracking(
+        self,
+        image_meta,
+        spot_radius_um: float | None = None,
+        max_linking_distance_um: float | None = None,
+        min_track_length: int = 3,
+        out_prefix: str = "trackmate",
+    ) -> dict:
+        print("Running function: trackmate_tracking")
+        del image_meta
+        out_prefix = str(out_prefix or "trackmate").strip().replace("\\", "/").strip("/")
+        if not out_prefix:
+            out_prefix = "trackmate"
+
+        overlay_path = Path(self.output_directory, f"{out_prefix}_overlay.png").expanduser().resolve()
+        tracks_csv_path = Path(self.output_directory, f"{out_prefix}_tracks.csv").expanduser().resolve()
+        summary_path = Path(self.output_directory, f"{out_prefix}_summary.json").expanduser().resolve()
+
+        for path in (overlay_path, tracks_csv_path, summary_path):
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        overlay_path.touch(exist_ok=True)
+        tracks_csv_path.write_text(
+            "track_id,frame,t,x_px,y_px,x_um,y_um,x_image_um,y_image_um,quality\n"
+            "1,0,0,100,120,54000.0,33400.0,65.0,78.0,1.0\n"
+            "1,1,1,112,132,54007.8,33407.8,72.8,85.8,1.0\n"
+            "1,2,2,126,146,54016.9,33416.9,81.9,94.9,1.0\n",
+            encoding="utf-8",
+        )
+        summary = {
+            "overlay_path": str(overlay_path),
+            "tracks_csv_path": str(tracks_csv_path),
+            "summary_path": str(summary_path),
+            "track_count": 1,
+            "spot_count": 3,
+            "parameters": {
+                "spot_radius_um": spot_radius_um,
+                "max_linking_distance_um": max_linking_distance_um,
+                "min_track_length": min_track_length,
+            },
+        }
+        summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+        self._storagemanger.register_file(overlay_path.name, "Mock TrackMate trajectory overlay image", "analysis_platform", "png", False)
+        self._storagemanger.register_file(tracks_csv_path.name, "Mock TrackMate trajectory coordinates", "analysis_platform", "csv", False)
+        self._storagemanger.register_file(summary_path.name, "Mock TrackMate tracking summary", "analysis_platform", "json", False)
+        return summary
 
     @tool_func
     def quantify_fluorescence(self, image_meta) -> float:
@@ -1105,6 +1175,205 @@ class ImageJProcessor(BaseTool):
             pixel_size_x_um=image_meta.pixel_size_x_um,
             pixel_size_y_um=image_meta.pixel_size_y_um,
         )
+
+
+class Frap(BaseTool):
+    planning_hint = (
+        "Use this tool for a compact FRAP workflow API: enable_frap, disable_frap, "
+        "laser_position, and cell_contourextraction. When no single API exactly "
+        "matches the requested outcome, first consider whether the task can be "
+        "achieved by composing these atomic capabilities into a valid short plan."
+    )
+    execution_hint = (
+        "Call enable_frap() before laser_position(). Use "
+        "cell_contourextraction(image_path) to obtain centroid_px coordinates, then "
+        "call disable_frap() when the sequence finishes."
+    )
+
+    def __init__(self, storage_manager=None, output_dir: str = "./output") -> None:
+        self.storage_manager = storage_manager
+        self.output_dir = output_dir
+        self._frap_enabled = False
+
+    @tool_func
+    def enable_frap(self, dry_run: bool = False) -> dict:
+        """
+        Open or switch the FRAP software into FRAP mode.
+
+        Args:
+            dry_run: When True, only report the planned software action.
+
+        Returns:
+            A dictionary describing the resulting FRAP software mode state.
+        """
+        print("Running function: enable_frap")
+        if not dry_run:
+            self._frap_enabled = True
+        return {
+            "status": "ok",
+            "frap_enabled": True,
+            "dry_run": bool(dry_run),
+            "mode_action": "mock_enable",
+            "action": None,
+        }
+
+    @tool_func
+    def disable_frap(self, dry_run: bool = False) -> dict:
+        """
+        Close or exit FRAP mode in the FRAP software.
+
+        Args:
+            dry_run: When True, only report the planned software action.
+
+        Returns:
+            A dictionary describing the resulting FRAP software mode state.
+        """
+        print("Running function: disable_frap")
+        if not dry_run:
+            self._frap_enabled = False
+        return {
+            "status": "ok",
+            "frap_enabled": False,
+            "dry_run": bool(dry_run),
+            "mode_action": "mock_disable",
+            "action": None,
+        }
+
+    @tool_func
+    def laser_position(self, x_px: float, y_px: float, dry_run: bool = False) -> dict:
+        """
+        Move to an image-relative target position and trigger the FRAP click.
+
+        Args:
+            x_px: Horizontal pixel offset relative to the image center, where
+                the image center is always ``(0, 0)``. Positive x moves right
+                from the center. Do not interpret this as a top-left-origin
+                absolute image pixel coordinate.
+            y_px: Vertical pixel offset relative to the image center, where
+                the image center is always ``(0, 0)``. Positive y moves down
+                from the center. Do not interpret this as a top-left-origin
+                absolute image pixel coordinate.
+            dry_run: When True, only report the planned movement and click.
+
+        Returns:
+            A dictionary describing the mapped ROI-panel target and click result.
+        """
+        print("Running function: laser_position")
+        if not self._frap_enabled and not dry_run:
+            raise RuntimeError("FRAP is not enabled. Call enable_frap() before laser_position().")
+        return {
+            "status": "ok",
+            "frap_enabled": self._frap_enabled,
+            "dry_run": bool(dry_run),
+            "coordinate_system": "image_centered_pixels",
+            "input_target_px": {
+                "x_px": float(x_px),
+                "y_px": float(y_px),
+            },
+            "image_pixel_target": {
+                "x_px": float(x_px),
+                "y_px": float(y_px),
+            },
+            "roi_panel_offset_px": {
+                "x_px": int(round(float(x_px))),
+                "y_px": int(round(float(y_px))),
+            },
+            "window": {
+                "title": "mock_frap_window",
+                "left": 0,
+                "top": 0,
+                "width": 512,
+                "height": 512,
+            },
+            "activation": {
+                "status": "planned" if dry_run else "activated",
+                "dry_run": bool(dry_run),
+            },
+            "pre_actions": [],
+            "click": {
+                "status": "planned" if dry_run else "clicked",
+                "screen_x": int(round(float(x_px))),
+                "screen_y": int(round(float(y_px))),
+                "dry_run": bool(dry_run),
+                "move_duration_sec": 0.0,
+            },
+            "post_actions": [],
+        }
+
+    @tool_func
+    def cell_contourextraction(self, image_path: str) -> dict:
+        print("Running function: cell_contourextraction")
+        resolved_path = self._resolve_input_path(image_path)
+        if not resolved_path.exists():
+            return {}
+
+        image_width = 512
+        image_height = 512
+        half_size = 40.0
+        contour_points = [
+            (-half_size, -half_size),
+            (half_size, -half_size),
+            (half_size, half_size),
+            (-half_size, half_size),
+        ]
+        area = float((2 * half_size) * (2 * half_size))
+        perimeter = float(8 * half_size)
+        return {
+            "points": contour_points,
+            "area": area,
+            "perimeter": perimeter,
+            "centroid_px": {
+                "x_px": 0.0,
+                "y_px": 0.0,
+            },
+            "coordinate_system": "image_centered_pixels",
+            "image_width": image_width,
+            "image_height": image_height,
+            "source_image": str(resolved_path),
+        }
+
+    def _resolve_input_path(self, raw_path: str | Path) -> Path:
+        candidate = Path(raw_path).expanduser()
+        registered = self._resolve_registered_input_path(candidate)
+        if registered is not None:
+            return registered
+        if candidate.is_absolute():
+            return candidate.resolve()
+        return Path(self.output_dir, candidate).expanduser().resolve()
+
+    def _resolve_registered_input_path(self, candidate: Path) -> Path | None:
+        if self.storage_manager is None or not hasattr(self.storage_manager, "read_log"):
+            return None
+        try:
+            registered = self.storage_manager.read_log(True)
+        except Exception:
+            return None
+        if not isinstance(registered, dict):
+            return None
+
+        lookup_keys = [item for item in {str(candidate).strip(), candidate.name.strip()} if item]
+        matched_meta = None
+        for key in lookup_keys:
+            meta = registered.get(key)
+            if isinstance(meta, dict):
+                matched_meta = meta
+                break
+
+        if matched_meta is None:
+            for meta in registered.values():
+                if not isinstance(meta, dict):
+                    continue
+                filename = str(meta.get("filename", "") or "").strip()
+                if filename and filename in lookup_keys:
+                    matched_meta = meta
+                    break
+
+        if not isinstance(matched_meta, dict):
+            return None
+        filename = str(matched_meta.get("filename", "") or "").strip()
+        if not filename:
+            return None
+        return Path(self.output_dir, filename).expanduser().resolve()
     
 
 

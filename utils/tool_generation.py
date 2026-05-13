@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set
@@ -33,12 +34,20 @@ Function signature:
 
 Generated docstring:
 """,
-        "usage": """You are a Python expert. Based on the following method definitions, generate a concise and practical usage example.
+        "usage": """You are a Python expert. Based on the following method definitions, generate a concise, correct, and low-risk usage example.
 
 Requirements:
-- Use English comments.
-- Include necessary class instantiation and method calls.
-- Cover the main functionalities.
+- Use English only.
+- Keep the example simple and conservative. Prefer the shortest correct sequence that demonstrates the core API.
+- Use only the provided API methods and the built-in `say()` helper when useful.
+- Treat the documented API methods as atomic capabilities. If the requested behavior is not a one-shot API, you may compose multiple documented API calls with standard Python computation, control flow, and intermediate data generation.
+- Do not import extra libraries unless they are absolutely required by the shown API usage.
+- Do not invent files, hardware state, return schemas, or parameters not supported by the method definitions.
+- Do not add unnecessary complexity such as retries, helper wrappers, dry-run previews, broad exception handling, or multi-branch workflows unless they are directly required by the API contract.
+- If a return value is a dictionary, access only keys that are clearly documented in the method docstring.
+- Avoid dangerous or irreversible behavior in the example. Prefer one straightforward happy-path example with minimal validation.
+- The example output must be code only. Do not include explanatory prose, headings, markdown fences, tables, separators, or notes before or after the code.
+- Use ASCII characters only in the generated code unless non-ASCII is explicitly required by the API contract.
 - Output format must strictly follow:
 # Example input
 <A brief task description>
@@ -55,7 +64,14 @@ Requirements:
 - Use English
 - List by functional modules (start each with "- ")
 - One sentence per point, concise and clear
-- Do NOT repeat method names; abstract their purpose
+- Do NOT repeat method names; abstract their purpose into planner-relevant operational capabilities
+- Prefer task-level capability descriptions over GUI, click, window, or other implementation details when possible
+- Describe what the tool can accomplish for planning, not merely what each function literally says
+- When several low-level methods support one higher-level workflow ability, summarize them as a single higher-level capability
+- Keep the abstraction bounded by the documented API. Do not invent capabilities that cannot be achieved either directly by a documented public API or by composing documented public APIs.
+- It is allowed to describe a higher-level capability that can be achieved by combining multiple documented atomic capabilities, but make that abstraction operational and realistic rather than speculative.
+- When composition matters, prefer describing the resulting accomplishable task capability instead of restating each low-level action separately.
+- When documented atomic capabilities can be repeatedly applied over computed point sequences to realize a higher-level spatial or procedural task, it is allowed to summarize that higher-level accomplishable capability explicitly.
 - Ignore placeholder texts like 'auto generated docstring failed'
 - Do NOT include code, examples, or prefixes
 
@@ -64,14 +80,20 @@ Methods:
 
 Capabilities summary:
 """,
-        "task_example": """You are a task planning expert. Generate a usage example in the specified format based on the tool's capabilities.
+        "task_example": """You are a task planning expert. Generate a simple, correct, and low-risk planning example in the specified format based on the tool's capabilities.
 
 Tool name: {tool_id}
 Capabilities:
 {capabilities}
 
 Requirements:
-- Generate a realistic, specific user instruction (# Example input)
+- Generate a realistic, specific, and simple user instruction (# Example input).
+- Keep the plan short and conservative. Prefer 1 to 4 steps.
+- Use only capabilities that are explicitly documented.
+- Treat documented capabilities as atomic building blocks. Do not mark a task unsupported only because there is no one-shot API if the requested outcome can be achieved by composing documented capabilities into a valid short plan.
+- Do not invent hidden state such as "current image", "current ROI", or unspecified hardware configuration when the capability description requires an explicit input.
+- If the capability involves image input, prefer an explicit OME-TIFF-style path such as `sample.ome.tif` instead of an implicit image reference.
+- Do not expose internal implementation details in planner commands when a higher-level tool capability already covers them.
 - Output must strictly follow:
 <Task Ready>
 {{"Status": "OK"}}
@@ -87,6 +109,7 @@ Requirements:
 </Task steps>
 - The 'command' must be based ONLY on the given capabilities
 - Both input and command must be in English
+- Each command should be high-level, short, and operationally clear.
 - ONLY output # Example input and # Example output sections, no extra text
 
 Generate example:
@@ -124,7 +147,7 @@ class LLMAgent:
         self.timeout = timeout
         self.system_prompt = Config.PROMPTS["system_role"].strip()
 
-    def safe_generate(self, prompt: str, fallback: str) -> str:
+    def generate_required(self, prompt: str) -> str:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -136,14 +159,11 @@ class LLMAgent:
                 timeout=self.timeout,
             )
             content = (response.choices[0].message.content or "").strip()
-            return content or fallback
-        except Exception:
-            return fallback
-
-
-class FallbackLLMAgent:
-    def safe_generate(self, _prompt: str, fallback: str) -> str:
-        return fallback
+            if not content:
+                raise RuntimeError("LLM returned empty content during tool prompt generation.")
+            return content
+        except Exception as exc:
+            raise RuntimeError(f"Tool prompt generation failed: {exc}") from exc
 
 
 class ToolDocGenerator:
@@ -152,25 +172,48 @@ class ToolDocGenerator:
         self.prompts = Config.PROMPTS
 
     def generate_class_usage_example(self, public_methods: str, tool_cls: type[BaseTool]) -> str:
-        fallback = self._build_usage_fallback(tool_cls)
+        custom_example = tool_cls.get_usage_example_block(tool_id=tool_cls.get_default_tool_id())
+        if custom_example.strip():
+            return custom_example.strip()
         prompt = self.prompts["usage"].format(methods=public_methods)
-        return self.llm_agent.safe_generate(prompt, fallback)
+        return self.llm_agent.generate_required(prompt)
 
     def summarize_class_capabilities(self, public_methods: str, tool_cls: type[BaseTool]) -> str:
-        fallback = self._build_capability_fallback(tool_cls)
         prompt = self.prompts["summary"].format(methods=public_methods)
-        raw_summary = self.llm_agent.safe_generate(prompt, fallback)
+        raw_summary = self.llm_agent.generate_required(prompt)
         lines = [
             line for line in raw_summary.splitlines()
             if not line.strip().startswith(("Capabilities summary", "Summary", ":", "```", "Note", "Requirement"))
         ]
         cleaned = "\n".join(line for line in lines if line.strip()).strip()
-        return cleaned or fallback
+        if not cleaned:
+            raise RuntimeError(
+                f"Tool prompt generation produced an unusable capability summary for {tool_cls.__name__}."
+            )
+        return cleaned
 
     def generate_task_example(self, tool_id: str, capability_summary: str) -> str:
-        fallback = self._build_task_example_fallback(tool_id, capability_summary)
         prompt = self.prompts["task_example"].format(tool_id=tool_id, capabilities=capability_summary)
-        return self.llm_agent.safe_generate(prompt, fallback)
+        return self.llm_agent.generate_required(prompt)
+
+    def _build_abstract_planning_submodule_block(
+        self,
+        tool_cls: type[BaseTool],
+        tool_id: str,
+        capability_summary: str,
+        planning_hint: str = "",
+    ) -> str:
+        lines = [f"### {tool_id}"]
+        summary_lines = [line.strip() for line in capability_summary.splitlines() if line.strip()]
+        if summary_lines:
+            lines.extend(summary_lines)
+        else:
+            lines.extend(tool_cls.get_planning_capability_lines())
+        hint_text = planning_hint.strip() or tool_cls.get_planning_hint()
+        if hint_text:
+            lines.append(f"- Preferred usage: {hint_text}")
+        lines.append("---")
+        return "\n".join(lines)
 
     def build_execution_prompt_text(
         self,
@@ -197,7 +240,12 @@ class ToolDocGenerator:
     ) -> str:
         public_methods = tool_cls.get_formatted_tool_methods(inject_say=False)
         capability_summary = self.summarize_class_capabilities(public_methods, tool_cls)
-        submodule_block = tool_cls.get_planning_submodule_block(tool_id=tool_id, planning_hint=planning_hint)
+        submodule_block = self._build_abstract_planning_submodule_block(
+            tool_cls,
+            tool_id,
+            capability_summary,
+            planning_hint=planning_hint,
+        )
         task_example = self.generate_task_example(tool_id, capability_summary)
         return "\n\n".join(
             section
@@ -213,7 +261,7 @@ class ToolDocGenerator:
         methods = tool_cls.get_public_methods()
         lines = ["# Example input", f"Use {tool_cls.__name__} for a simple task.", "# Example output"]
         lines.append(f"tool = {tool_cls.__name__}(storage_manager=None, output_dir='./output')")
-        for method_name in methods[:2]:
+        for method_name in methods[:1]:
             signature = inspect.signature(getattr(tool_cls, method_name))
             args = []
             for param in signature.parameters.values():
@@ -239,22 +287,51 @@ class ToolDocGenerator:
 
     def _build_task_example_fallback(self, tool_id: str, capability_summary: str) -> str:
         first_summary = next((line.strip("- ").strip() for line in capability_summary.splitlines() if line.strip()), "use the tool")
+        example_input = f"Use the {tool_id} tool to {first_summary.lower().rstrip('.') }."
+        steps = [
+            {
+                "subtask_index": 1,
+                "module": tool_id,
+                "command": "Run the appropriate tool action based on the documented capability",
+            }
+        ]
+        if tool_id == "frap":
+            example_input = (
+                "Use the frap tool to enable FRAP mode, extract a cell contour from "
+                "`cell_image.ome.tif`, move the laser to the detected centroid, and then disable FRAP mode."
+            )
+            steps = [
+                {
+                    "subtask_index": 1,
+                    "module": tool_id,
+                    "command": "Enable FRAP mode for the session",
+                },
+                {
+                    "subtask_index": 2,
+                    "module": tool_id,
+                    "command": "Extract the cell contour from `cell_image.ome.tif` to obtain centroid_px coordinates",
+                },
+                {
+                    "subtask_index": 3,
+                    "module": tool_id,
+                    "command": "Move the laser to the detected centroid coordinates and trigger the FRAP click",
+                },
+                {
+                    "subtask_index": 4,
+                    "module": tool_id,
+                    "command": "Disable FRAP mode after the click sequence",
+                },
+            ]
         return "\n".join(
             [
                 "# Example input",
-                f"Use the {tool_id} tool to {first_summary.lower().rstrip('.') }.",
+                example_input,
                 "# Example output",
                 "<Task Ready>",
                 '{"Status": "OK"}',
                 "</Task Ready>",
                 "<Task steps>",
-                "[",
-                "    {",
-                '        "subtask_index": 1,',
-                f'        "module": "{tool_id}",',
-                '        "command": "Run the appropriate tool action based on the documented capability"',
-                "    }",
-                "]",
+                json.dumps(steps, indent=4, ensure_ascii=False),
                 "</Task steps>",
             ]
         )
@@ -270,10 +347,11 @@ class ToolDocGenerator:
 
 class ToolProcessingPipeline:
     def __init__(self, openai_api_key: str, base_url: str, model_name: str):
-        if openai_api_key and openai_api_key != "your-openai-api-key":
-            self.llm_agent = LLMAgent(openai_api_key, base_url=base_url, model=model_name)
-        else:
-            self.llm_agent = FallbackLLMAgent()
+        if not openai_api_key or openai_api_key == "your-openai-api-key":
+            raise EnvironmentError(
+                "OPENAI_API_KEY is not configured. Prompt artifact generation requires a real LLM and does not support fallback output."
+            )
+        self.llm_agent = LLMAgent(openai_api_key, base_url=base_url, model=model_name)
         self.doc_generator = ToolDocGenerator(self.llm_agent)
 
     def run_pipeline(

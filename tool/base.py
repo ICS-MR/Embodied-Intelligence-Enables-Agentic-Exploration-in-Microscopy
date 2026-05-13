@@ -274,15 +274,43 @@ class BaseTool(metaclass=ToolMeta):
         resolved_tool_id = (tool_id or cls.get_default_tool_id()).strip() or cls.get_default_tool_id()
         hint_text = execution_hint.strip() or cls.get_execution_hint()
         sections = [
-            f"Tool ID: {resolved_tool_id}",
-            f"Tool class: {cls.__name__}",
-            "You are generating Python code for this tool only.",
-            "Use only the public methods listed below and respect their parameter types, defaults, and docstrings.",
-            "Available API methods:",
+            "# Role and Objectives",
+            "\n".join(
+                [
+                    f"Role: A professional assistant specialized in generating Python code for the `{resolved_tool_id}` tool.",
+                    "Core Objective: Generate safe, executable Python code that uses the provided tool API correctly and only when supported by the available context.",
+                    f"Tool class: {cls.__name__}",
+                    f"Tool ID: {resolved_tool_id}",
+                ]
+            ),
+            "# Behavioral Constraints",
+            "\n".join(
+                [
+                    "- Language use: English.",
+                    "- Use the provided public API functions for tool actions and external side effects; use standard Python for computation, control flow, validation, and data preparation when needed.",
+                    "- Treat public API methods as atomic capabilities. When a requested behavior is not exposed as a one-shot API, consider whether it can be implemented by composing available atomic capabilities with standard Python computation, control flow, and intermediate data generation.",
+                    "- Respect parameter types, defaults, return values, and docstrings.",
+                    "- Do not assume missing files, parameters, or runtime state when they are not provided.",
+                    "- Prefer sequential, explicit execution steps without skipping required checks.",
+                    "- Use the provided `say()` helper to log major actions, progress, and errors.",
+                ]
+            ),
+            "# API function",
             cls.get_formatted_tool_methods(inject_say=True),
+            "# Code Generation Rules",
+            "\n".join(
+                [
+                    "- Generate pure runnable Python code without markdown code fences.",
+                    "- Output code only. Do not include prose explanations, headings, bullet points, tables, separators, or any text before or after the Python code.",
+                    "- Use only ASCII characters in generated code unless non-ASCII is explicitly required by the task.",
+                    "- Keep the code focused on the requested task and the available tool API.",
+                    "- Validate critical inputs when the task implies safety or boundary checks.",
+                    "- Log major operations with `say()` before or during execution when helpful.",
+                ]
+            ),
         ]
         if hint_text:
-            sections.append("Execution guidance:\n" + hint_text)
+            sections.append("# Tool-Specific Guidance\n" + hint_text)
         return "\n\n".join(section for section in sections if section.strip())
 
     @classmethod
@@ -295,10 +323,16 @@ class BaseTool(metaclass=ToolMeta):
             f"Tool ID: {resolved_tool_id}",
             f"Tool class: {cls.__name__}",
             "Use the tool name above directly in the planner `module` field.",
+            "Treat public API methods as atomic capabilities. Do not assume a task is unsupported merely because no single API exactly matches the requested outcome; first consider whether the outcome can be achieved by composing available atomic capabilities into a valid plan.",
             "Capabilities:",
             "\n".join(descriptor_lines),
         ]
         if hint_text:
             sections.append("Planning guidance:\n" + hint_text)
         return "\n\n".join(section for section in sections if section.strip())
+
+    @classmethod
+    def get_usage_example_block(cls, *, tool_id: str | None = None) -> str:
+        del tool_id
+        return ""
     
