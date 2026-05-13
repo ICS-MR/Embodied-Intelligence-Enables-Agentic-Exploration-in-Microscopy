@@ -1533,6 +1533,7 @@ class MicroscopeController(BaseTool):
     @tool_func
     def perform_autobrightness(
         self,
+        tolerance: Optional[float] = None,
         target_high_percentile: float = 0.82,
         high_percentile: float = 99.5,
         max_saturation_ratio: float = 0.002,
@@ -1540,6 +1541,7 @@ class MicroscopeController(BaseTool):
         max_iterations: int = 8,
         settle_time_sec: float = 0.15,
     ) -> int:
+        del tolerance  # Kept for compatibility with older prompt signatures.
         if self.get_channel() != '1-NONE':
             self.set_brightness(0)
             return 0
@@ -1877,13 +1879,19 @@ class MicroscopeController(BaseTool):
     @tool_func
     def detect_targets_in_image(
             self,
-            image: np.ndarray,
+            image_data: ImagingData,
             target_class: str,
-            pixel_size: float,
             confidence_threshold: float = 0.5,
             device: Optional[Any] = None
     ) -> List[Dict[str, float]]:
-        image_2d = _coerce_detection_image_to_2d(image)
+        if not isinstance(image_data, ImagingData):
+            raise TypeError("image_data must be an ImagingData instance")
+
+        if image_data.pixel_size is None or float(image_data.pixel_size) <= 0:
+            raise ValueError("image_data.pixel_size must be a positive number")
+
+        image_2d = _coerce_detection_image_to_2d(image_data.image)
+        pixel_size = float(image_data.pixel_size)
         if torch is None or init_detector is None or inference_detector is None:
             raise RuntimeError(
                 "MMDetection dependencies are unavailable. Please install a compatible "
@@ -1893,7 +1901,8 @@ class MicroscopeController(BaseTool):
         h, w = image_2d.shape
         img_center_x_px = (w - 1) / 2.0
         img_center_y_px = (h - 1) / 2.0
-        image_center_x_um, image_center_y_um = self.get_x_y_position()
+        image_center_x_um = float(image_data.center_x)
+        image_center_y_um = float(image_data.center_y)
 
         if device is None:
             device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -1949,7 +1958,7 @@ class MicroscopeController(BaseTool):
             cy_px = (y1 + y2) / 2.0
 
             offset_x_um = (cx_px - img_center_x_px) * pixel_size
-            offset_y_um = (cy_px - img_center_y_px) * pixel_size
+            offset_y_um = -(cy_px - img_center_y_px) * pixel_size
             center_x_um = image_center_x_um + offset_x_um
             center_y_um = image_center_y_um + offset_y_um
 

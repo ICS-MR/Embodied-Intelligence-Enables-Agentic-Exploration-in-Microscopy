@@ -14,6 +14,7 @@ import scyjava.config as sjconf
 import tifffile
 from scyjava import jimport
 import json
+import csv
 from dataclasses import dataclass
 from typing import Any, Callable, List, Tuple, Optional
 from bootstrap.config import load_detection_targets
@@ -611,6 +612,17 @@ def _resolve_target_detection_spec(target_type: str) -> dict[str, Any]:
             f"Available targets: {', '.join(target_specs.keys())}"
         )
 
+    resolved_spec.setdefault("target_class_id", 0)
+    resolved_spec.setdefault("target_class_name", normalized)
+    resolved_spec.setdefault("score_thr", 0.2)
+    resolved_spec.setdefault("output_filename", f"{normalized}_locations_list.json")
+    resolved_spec.setdefault("model_config", "")
+    resolved_spec.setdefault("model_checkpoint", "")
+    try:
+        resolved_spec["score_thr"] = float(resolved_spec.get("score_thr", 0.2))
+    except (TypeError, ValueError):
+        resolved_spec["score_thr"] = 0.2
+
     for field_name in ("model_config", "model_checkpoint"):
         field_value = str(resolved_spec.get(field_name) or "").strip()
         if field_value:
@@ -1088,14 +1100,43 @@ class ImageJProcessor(BaseTool):
         for idx, ds in enumerate(datasets):
             imp = self.dataset_to_imp(ds)
             imps.append(imp)
-        colors_map = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow']
+        # ImageJ's Merge Channels command addresses color slots by c-index.
+        # c4 is the grayscale slot; c5-c7 are cyan/magenta/yellow.
+        color_slots = {
+            'Red': 1,
+            'Green': 2,
+            'Blue': 3,
+            'Gray': 4,
+            'Grey': 4,
+            'Cyan': 5,
+            'Magenta': 6,
+            'Yellow': 7,
+        }
 
         parts = []
+        color_aliases = {
+            'Brightfield': 'Gray',
+            'Bright field': 'Gray',
+            'Bf': 'Gray',
+            'Transmitted': 'Gray',
+            'Transmitted light': 'Gray',
+            'Transmitted_light': 'Gray',
+            'Brightfield/transmitted': 'Gray',
+            'Brightfield_transmitted': 'Gray',
+            'Gray': 'Gray',
+            'Grey': 'Grey',
+        }
+
         for color, imp in zip(colors, imps):
-            if color not in colors_map:
-                raise ValueError(f"Unsupported color: {color}, available colors: {colors_map}")
-            i = colors_map.index(color)
-            parts.append(f"c{i + 1}={imp.getTitle()}")
+            raw_color = str(color).strip()
+            normalized_color = raw_color.replace("-", " ").replace("_", " ")
+            color_key = " ".join(normalized_color.split()).capitalize()
+            color_key = color_aliases.get(color_key, color_key)
+            channel_index = color_slots.get(color_key)
+            if channel_index is None:
+                available_colors = ['Red', 'Green', 'Blue', 'Gray', 'Grey', 'Cyan', 'Magenta', 'Yellow', 'Brightfield']
+                raise ValueError(f"Unsupported color: {color}, available colors: {available_colors}")
+            parts.append(f"c{channel_index}={imp.getTitle()}")
         parts.append("create")
         outpath = os.path.join(self.output_directory, outpath)
         os.makedirs(os.path.dirname(outpath), exist_ok=True)
@@ -1249,13 +1290,26 @@ class ImageJProcessor(BaseTool):
         
         Parameters:
             image_meta: Input image and metadata
-            magnification: Objective lens magnification, supporting 40, 60, 100
+            magnification: Objective lens magnification. Calibrated PSFs are used for
+                40, 60, and 100. If 4, 10, or 20 are requested and no calibrated PSF file
+                exists, an approximate Gaussian PSF is generated so the workflow can run.
             iterations: Number of deconvolution iterations
             out_filename: Output file name (without path)
             out_dir: Output directory, use self.output_directory if None
         """
+        try:
+            magnification = int(magnification)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid magnification: {magnification!r}") from exc
+
+        if out_dir is None:
+            out_dir = self.output_directory
+
         # Select PSF path based on magnification
         psf_mapping = {
+            4: ROOT_DIR / "PSF" / "4x.tif",
+            10: ROOT_DIR / "PSF" / "10x.tif",
+            20: ROOT_DIR / "PSF" / "20x.tif",
             40: PSF_40X,
             60: PSF_60X,
             100: PSF_100X,
@@ -1269,11 +1323,10 @@ class ImageJProcessor(BaseTool):
             )
 
         psf_path = _resolve_project_path(psf_mapping[magnification])
-        if not os.path.exists(psf_path):
+        if not os.path.exists(psf_path) and magnification in (4, 10, 20):
+            psf_path = self._get_or_create_gaussian_psf_path(magnification, out_dir)
+        elif not os.path.exists(psf_path):
             raise FileNotFoundError(f"PSF file does not exist: {psf_path} (corresponding to {magnification}x objective)")
-
-        if out_dir is None:
-            out_dir = self.output_directory
 
         print(f"Running {magnification}x deconvolution (PSF: {psf_path})...")
         decon_dataset = self._richardson_lucy_impl(
@@ -1287,6 +1340,28 @@ class ImageJProcessor(BaseTool):
             pixel_size_x_um=image_meta.pixel_size_x_um,
             pixel_size_y_um=image_meta.pixel_size_y_um,
         )
+
+    def _get_or_create_gaussian_psf_path(self, magnification: int, out_dir: str) -> str:
+        """Create an approximate 2D Gaussian PSF for magnifications without calibrated PSFs."""
+        psf_dir = os.path.join(out_dir, "generated_psf")
+        os.makedirs(psf_dir, exist_ok=True)
+        psf_path = os.path.join(psf_dir, f"{magnification}x_gaussian_psf.tif")
+        if os.path.exists(psf_path):
+            return psf_path
+
+        size = 60
+        sigma_by_magnification = {
+            4: 5.0,
+            20: 2.5,
+        }
+        sigma = sigma_by_magnification.get(magnification, 2.0)
+        axis = np.arange(size, dtype=np.float32) - ((size - 1) / 2.0)
+        xx, yy = np.meshgrid(axis, axis)
+        psf = np.exp(-(xx * xx + yy * yy) / (2.0 * sigma * sigma))
+        psf /= max(float(psf.max()), 1e-12)
+        psf_u16 = np.maximum(np.rint(psf * 4095.0), 1).astype(np.uint16)
+        tifffile.imwrite(psf_path, psf_u16)
+        return psf_path
 
     def _richardson_lucy_impl(
         self,
@@ -1420,6 +1495,362 @@ class ImageJProcessor(BaseTool):
         imp.close()
         projected_imp.close()
         return dataset
+
+    # ----------------- TrackMate tracking -----------------
+    @tool_func
+    def trackmate_tracking(
+        self,
+        image_meta: ImageWithMetadata,
+        spot_radius_um: Optional[float] = None,
+        max_linking_distance_um: Optional[float] = None,
+        min_track_length: int = 3,
+        out_prefix: str = "trackmate",
+    ) -> dict[str, Any]:
+        """
+        Run Fiji TrackMate on a time-lapse image and save trajectory outputs.
+
+        Parameters are intentionally compact for agent use. If radius or linking
+        distance is omitted, conservative defaults are inferred from pixel size.
+        """
+        self._require_imagej_initialized()
+        pixel_size_um = max(float(image_meta.pixel_size_x_um), float(image_meta.pixel_size_y_um), 1e-6)
+        if spot_radius_um is None:
+            spot_radius_um = max(pixel_size_um * 5.0, 1.0)
+        if max_linking_distance_um is None:
+            max_linking_distance_um = max(float(spot_radius_um) * 3.0, pixel_size_um * 6.0)
+
+        spot_radius_um = float(spot_radius_um)
+        max_linking_distance_um = float(max_linking_distance_um)
+        min_track_length = max(1, int(min_track_length))
+        out_prefix = str(out_prefix or "trackmate").strip().replace("\\", "/").strip("/")
+        if not out_prefix:
+            out_prefix = "trackmate"
+
+        tracks = self._run_trackmate_impl(
+            image_meta,
+            spot_radius_um=spot_radius_um,
+            max_linking_distance_um=max_linking_distance_um,
+            min_track_length=min_track_length,
+        )
+
+        frames = self._extract_stack_frames_for_tracking(image_meta.dataset)
+        overlay = self._render_trackmate_overlay(
+            frames,
+            tracks,
+            image_meta=image_meta,
+            line_width=3,
+        )
+
+        overlay_filename = f"{out_prefix}_overlay.png"
+        csv_filename = f"{out_prefix}_tracks.csv"
+        summary_filename = f"{out_prefix}_summary.json"
+        overlay_path = os.path.join(self.output_directory, overlay_filename)
+        csv_path = os.path.join(self.output_directory, csv_filename)
+        summary_path = os.path.join(self.output_directory, summary_filename)
+        os.makedirs(os.path.dirname(overlay_path), exist_ok=True)
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+        os.makedirs(os.path.dirname(summary_path), exist_ok=True)
+
+        cv2 = _get_cv2()
+        if not cv2.imwrite(overlay_path, cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR)):
+            raise RuntimeError(f"Failed to save TrackMate overlay image: {overlay_path}")
+
+        spot_count = self._write_trackmate_csv(csv_path, tracks)
+        summary = {
+            "overlay_path": overlay_path,
+            "tracks_csv_path": csv_path,
+            "summary_path": summary_path,
+            "track_count": len(tracks),
+            "spot_count": spot_count,
+            "parameters": {
+                "spot_radius_um": spot_radius_um,
+                "max_linking_distance_um": max_linking_distance_um,
+                "min_track_length": min_track_length,
+            },
+        }
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+
+        self._storagemanger.register_file(
+            overlay_filename,
+            "TrackMate trajectory overlay image",
+            "analysis_platform",
+            "png",
+            False,
+        )
+        self._storagemanger.register_file(
+            csv_filename,
+            "TrackMate trajectory coordinates",
+            "analysis_platform",
+            "csv",
+            False,
+        )
+        self._storagemanger.register_file(
+            summary_filename,
+            "TrackMate tracking summary",
+            "analysis_platform",
+            "json",
+            False,
+        )
+        return summary
+
+    def _run_trackmate_impl(
+        self,
+        image_meta: ImageWithMetadata,
+        *,
+        spot_radius_um: float,
+        max_linking_distance_um: float,
+        min_track_length: int,
+    ) -> list[dict[str, Any]]:
+        imp = self.dataset_to_imp(image_meta.dataset)
+        try:
+            calibration = imp.getCalibration()
+            calibration.pixelWidth = float(image_meta.pixel_size_x_um)
+            calibration.pixelHeight = float(image_meta.pixel_size_y_um)
+            try:
+                calibration.setUnit("micron")
+            except Exception:
+                calibration.setUnit("um")
+            imp.setCalibration(calibration)
+
+            Model = jimport("fiji.plugin.trackmate.Model")
+            Settings = jimport("fiji.plugin.trackmate.Settings")
+            TrackMate = jimport("fiji.plugin.trackmate.TrackMate")
+            LogDetectorFactory = jimport("fiji.plugin.trackmate.detection.LogDetectorFactory")
+            SparseLAPTrackerFactory = jimport("fiji.plugin.trackmate.tracking.jaqaman.SparseLAPTrackerFactory")
+            LAPUtils = jimport("fiji.plugin.trackmate.tracking.LAPUtils")
+            HashMap = jimport("java.util.HashMap")
+
+            model = Model()
+            settings = Settings()
+            settings.setFrom(imp)
+
+            detector_settings = HashMap()
+            detector_settings.put("DO_SUBPIXEL_LOCALIZATION", True)
+            detector_settings.put("RADIUS", float(spot_radius_um))
+            detector_settings.put("TARGET_CHANNEL", 1)
+            detector_settings.put("THRESHOLD", 0.0)
+            detector_settings.put("DO_MEDIAN_FILTERING", False)
+            settings.detectorFactory = LogDetectorFactory()
+            settings.detectorSettings = detector_settings
+
+            tracker_settings = LAPUtils.getDefaultLAPSettingsMap()
+            tracker_settings.put("LINKING_MAX_DISTANCE", float(max_linking_distance_um))
+            tracker_settings.put("ALLOW_GAP_CLOSING", True)
+            tracker_settings.put("GAP_CLOSING_MAX_DISTANCE", float(max_linking_distance_um) * 1.5)
+            tracker_settings.put("GAP_CLOSING_MAX_FRAME_GAP", 2)
+            tracker_settings.put("ALLOW_TRACK_SPLITTING", False)
+            tracker_settings.put("ALLOW_TRACK_MERGING", False)
+            settings.trackerFactory = SparseLAPTrackerFactory()
+            settings.trackerSettings = tracker_settings
+
+            try:
+                settings.addAllAnalyzers()
+            except Exception:
+                logger.debug("TrackMate addAllAnalyzers failed; continuing with core tracking.", exc_info=True)
+
+            trackmate = TrackMate(model, settings)
+            if not bool(trackmate.checkInput()):
+                raise RuntimeError(f"TrackMate input check failed: {trackmate.getErrorMessage()}")
+            if not bool(trackmate.process()):
+                raise RuntimeError(f"TrackMate processing failed: {trackmate.getErrorMessage()}")
+            return self._extract_trackmate_tracks(
+                model,
+                image_meta=image_meta,
+                width=int(imp.getWidth()),
+                height=int(imp.getHeight()),
+                min_track_length=min_track_length,
+            )
+        finally:
+            try:
+                imp.close()
+            except Exception:
+                pass
+
+    def _extract_trackmate_tracks(
+        self,
+        model,
+        *,
+        image_meta: ImageWithMetadata,
+        width: int,
+        height: int,
+        min_track_length: int,
+    ) -> list[dict[str, Any]]:
+        track_model = model.getTrackModel()
+        track_ids = list(track_model.trackIDs(True))
+        tracks: list[dict[str, Any]] = []
+        center_x_px = (width - 1) / 2.0
+        center_y_px = (height - 1) / 2.0
+        for track_id in track_ids:
+            spots = list(track_model.trackSpots(track_id))
+            points: list[dict[str, float]] = []
+            for spot in spots:
+                frame = spot.getFeature("FRAME")
+                x_local_um = spot.getFeature("POSITION_X")
+                y_local_um = spot.getFeature("POSITION_Y")
+                t = spot.getFeature("POSITION_T")
+                quality = spot.getFeature("QUALITY")
+                if frame is None or x_local_um is None or y_local_um is None:
+                    continue
+                x_px = float(x_local_um) / float(image_meta.pixel_size_x_um)
+                y_px = float(y_local_um) / float(image_meta.pixel_size_y_um)
+                x_stage_um = float(image_meta.center_x_um) + (x_px - center_x_px) * float(image_meta.pixel_size_x_um)
+                y_stage_um = float(image_meta.center_y_um) + (y_px - center_y_px) * float(image_meta.pixel_size_y_um)
+                points.append(
+                    {
+                        "frame": int(round(float(frame))),
+                        "x_px": x_px,
+                        "y_px": y_px,
+                        "x_um": x_stage_um,
+                        "y_um": y_stage_um,
+                        "x_image_um": float(x_local_um),
+                        "y_image_um": float(y_local_um),
+                        "t": float(t) if t is not None else float(frame),
+                        "quality": float(quality) if quality is not None else 0.0,
+                    }
+                )
+
+            points.sort(key=lambda item: (item["frame"], item["t"]))
+            if len(points) < min_track_length:
+                continue
+            tracks.append({"track_id": int(track_id), "points": points})
+        tracks.sort(key=lambda item: item["track_id"])
+        return tracks
+
+    def _extract_stack_frames_for_tracking(self, dataset) -> np.ndarray:
+        np_xarray = self.ij.py.to_xarray(dataset)
+        data = np.asarray(np_xarray.data)
+        dims = list(getattr(np_xarray, "dims", ()))
+        if not dims:
+            if data.ndim == 2:
+                return data[np.newaxis, ...].astype(np.float32, copy=False)
+            if data.ndim == 3:
+                return data.astype(np.float32, copy=False)
+            raise ValueError(f"Cannot interpret unnamed dataset as time-lapse image: shape={data.shape}")
+
+        row_dim = next((name for name in ("row", "y") if name in dims), None)
+        col_dim = next((name for name in ("col", "x") if name in dims), None)
+        if row_dim is None or col_dim is None:
+            raise ValueError(f"Dataset does not expose spatial axes as row/col or y/x: dims={dims}")
+
+        frame_dim = None
+        for candidate in ("t", "time", "frame", "pln", "z"):
+            if candidate in dims and int(data.shape[dims.index(candidate)]) > 1:
+                frame_dim = candidate
+                break
+        if frame_dim is None:
+            frame_dim = row_dim
+
+        selection = []
+        for dim_name in dims:
+            if dim_name in {frame_dim, row_dim, col_dim}:
+                selection.append(slice(None))
+            else:
+                selection.append(0)
+        selected = np.asarray(data[tuple(selection)])
+        selected_dims = [dim_name for dim_name, selector in zip(dims, selection) if isinstance(selector, slice)]
+        if frame_dim == row_dim:
+            return selected[np.newaxis, ...].astype(np.float32, copy=False)
+
+        axes = [selected_dims.index(frame_dim), selected_dims.index(row_dim), selected_dims.index(col_dim)]
+        return np.transpose(selected, axes=axes).astype(np.float32, copy=False)
+
+    def _render_trackmate_overlay(
+        self,
+        frames: np.ndarray,
+        tracks: list[dict[str, Any]],
+        *,
+        image_meta: ImageWithMetadata,
+        line_width: int,
+    ) -> np.ndarray:
+        cv2 = _get_cv2()
+        if frames.ndim != 3:
+            raise ValueError(f"Expected frames with shape (T, Y, X), got {frames.shape}")
+        height, width = frames.shape[1:]
+        overlay = np.zeros((height, width, 3), dtype=np.uint8)
+        palette = [
+            (255, 214, 10),
+            (60, 220, 80),
+            (80, 130, 230),
+            (255, 105, 140),
+            (210, 40, 255),
+            (255, 140, 20),
+            (70, 220, 220),
+            (180, 220, 60),
+        ]
+        for idx, track in enumerate(tracks):
+            color = palette[idx % len(palette)]
+            pixel_points = [
+                self._trackmate_point_to_pixel(point, width=width, height=height)
+                for point in track["points"]
+            ]
+            for start, end in zip(pixel_points, pixel_points[1:]):
+                cv2.line(overlay, start, end, color, max(1, int(line_width)), lineType=cv2.LINE_AA)
+            if pixel_points:
+                cv2.circle(overlay, pixel_points[-1], max(2, int(line_width) + 1), color, -1, lineType=cv2.LINE_AA)
+
+        label = f"Step {max(0, frames.shape[0] - 1)}"
+        cv2.putText(
+            overlay,
+            label,
+            (max(4, width - 96), max(18, height - 14)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+        return overlay
+
+    def _trackmate_point_to_pixel(
+        self,
+        point: dict[str, float],
+        *,
+        width: int,
+        height: int,
+    ) -> tuple[int, int]:
+        return (
+            int(np.clip(round(float(point["x_px"])), 0, width - 1)),
+            int(np.clip(round(float(point["y_px"])), 0, height - 1)),
+        )
+
+    def _write_trackmate_csv(self, csv_path: str, tracks: list[dict[str, Any]]) -> int:
+        spot_count = 0
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "track_id",
+                    "frame",
+                    "t",
+                    "x_px",
+                    "y_px",
+                    "x_um",
+                    "y_um",
+                    "x_image_um",
+                    "y_image_um",
+                    "quality",
+                ],
+            )
+            writer.writeheader()
+            for track in tracks:
+                for point in track["points"]:
+                    writer.writerow(
+                        {
+                            "track_id": track["track_id"],
+                            "frame": point["frame"],
+                            "t": point["t"],
+                            "x_px": point["x_px"],
+                            "y_px": point["y_px"],
+                            "x_um": point["x_um"],
+                            "y_um": point["y_um"],
+                            "x_image_um": point["x_image_um"],
+                            "y_image_um": point["y_image_um"],
+                            "quality": point["quality"],
+                        }
+                    )
+                    spot_count += 1
+        return spot_count
 
     # ----------------- Auxiliary Analysis Methods -----------------
     @tool_func
@@ -1811,7 +2242,7 @@ class ImageJProcessor(BaseTool):
         image_meta: ImageWithMetadata,
         target_type: str,
         description: str,
-        score_thr: float = 0.2,
+        score_thr: Optional[float] = None,
         nms_thr: float = 0.5,
         target_size: int = 512,
         target_class_id: Optional[int] = None,
@@ -1836,6 +2267,7 @@ class ImageJProcessor(BaseTool):
         print(f"Finding {target_type} target positions in image")
 
         spec = _resolve_target_detection_spec(target_type)
+        resolved_score_thr = float(spec.get("score_thr", 0.2) if score_thr is None else score_thr)
         final_output_filename = output_filename or spec["output_filename"]
         np_xarray = self.ij.py.to_xarray(image_meta.dataset)
         data = np_xarray.data
@@ -1919,7 +2351,7 @@ class ImageJProcessor(BaseTool):
                 model_config=model_config or spec["model_config"],
                 model_checkpoint=model_checkpoint or spec["model_checkpoint"],
                 device=device,
-                score_thr=score_thr,
+                score_thr=resolved_score_thr,
                 nms_thr=nms_thr,
                 target_size=target_size,
                 target_class_id=target_class_id if target_class_id is not None else spec["target_class_id"],
