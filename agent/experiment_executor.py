@@ -175,6 +175,7 @@ class ExperimentExecuteAgent:
             kwargs,
             allowed_call_names=allowed_call_names,
             allowed_attribute_roots=allowed_attribute_roots,
+            timeout_seconds=float(self._execution_context.get("timeout_seconds") or 0) or None,
         )
 
     def _run_fiji_subprocess(self, code_str: str) -> Dict[str, Any]:

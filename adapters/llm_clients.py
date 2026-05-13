@@ -35,6 +35,11 @@ def create_chat_completion(
     retry_interval: float = 3.0,
     **extra_kwargs: Any,
 ) -> Any:
+    if not stream and "qwen" in model.lower():
+        extra_body = dict(extra_kwargs.get("extra_body") or {})
+        extra_body.setdefault("enable_thinking", False)
+        extra_kwargs["extra_body"] = extra_body
+
     attempt = 0
     while True:
         attempt += 1
