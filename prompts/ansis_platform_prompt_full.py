@@ -180,8 +180,29 @@ def z_projection( image_meta, method):
         ImageWithMetadata: Encapsulated object of projected 2D image and its metadata
     """
 
+def trackmate_tracking(
+    image_meta,
+    spot_radius_um=None,
+    max_linking_distance_um=None,
+    min_track_length=3,
+    out_prefix="trackmate",
+):
+    """
+    Detect and track objects in a time-lapse microscopy image stack, generate a combined trajectory overlay, and export trajectory data.
+    
+    Parameters:
+        image_meta (ImageWithMetadata): Input time-lapse image stack
+        spot_radius_um (float, optional): Approximate object radius in micrometers
+        max_linking_distance_um (float, optional): Max displacement between frames
+        min_track_length (int, default=3): Minimum number of spots per trajectory
+        out_prefix (str, default="trackmate"): Prefix for output files
+
+    Returns:
+        dict: Paths and counts for overlay image, tracks CSV, summary JSON, track count, and spot count
+    """
+
 # ----------------- Auxiliary Functions -----------------
-def quantify_fluorescence( image_meta):
+def quantify_fluorescence(image_meta):
     """
     Quantify fluorescence signal intensity of image
 

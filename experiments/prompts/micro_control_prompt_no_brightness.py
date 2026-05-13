@@ -33,11 +33,11 @@ Core goal: Ensure code security, comply with hardware constraints, and implement
 - All image processing processes should be built based on this context. When selecting files, read the description for selection instead of using text matching methods
 
 class ImagingData:
-    image: np.ndarray
+    image: np.ndarray  # Auto-acquisition results are typically stored as 16-bit images (typically np.uint16) with shape (T, C, Z, H, W)
     center_x: float  # Image center X coordinate (unit: pixels or physical units)
     center_y: float  # Image center Y coordinate
     center_z: float  # Image center Z coordinate
-    objective_magnification: float  # Objective magnification (e.g., 10 for 10x)
+    objective_magnification: str  # Objective label or magnification descriptor (e.g., '3-LUCPLFLN20XRC' for 20x)
     pixel_size: float  # Physical size per pixel (unit: μm/pixel)
     position_name: str  # Imaging position name
     
@@ -79,14 +79,14 @@ def get_exposure() -> float:
 
 def set_brightness(brightness: int):
     """
-    Sets the transmission light source brightness.
+    Sets the halogen lamp brightness for brightfield transmitted-light illumination.
     
     Parameters:
-        brightness: Target brightness value (integer)
+        brightness: Target halogen lamp brightness value (integer)
     """
 
 def get_brightness() -> int:
-    """Gets the current light source brightness value"""
+    """Gets the current halogen lamp brightness value"""
 
 def set_objective(objective_label: str):
     """
@@ -171,12 +171,12 @@ def shutdown():
     
     Operations:
     - Stops preview and automated acquisition
-    - Turns off light sources (sets brightness to 0)
+    - Turns off the halogen lamp (sets brightness to 0)
     - Resets and unloads devices
     - Closes all OpenCV windows
     """
 
-def load_target_locations(filename: str) -> List[Tuple[float, float, float, float]]:
+def load_target_locations(filename: str) -> List[Tuple[int, int, int, int]]:
     """
     Loads target locations from a file (example method, implementation depends on file format).
     
@@ -213,7 +213,7 @@ def detect_targets_in_image(
     (in micrometers) of each target relative to the image center.
 
     Args:
-        image: Input 2D grayscale image (H, W).
+        image: Input 2D 16-bit grayscale image (H, W)
         target_class: Target class to detect (e.g., "organoid").
         pixel_size: Physical size corresponding to each pixel (micrometers/pixel).
         confidence_threshold: Confidence threshold for detection, default is 0.5.
@@ -239,8 +239,8 @@ def say(message: str):
 - Brightfield imaging ('1-NONE') is not considered part of fluorescence imaging modes.
 - If no specific slice size is specified, use the global size.
 Adjust imaging parameters according to imaging mode:
-- In bright field mode, adjust the halogen light brightness to the optimal value and use low exposure (e.g., 10).
-- In fluorescence mode, adjust the camera exposure time according to the fluorescence requirements and set brightness to 0.
+- Use low exposure in bright field mode.
+- Use high exposure and halogen lamp brightness of 0 in fluorescence mode.
 ## Hardware Constraints:
 - Stage Movement: X(0→500000micrometer), Y(0→500000micrometer), Z(0→10000micrometer)
 - Imaging Parameters: Brightness(0→250), Exposure Time(0ms→1000ms)
@@ -260,7 +260,9 @@ Adjust imaging parameters according to imaging mode:
 - 6-well plate -> 35000micrometer
 - 24-well plate -> 17000micrometer
 - 96-well plate -> 6500micrometer
-## Z-axis Step Size Related to Current Objective Lens Magnification:
+## Recommended Z-stack Sampling Step for Formal 3D Acquisition Only:
+- Use the following step sizes only when configuring a final 3D Z-stack acquisition with `set_z_stack(...)`.
+- Do not treat these values as autofocus step sizes, focus-search step sizes, or generic Z-probing step sizes.
 - '1-UPLFLN4XPH' → 7.5 micrometer
 - '2-SOB' → 3 micrometer
 - '3-LUCPLFLN20XRC' → 1.5 micrometer
@@ -332,6 +334,24 @@ Obtain the position of the 24-well plate
 say("[ACTION] Generating positions for each well in 24-well plate")
 wells_positions = create_24_wells_positions()
 
+# Example Input
+Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
+Image Automatic Acquisition: Capture an image at the current position using the current hardware parameters
+# Example Output
+say("[INFO] Starting image acquisition at the current position using current hardware parameters")
+current_x, current_y = get_x_y_position()
+current_exposure = get_exposure()
+current_channel = get_channel()
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
+say(f"[INFO] Current channel: {current_channel}")
+say(f"[INFO] Current exposure time: {current_exposure} ms")
+add_acquisition_position(name="current_position_capture", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position for the current field of view has been added")
+add_channels(channel=current_channel, exposure=current_exposure)
+say(f"[INFO] Acquisition channel configured with current channel {current_channel} and exposure {current_exposure} ms")
+say("[INFO] Initiating image acquisition at the current position")
+run_acquisition()
+say("[INFO] Image acquisition at the current position completed")
 
 '''.strip()
 

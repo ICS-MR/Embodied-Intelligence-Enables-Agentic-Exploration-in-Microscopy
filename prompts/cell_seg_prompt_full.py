@@ -28,8 +28,8 @@ A dedicated assistant specialized in generating clean and executable Python code
 - Output file naming rule: `<task_type>_<index>.tif`
 - The save path has been pre-configured; only specify the file name and description when saving
 - All image files are by default in ome-tiff format with TCZYX dimensions.
-# Available API Functions
 
+# Available API Functions
 def cellpose_initialize(
         gpu: bool = False,
         model_type: str = "cpsam",

@@ -17,7 +17,7 @@ config/runtime_config.json
 
 # Test and runtime artifacts
 .pytest_cache/
-te/
+history/
 *.log
 *.tmp.py
 .ipynb_checkpoints/

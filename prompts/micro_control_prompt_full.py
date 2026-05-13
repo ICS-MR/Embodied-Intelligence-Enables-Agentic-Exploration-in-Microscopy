@@ -32,11 +32,11 @@ Core goal: Ensure code security, comply with hardware constraints, and implement
 - All image processing processes should be built based on this context. When selecting files, read the description for selection instead of using text matching methods
 
 class ImagingData:
-    image: np.ndarray
+    image: np.ndarray  # Auto-acquisition results are typically stored as (T, C, Z, H, W)
     center_x: float  # Image center X coordinate (unit: pixels or physical units)
     center_y: float  # Image center Y coordinate
     center_z: float  # Image center Z coordinate
-    objective_magnification: float  # Objective magnification (e.g., 10 for 10x)
+    objective_magnification: str  # Objective label or magnification descriptor (e.g., '3-LUCPLFLN20XRC' for 20x)
     pixel_size: float  # Physical size per pixel (unit: μm/pixel)
     position_name: str  # Imaging position name
     
@@ -176,10 +176,11 @@ def perform_autofocus() -> float:
 
 def perform_autobrightness() -> int:
     """
-    Automatically searches for a suitable halogen lamp brightness in brightfield mode.
-    
+    Automatically searches for a suitable halogen lamp brightness in brightfield mode only.
+    Do not use for fluorescence or camera exposure.
+
     Returns:
-        Halogen lamp brightness value. 
+        Halogen lamp brightness value for set_brightness().
     """
 # -------------------------- System Control --------------------------
 def shutdown():
@@ -228,30 +229,30 @@ def create_24_wells_positions() -> List[Tuple[float, float]] :
     """
 
 def detect_targets_in_image(
-        image: np.ndarray,
+        image_data: ImagingData,
         target_class: str,
-        pixel_size: float,
         confidence_threshold: float = 0.5,
         device: Optional[torch.device] = None
 ) -> List[Dict[str, Any]]:
     """
-    Detect targets of the specified class in a single 2D image and return the physical offset 
+    Detect targets of the specified class in image data and return the physical offset
     (in micrometers) of each target relative to the image center.
 
     Args:
-        image: Input 2D grayscale image (H, W).
+        image_data: ImagingData containing the acquired image array and metadata.
+            Use image_data.image as the source image. Select or reduce the needed
+            plane before detection when the image is not 2D.
         target_class: Target class to detect (e.g., "organoid").
-        pixel_size: Physical size corresponding to each pixel (micrometers/pixel).
         confidence_threshold: Confidence threshold for detection, default is 0.5.
         device: Device for model inference, automatically selected by default (CUDA/CPU).
 
     Returns:
         List of detection results, where each element is a dictionary containing:
-        - "offset_x_um": X-direction offset of the target center relative to the image center 
-          (micrometers, positive to the right)
-        - "offset_y_um": Y-direction offset of the target center relative to the image center 
-          (micrometers, positive upward)
+        - "offset_x_um": Signed horizontal offset from the image center (micrometers).
+        - "offset_y_um": Signed vertical offset from the image center (micrometers).
         - "confidence": Confidence score (0~1)
+        Offsets should be computed using image_data.pixel_size and the selected 2D plane,
+        and can be used directly as current_x + offset_x_um and current_y + offset_y_um.
         Returns an empty list if no valid detections are found.
     """
     
@@ -286,7 +287,9 @@ Adjust imaging parameters according to imaging mode:
 - 6-well plate -> 35000micrometer
 - 24-well plate -> 17000micrometer
 - 96-well plate -> 6500micrometer
-## Z-axis Step Size Related to Current Objective Lens Magnification:
+## Recommended Z-stack Sampling Step for Formal 3D Acquisition Only:
+- Use the following step sizes only when configuring a final 3D Z-stack acquisition with `set_z_stack(...)`.
+- Do not treat these values as autofocus step sizes, focus-search step sizes, or generic Z-probing step sizes.
 - '1-UPLFLN4XPH' → 7.5 micrometer
 - '2-SOB' → 3 micrometer
 - '3-LUCPLFLN20XRC' → 1.5 micrometer

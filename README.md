@@ -1,531 +1,288 @@
 # Embodied Intelligence Enables Agentic Exploration in Microscopy
 
-**Embodied Intelligence Microscope System (EIMS)** is an intelligent platform that reconceptualizes the microscope from a passive imaging tool into an autonomous explorer capable of closing the loop between intent, perception, and action. Through natural language interaction, it enables a **fully automated closed-loop workflow**—from understanding experimental instructions and task planning to automatic image acquisition and real-time analysis.
+Embodied Intelligence Microscope System (EIMS) is a research platform for agentic
+microscopy. It connects natural-language experimental intent with microscope control,
+image analysis, segmentation, validation, and iterative correction.
 
-This project is not merely a control script—it is an AI-powered "experimentalist" equipped with **perception, decision-making, execution, and self-correction** capabilities, designed to address key pain points in traditional biological experiments: complex microscope operation, cumbersome workflows, and the lack of fully autonomous closed-loop control.
+EIMS is not only a hardware-control script. It is organized as a runtime system with a
+Web interface, CLI entry point, simulation mode, real-hardware mode, tool registration,
+planner skills, session history, and structured runtime configuration.
 
-## ✨ Core Features
+## Highlights
 
-- **🗣️ Natural Language Interaction**: Accepts complex experimental commands directly in natural language (English or Chinese).
-- **🧠 Autonomous Task Planning**: The built-in `TaskManager` automatically decomposes abstract goals into executable sequences, including stage movement, focusing, channel switching, Z-stack scanning, and more.
-- **📝 Confirm-Before-Execute Flow**: The runtime first generates a plan, rewrites it into a short Scopebot preview, waits for confirmation or revision, and only then executes.
-- **🧩 Skill-Guided Planning**: Users can add planning guidance documents under `user_skills/planning/` to influence how the planner decomposes tasks.
-- **🔄 Closed-Loop Self-Correction**: Performs real-time validation during execution (e.g., blur detection, object tracking). If failure occurs, it autonomously generates corrective actions and retries—instead of simply throwing an error.
-- **🔬 Multi-Modal Imaging Support**: Natively supports brightfield and multi-channel fluorescence imaging (DAPI, FITC, TRITC) with full multidimensional acquisition (XY-Z-T-C).
-- **🧩 Integrated Advanced Analysis**: Seamlessly integrates **Fiji (ImageJ)** for image processing and combines **Cellpose / MMDetection** for high-precision cell segmentation and object detection—enabling true “what you see is what you get” intelligent targeting.
+- Natural-language task planning in English or Chinese
+- Confirm-before-execute workflow before microscope actions run
+- Web runtime with configuration, initialization, preview, execution updates, and summaries
+- CLI runtime for direct research and debugging workflows
+- Hardware-free simulation through `Empty_function.py`
+- Real microscope runtime through Micro-Manager and `pymmcore-plus`
+- Fiji/ImageJ integration for image processing and analysis
+- Cellpose and MMDetection integration for segmentation and target detection
+- Session-isolated history under `history/run_*`
+- User extension tools through `tool/`, `BaseTool`, and `config/tool_manifest.json`
+- Planner guidance through files under `user_skills/planning/`
 
-## 🛠️ System Architecture
+## How It Works
 
-The system adopts a clean three-layer modular design, ensuring clear responsibilities and efficient collaboration:
-
-### 1. Agent Layer (Core Decision-Making)
-
-- **Task Manager**: Parses natural language instructions via LLM and orchestrates task decomposition and step scheduling.
-- **Language Model Program (LMP)**: Dynamically generates executable Python code to drive underlying tools.
-- **Checker**: Performs real-time visual and logical quality control (e.g., focus validation) and handles exceptions to ensure workflow closure.
-
-### 2. Tool Platform Layer (Functional Implementation)
-
-- **Microscope Platform** (`core_tool/microscope.py` in real mode, `Empty_function.py` in virtual mode): Core hardware control module for focusing, exposure adjustment, stage movement, Z-stack scanning, etc.
-- **Image Analysis Platform** (`core_tool/fiji.py` in real mode, `Empty_function.py` in virtual mode): Fiji/ImageJ wrapper for preprocessing, signal quantification, and other analyses.
-- **Cell Segmentation Platform** (`core_tool/cellpose_tool.py` in real mode, `Empty_function.py` in virtual mode): Integrates Cellpose for cell segmentation, counting, and phenotypic analysis.
-
-### 3. Hardware Driver Layer (Low-Level Abstraction)
-
-Built on `pymmcore-plus`, providing standardized control over mainstream microscopes (e.g., Olympus), minimizing device-specific integration effort.
-
-## 🚀 Quick Deployment Guide
-
-Follow these steps from the project root. The recommended path targets a real microscope runtime with an NVIDIA GPU. Hardware-free simulation and CPU-only setup are fallback paths for demos and debugging.
-
-### 1. Prerequisites
-
-- **OS**: Windows 10/11 (recommended for optimal Micro-Manager driver support)
-- **Python**: Version 3.10 or higher
-- **External Software**:
-  - [Micro-Manager 2.0](https://micro-manager.org/) (required only for real hardware control)
-  - [Fiji (ImageJ)](https://imagej.net/software/fiji/) (required only for real image-processing runtime)
-- **Hardware**: NVIDIA GPU with CUDA support (recommended for accelerating Cellpose and MMDetection inference)
-
-### 2. Recommended GPU Setup
-
-The default `uv sync` flow installs the officially validated GPU environment for this project on Windows. Before syncing, make sure your NVIDIA driver is installed and `nvidia-smi` works from a terminal.
-
-This repository is now organized around `uv`, with Python 3.10 pinned via `.python-version`:
-
-```bash
-# 1. Create or reuse the project virtual environment
-uv venv --python 3.10
-
-# 2. Sync all pinned dependencies from pyproject.toml
-uv sync
-
-# 3. Create local config files ignored by git
-Copy-Item config\runtime_config.example.json config\runtime_config.json
-Copy-Item .env.example .env
-
-# 4. Fill API keys and model endpoints in .env, then download local model assets
-uv run python scripts/setup_models.py
+```text
+User intent
+  |
+  v
+Planner
+  natural language -> structured task plan
+  |
+  v
+User confirmation
+  approve, cancel, or revise the plan
+  |
+  v
+Executors
+  task step -> constrained Python code for a specific tool
+  |
+  v
+Tool platforms
+  microscope, Fiji/ImageJ, Cellpose, MMDetection, user tools
+  |
+  v
+Checker and history
+  validate outputs, record artifacts, support correction
 ```
 
-Edit `.env` before running LLM-backed workflows:
+The main runtime path is managed by `services/runtime_manager.py` and
+`services/task_orchestrator.py`. Tool environments are built in `utils/runtime_factory.py`
+from the runtime configuration and `config/tool_manifest.json`.
+
+## Architecture
+
+```text
+.
+|-- app.py                         # FastAPI Web runtime
+|-- app_mock.py                    # lightweight mock Web runtime
+|-- main.py                        # CLI runtime
+|-- api/                           # API routes and response models
+|-- services/                      # runtime manager and task orchestration
+|-- agent/                         # planner, executor, checker, clarifier
+|-- core_tool/                     # real microscope, Fiji, Cellpose tools
+|-- tool/                          # user-defined BaseTool extensions
+|-- adapters/                      # tool registry and LLM client adapters
+|-- bootstrap/                     # runtime configuration loading and saving
+|-- config/                        # runtime example, tool manifest, static task config
+|-- prompts/                       # planner and executor prompts
+|-- user_skills/                   # planning skills
+|-- docs/test_tasks/               # representative task prompts
+|-- evaluation/                    # model evaluation helpers
+|-- weights/                       # model checkpoints
+`-- history/                       # per-run runtime history and outputs
+```
+
+## Runtime Modes
+
+EIMS has two runtime modes:
+
+- `Simulation_mode=true`: uses the hardware-free mock tool chain in `Empty_function.py`.
+- `Simulation_mode=false`: uses real tools under `core_tool/`.
+
+Use simulation mode when developing prompts, tools, and task plans. Switch to real mode
+only after Micro-Manager, hardware limits, Fiji, model paths, and API credentials are
+configured.
+
+## Configuration Model
+
+Configuration is intentionally layered:
+
+1. `bootstrap/config.py` defines schema and safe defaults.
+2. `config/runtime_config.json` stores local runtime settings written by the UI or helper scripts.
+3. `.env` and process environment variables provide runtime-only overrides, especially secrets.
+
+Environment variable overrides are applied when the runtime loads settings, but they are not
+written back into `config/runtime_config.json` when settings are saved.
+
+`config/runtime_config.json` is ignored by git. Use
+`config/runtime_config.example.json` as the template for a new machine.
+
+Important environment variables:
 
 ```dotenv
-EIMS_OPENAI_API_KEY=your-openai-compatible-api-key
+EIMS_OPENAI_API_KEY=your-api-key
 EIMS_BASE_URL=https://api.openai.com/v1
 EIMS_MODEL_NAME=gpt-4.1
 EIMS_VLM_API_KEY=your-vlm-api-key
 EIMS_VLM_BASE_URL=https://api.openai.com/v1
 EIMS_VLM_MODEL_NAME=gpt-4.1
+EIMS_SIMULATION_MODE=true
+EIMS_CHECKER_ENABLED=true
 ```
 
-### 3. GPU Validation
+Detection target definitions are configured under `detection_targets`. Each target can
+define its own model paths and confidence threshold:
 
-After `uv sync`, validate the official GPU stack with these commands:
+```json
+{
+  "detection_targets": {
+    "organoid": {
+      "target_class_id": 0,
+      "target_class_name": "organoid",
+      "score_thr": 0.2,
+      "output_filename": "organoid_locations_list.json",
+      "model_config": "configs/organoid.py",
+      "model_checkpoint": "weights/organoid.pth"
+    }
+  }
+}
+```
+
+## Quick Start
+
+### Requirements
+
+- Windows 10/11 is recommended for real Micro-Manager hardware integration.
+- Python `>=3.10,<3.11`
+- `uv`
+- Micro-Manager 2.0 for real hardware mode
+- Fiji/ImageJ for real image-analysis mode
+- NVIDIA GPU with CUDA is recommended for Cellpose and MMDetection
+
+### Install Dependencies
+
+```bash
+uv venv --python 3.10
+uv sync
+```
+
+Useful validation commands:
 
 ```bash
 uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
-uv run python -c "from cellpose import models; model = models.CellposeModel(gpu=True); print('cellpose gpu model initialized')"
-uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__); print(mmengine.__version__); print(mmdet.__version__)"
+uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine.__version__, mmdet.__version__)"
+uv run python -c "import cellpose; print(cellpose.__version__)"
 ```
 
-Expected results:
+### Configure Micro-Manager
 
-- PyTorch reports `2.1.0`
-- CUDA reports `11.8`
-- `torch.cuda.is_available()` is `True`
-- Cellpose initialization succeeds and prints `_use_GPU: True`
-- `mmcv`, `mmengine`, and `mmdet` import successfully as `2.1.0`, `0.10.7`, and `3.3.0`
-
-### 4. Real Hardware Runtime Setup
-
-Use this path for real microscope control and Fiji-backed image processing.
+Install a compatible Micro-Manager build:
 
 ```bash
-# Micro-Manager / MMCore for real microscope control
 uv run python system_config_wizard.py --install-mmcore
+```
 
-# Fiji for real image-processing runtime
-# Install Fiji manually first: https://imagej.net/software/fiji/
-uv run python system_config_wizard.py --setup-fiji
+If the default install destination already contains `Micro-Manager*` directories,
+the installer now cleans them and reinstalls by default. To reuse the latest existing
+install instead, run:
 
-# Open external tools for verification
+```bash
+uv run python system_config_wizard.py --install-mmcore --reuse-existing
+```
+
+Open the installed Micro-Manager GUI:
+
+```bash
 uv run python system_config_wizard.py --open-mmstudio
-uv run python system_config_wizard.py --open-fiji
+```
+
+If you already have Micro-Manager installed, set `MM_DIR` in
+`config/runtime_config.json` or through the Web configuration page.
+
+### Configure Fiji
+
+Install Fiji manually from <https://imagej.net/software/fiji/>, then let the helper
+detect it, update `FIJI_PATH`, and validate the Java/pyimagej stack:
+
+```bash
+uv run python system_config_wizard.py --setup-fiji
+uv run python system_config_wizard.py --check-java
 uv run python system_config_wizard.py --check-fiji
 ```
 
-Then point `CONFIG_PATH` to your real Micro-Manager `.cfg`, detect device names, and switch to the real hardware chain:
+To point at a specific Fiji install:
 
 ```bash
-uv run python system_config_wizard.py --mm-config "C:\Path\To\YourMicroscope.cfg" --apply
+uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\Path\To\Fiji.app"
+uv run python system_config_wizard.py --open-fiji
 ```
 
-In `config/runtime_config.json`, set:
+Fiji-backed processing requires a Java/JDK visible in the same terminal. The helper
+does not install Java; it reports whether `java -version`, JPype, Maven/scyjava, and
+pyimagej initialization are ready.
 
-```json
-{
-  "model": {
-    "Simulation_mode": false
-  }
-}
-```
-
-Start the full Web runtime:
+### Run the Web Runtime
 
 ```bash
-uv run uvicorn app:app --reload
+uvicorn app:app --reload
 ```
 
-Open `http://127.0.0.1:8000` after the server starts.
+Open:
 
-Notes:
+```text
+http://127.0.0.1:8000
+```
 
-- `requirements.txt` is kept as a compatibility snapshot, but `pyproject.toml` is the primary dependency source.
-- The default `uv sync` path is pinned to `torch==2.1.0`, CUDA 11.8, `mmcv==2.1.0`, `mmengine==0.10.7`, `mmdet==3.3.0`, and `numpy==1.26.4`.
-- PyTorch packages are resolved from the official CUDA 11.8 index, and the `mmcv` wheel is pinned to the matching `cu118/torch2.1.0` build.
-- If your machine does not have a usable NVIDIA GPU, see `CPU Compatibility Mode` below instead of changing the default `uv sync` path.
-- The one-click installer above calls the official `mmcore install` command, installs Micro-Manager under `%LOCALAPPDATA%\\EIMS\\Micro-Manager\\` by default on Windows, and writes the detected install path back to `config/runtime_config.json` as `MM_DIR`.
-- If you already have a working Micro-Manager installation, you can skip the one-click step and point `MM_DIR` to your existing install.
-- If you want a specific nightly or only the test adapters, use `uv run python system_config_wizard.py --install-mmcore --mmcore-release 20210219` or add `--test-adapters`.
-- If `--mmcore-dest` already contains `Micro-Manager*` directories, installation removes them by default before reinstalling.
-- Use `uv run python system_config_wizard.py --install-mmcore --reuse-existing` to directly reuse the latest existing install.
-- `--clean-dest` is still accepted for explicit overwrite/reinstall behavior, but it matches the default.
-- To open a different install explicitly, use `uv run python system_config_wizard.py --open-mmstudio --mm-dir "C:\\Path\\To\\Micro-Manager"`.
-- Install Fiji manually from https://imagej.net/software/fiji/ before running Fiji-dependent features.
-- `uv run python system_config_wizard.py --setup-fiji` detects an existing Fiji installation and writes `FIJI_PATH` to `config/runtime_config.json`.
-- Fiji image-processing runtime uses `pyimagej`, which requires a working Java/JDK environment. The wizard does not install Java automatically. Before running Fiji-dependent features, ensure `java -version` works in the same terminal.
-- To point at an existing Fiji install explicitly, use `uv run python system_config_wizard.py --detect-fiji --fiji-dir "C:\\Path\\To\\Fiji.app"`.
-- Use `uv run python system_config_wizard.py --check-java` and `uv run python system_config_wizard.py --check-fiji` for Fiji/Java diagnostics.
-
-### 5. Hardware-Free Fallback
-
-Use simulation mode only when hardware is unavailable or when you want a lightweight UI/planning demo.
-
-Keep `model.Simulation_mode=true` in `config/runtime_config.json`, then run:
+For a lighter mock UI flow:
 
 ```bash
-uv run uvicorn app_mock:app --reload
+uvicorn app_mock:app --reload
 ```
 
-The mock runtime uses the same saved configuration but does not run the full planner/executor/checker stack.
-
-### 6. CPU Compatibility Mode
-
-CPU-only installation is supported as a fallback for demo, debugging, or environments without a usable NVIDIA GPU, but it is not the recommended runtime. In particular, `cpsam` segmentation is much slower on CPU.
-
-If you need a CPU-only environment, create a separate virtual environment and install the CPU variants manually instead of using the default project `uv sync`. Keep `numpy==1.26.4` unchanged, use the CPU PyTorch index, and swap the `mmcv` wheel to the matching CPU build for `torch==2.1.0`.
-
-### 7. Core Configuration (Critical Step)
-
-Before running, update the runtime configuration to match your setup.
-
-Current recommendation:
-
-- Use the Web UI configuration page when running `uvicorn app:app --reload`
-- Or edit `config/runtime_config.json` through the bootstrap config helpers
-
-Static Python config modules in `config/` are still used for prompt/task defaults, but the hardware paths, startup state, and model credentials used by the runtime are primarily driven by the saved runtime configuration.
-
-Configuration priority is:
-
-- built-in defaults
-- `config/runtime_config.json`
-- `.env`
-- real process environment variables
-
-Practical guidance:
-
-- End users should primarily edit `config/runtime_config.json`
-- Use `.env` only for secrets or endpoint overrides such as API keys and base URLs
-- `model.Simulation_mode` should be configured in `config/runtime_config.json`, not in `.env`
-- `model.Simulation_mode=true` keeps the system on the virtual runtime chain powered by `Empty_function.py`
-- `model.Simulation_mode=false` switches the runtime to the real hardware chain under `core_tool/`
-
-#### A. System Paths (`config/runtime_config.json`)
-
-Edit key paths to reflect your installation:
-
-```json
-{
-  "system": {
-    "CONFIG_PATH": "C:/path/to/Your_Microscope_Config.cfg",
-    "MM_DIR": "C:/Program Files/Micro-Manager-2.0",
-    "FIJI_PATH": "D:/Software/Fiji.app"
-  }
-}
-```
-
-#### B. Model Weights (`config/system_config.py`)
-
-Place model weights in the `weights/` folder or update paths accordingly:
-
-```python
-TUMOR_MODEL_CONFIG = "configs/tumor_model.py"
-TUMOR_MODEL_CHECKPOINT = "weights/tumor_best.pth"
-# ... configure organoid, 2Dcell, etc., as needed
-```
-
-#### B.1 Minimal Mitosis Reproduction
-
-For a minimal standalone mitosis-model verification workflow, keep the files in this layout:
-
-```plaintext
-configs/
-  mitosis_rtmdet.py
-weights/
-  mitosis_best.pth
-evaluation/
-  mitosis_infer.py
-  mitosis_testset/
-    images/
-      mitosis_test_001.jpg
-      ...
-    annotations.json
-```
-
-Recommended runtime configuration:
-
-```json
-{
-  "system": {
-    "MITOSIS_MODEL_CONFIG": "configs\\mitosis_rtmdet.py",
-    "MITOSIS_MODEL_CHECKPOINT": "weights\\mitosis_best.pth"
-  }
-}
-```
-
-The COCO test subset should follow these conventions:
-
-- images are stored under `evaluation/mitosis_testset/images/`
-- annotations are stored in `evaluation/mitosis_testset/annotations.json`
-- the category name is `mitosis`
-
-Run inference from the project root:
+### Run the CLI Runtime
 
 ```bash
-python evaluation/mitosis_infer.py
+python main.py
 ```
 
-Common optional arguments:
+### Hardware-Free Notebook
 
-```bash
-python evaluation/mitosis_infer.py --score-thr 0.3
-python evaluation/mitosis_infer.py --device cpu
-python evaluation/mitosis_infer.py --device cuda:0
-```
-
-Expected outputs:
-
-- `evaluation/mitosis_predictions.json`: exported detection results in JSON format
-- `evaluation/mitosis_visualizations/`: images with red bounding boxes and confidence labels
-
-#### C. LLM API Keys and Endpoints
-
-You can configure these either in `config/runtime_config.json` or override them from `.env`.
-Recommended practice is to keep secrets in `.env`.
-
-Example `.env`:
-
-```dotenv
-EIMS_OPENAI_API_KEY=your-openai-compatible-api-key
-EIMS_BASE_URL=https://api.openai.com/v1
-EIMS_MODEL_NAME=gpt-4.1
-EIMS_VLM_API_KEY=your-vlm-api-key
-EIMS_VLM_BASE_URL=https://api.openai.com/v1
-EIMS_VLM_MODEL_NAME=gpt-4.1
-```
-
-Example `config/runtime_config.json`:
-
-```json
-{
-  "model": {
-    "openai_api_key": "",
-    "base_url": "https://api.openai.com/v1",
-    "model_name": "gpt-4.1",
-    "vlm_api_key": "",
-    "vlm_base_url": "https://api.openai.com/v1",
-    "vlm_model_name": "gpt-4.1",
-    "Simulation_mode": true,
-    "checker_enabled": true
-  }
-}
-```
-
-#### D. Planner Skills (`user_skills/planning/`)
-
-The planner supports metadata-aware, user-maintained planning skills.
-
-Supported layouts:
-
-```plaintext
-user_skills/planning/
-  brightfield.md
-  fluorescence.json
-  fluorescence_first_pass/
-    SKILL.md
-```
-
-Supported formats:
-
-- Plain `.md`, `.txt`, or `.json` skill files
-- Directory-style skill packages with `SKILL.md`
-
-Skill selection now considers more than raw keyword overlap. The planner combines:
-
-- name matches
-- trigger phrases
-- tags
-- example queries
-- content overlap
-- explicit priority
-
-The most relevant skills are injected into the planning prompt with structured metadata such as description, trigger conditions, example queries, and guidance.
-
-Example package skill:
-
-```md
----
-name: Brightfield Focus Workflow
-description: Preferred brightfield sequencing
-tags: brightfield, focus
-triggers: brightfield image, overview scan
-examples: capture a brightfield image
-priority: 3
----
-
-- Focus before brightfield capture.
-- Use low magnification for overview scans.
-- Avoid assuming fluorescence channels unless the user explicitly requests them.
-```
-
-Optional JSON format:
-
-```json
-{
-  "name": "Fluorescence First Pass",
-  "description": "Conservative fluorescence planning workflow",
-  "tags": ["fluorescence", "preview"],
-  "triggers": ["fluorescence imaging", "stain preview"],
-  "examples": ["capture a fluorescence preview of the stained sample"],
-  "priority": 5,
-  "content": "Start with a low-exposure preview before high-intensity acquisition."
-}
-```
-
-See `user_skills/planning/README.md` for the current convention.
-
-#### E. (optional) Adding New Tools (e.g., FRAP)
-
-The runtime now distinguishes between:
-
-- **system tools**: the built-in microscope, image analysis, and segmentation roles defined under `system_tools` in `config/tool_manifest.json`
-- **user tools**: extension tools implemented under `tool/` as `BaseTool` subclasses
-
-User tools are implemented under `tool/`, but they only participate in runtime registration and planner injection when they are explicitly listed in `config/tool_manifest.json` with `enabled: true`. The configured `tool_id` is the single shared module name used in planner examples, planner task steps, and runtime executor lookup.
-
-1. Implement a user tool under `tool/`:
-
-```python
-# tool/frap.py
-from tool.base import BaseTool, tool_func
-
-
-class Frap(BaseTool):
-    """Example extension tool for FRAP point-plan execution."""
-
-    planning_hint = (
-        "Use this tool when a task already has FRAP points or needs to save, "
-        "validate, map, preview, or execute a point plan."
-    )
-    execution_hint = (
-        "Create or load a FRAP point plan, validate it, build an image-to-screen "
-        "mapping, preview the points, then run the click plan in dry-run mode "
-        "before real execution."
-    )
-
-    def __init__(self, storage_manager=None, output_dir: str = "./output") -> None:
-        self.storage_manager = storage_manager
-        self.output_dir = output_dir
-
-    @tool_func
-    def create_empty_plan(self, image_width: int, image_height: int) -> dict:
-        """Create an empty FRAP point plan."""
-        return {
-            "plan_kind": "frap_point_plan",
-            "image_width": int(image_width),
-            "image_height": int(image_height),
-            "targets": [],
-        }
-
-    @tool_func
-    def validate_point_plan(self, point_plan: dict) -> dict:
-        """Validate and normalize a FRAP point plan."""
-        return point_plan
-
-    @tool_func
-    def build_linear_mapping(
-        self,
-        image_width: int,
-        image_height: int,
-        screen_left: int,
-        screen_top: int,
-        screen_width: int,
-        screen_height: int,
-    ) -> dict:
-        """Define a linear image-to-screen mapping."""
-        return {
-            "mapping_kind": "frap_linear_mapping",
-            "image_width": int(image_width),
-            "image_height": int(image_height),
-            "screen_left": int(screen_left),
-            "screen_top": int(screen_top),
-            "screen_width": int(screen_width),
-            "screen_height": int(screen_height),
-        }
-
-    @tool_func
-    def execute_click_plan(self, click_plan_path: str, dry_run: bool = True) -> dict:
-        """Execute a saved FRAP click plan."""
-        return {"status": "ok", "dry_run": bool(dry_run)}
-```
-
-2. Register the tool through the CLI-first onboarding flow:
-
-```bash
-# Launch the default interactive CLI wizard
-python create_tool.py
-
-# Or register explicitly from the command line
-python create_tool.py register --class-path tool.frap:Frap --tool-id "FRAP Tool" --dry-run
-
-# Append the entry to config/tool_manifest.json
-python create_tool.py register --class-path tool.frap:Frap --tool-id "FRAP Tool"
-
-# Inspect or update existing entries
-python create_tool.py list
-python create_tool.py enable "FRAP Tool"
-```
-
-The CLI validates that the class resolves to a `BaseTool` subclass and that it exposes at least one `@tool_func` method. The configured `tool_id` appears directly in planner `module` fields, so it should be readable as a planner-facing module name. After a successful registration, prompt artifacts are generated automatically under `prompts/generated/user_tools/`.
-
-A minimal `user_tools` entry now looks like this:
-
-```json
-{
-  "tool_id": "frap",
-  "class_path": "tool.frap:Frap",
-  "enabled": true,
-  "planning_hint": "Use this tool for FRAP point-plan validation, mapping, preview, and execution.",
-  "execution_hint": "Validate the FRAP point plan, build a mapping, preview it, and run the click plan in dry-run mode before real execution."
-}
-```
-
-3. Generate user-tool prompt artifacts manually when needed:
-
-```bash
-python create_tool.py generate-docs --output-dir prompts/generated/user_tools
-```
-
-This generates per-tool artifacts such as:
-
-- `prompts/generated/user_tools/frap.executor_prompt.txt`
-- `prompts/generated/user_tools/frap.planner_summary.txt`
-
-Prompt behavior is now:
-
-- **system tools** continue to use their fixed prompt sources under `prompts/`
-- **user tools** prefer generated artifacts from `prompts/generated/user_tools/`; `create_tool.py register` writes them automatically by default
-- if an executor artifact is missing, the runtime falls back to `BaseTool.get_execution_prompt_context()`
-- planner-side runtime injection prefers generated `planner_summary.txt` sections and otherwise falls back to the stable planning helpers on `BaseTool`
-- the planner summary is injected at runtime into `# Submodule Functions` and the example section via fixed placeholders
-
-#### F. Program Execution
-
-To facilitate a quick understanding of the entire program workflow, we provide a runnable example implemented in a Jupyter Notebook. Together with detailed supporting documentation, it clearly describes the step-by-step procedure of program execution, how EIMS autonomously conducts planning, decision-making and microscope control, as well as the experimental results obtained from real‑world deployments.
-
-We recommend that interested researchers prioritize this section for a rapid and comprehensive grasp of the project. For the complete execution of the CLI version (which requires hardware support and adaptation), please refer to the section in the user guide.
-
-```python
+```text
 Hardware-Free-Demo.ipynb
 ```
 
-## 📖 Key Specifications & Guidelines
+## Runtime History
 
-### 1. User Tool Requirements
+Each startup creates a new session under `history/`.
 
-All user extension tools should follow the current `BaseTool` contract:
+```text
+history/
+`-- run_YYYYMMDD_HHMMSS_xxxxxxxx/
+    |-- agent_interactions.json
+    |-- meta.json
+    `-- output/
+```
 
-- **Required**: inherit from `tool.base.BaseTool`
-- **Required**: expose at least one public method with `@tool_func`
-- **Constructor**: runtime-supported constructor parameters are `storage_manager` and `output_dir`; any other required constructor argument will prevent runtime registration
-- **Recommended**: add type hints and clear docstrings for each `@tool_func` method
-- **Optional**: set `planning_hint` and `execution_hint` on the class for better generated prompts
-- **Preferred**: return JSON-serializable values such as `dict`, `list`, `bool`, `str`, `int`, or `float`
-- **Recommended**: use `storage_manager` when outputs should be tracked by the runtime session
+The session records generated plans, generated executor code, execution results, checker
+feedback, registered output files, and cache metadata.
 
-#### Minimal Implementation Example
+## Extending EIMS
+
+### Planner Skills
+
+Planner skills live under `user_skills/planning/`. They guide task decomposition without
+changing runtime code.
+
+Supported formats:
+
+- `.md`
+- `.txt`
+- `.json`
+- directories containing `SKILL.md`
+
+Example:
+
+```md
+---
+name: Brightfield Tracking Workflow
+description: Preferred planning pattern for brightfield tracking
+tags: brightfield, tracking, autofocus
+triggers: brightfield time-lapse, mitosis tracking
+priority: 3
+---
+
+- Start with a low-exposure brightfield preview.
+- Confirm focus before repeated acquisition.
+- Reuse detected positions when revisiting targets.
+```
+
+### User Tools
+
+User tools inherit from `tool.base.BaseTool` and expose public methods decorated with
+`@tool_func`.
 
 ```python
 from tool.base import BaseTool, tool_func
@@ -541,145 +298,55 @@ class NewTool(BaseTool):
 
     @tool_func
     def run(self, text: str) -> str:
-        """Process the input text and return a short result string."""
+        """Process text and return a short result."""
         return f"processed: {text}"
 ```
 
-#### Working with Runtime Outputs
-
-```python
-def save_result(self, filename: str, content: str) -> str:
-    file_path = Path(self.output_dir, filename)
-    file_path.write_text(content, encoding="utf-8")
-    if self.storage_manager is not None:
-        self.storage_manager.register_file(
-            filename=filename,
-            description="Generated by NewTool",
-            tool_name="newtool",
-            file_type="txt",
-        )
-    return str(file_path)
-```
-
-#### Prompt Generation for User Tools
-
-User-tool prompts now come from two layers:
-
-- **executor prompt**: detailed API-facing prompt for code generation
-- **planner summary**: concise planning-facing capability summary
-
-By default both layers are derived from the `BaseTool` method signatures, docstrings, and optional hints. If generated artifacts exist in `prompts/generated/user_tools/`, runtime uses them first.
-
-## 📋 User Guide
-
-### 1. Launch the System
-
-Run from the project root:
+Register a tool:
 
 ```bash
-# Web runtime
-uvicorn app:app --reload
-
-# CLI runtime
-python main.py
+python create_tool.py register --class-path tool.new_tool:NewTool --tool-id "new_tool" --dry-run
+python create_tool.py register --class-path tool.new_tool:NewTool --tool-id "new_tool"
+python create_tool.py list
 ```
 
-Web runtime:
+## Example Task Types
 
-- Open `http://127.0.0.1:8000`
-- Complete the configuration form in the browser
-- Scopebot will stream plan previews, execution updates, checker warnings, and final summaries
-- Runtime-generated Fiji executor temp files are now written outside the project tree, so normal `uvicorn app:app --reload` can be used without those temp files triggering hot reload
-- For a lightweight mock demo flow that uses the same `config/runtime_config.json` settings but does not run the full planner/executor/checker stack, `uvicorn app_mock:app --reload` is also available
+Representative task prompts live in `docs/test_tasks/task.txt`.
 
-CLI runtime:
+- capture multi-channel fluorescence images and merge channels
+- scan a brightfield area, detect target regions, and revisit them at higher magnification
+- segment cells with Cellpose and export masks or statistics
+- perform long-running time-lapse imaging
+- acquire Z-stacks and produce projected or deconvolved images
+- detect organoids, lesions, bacteria, cells, or mitotic events and record coordinates
 
-- Start `python main.py`
-- Enter a natural-language instruction
-- Scopebot will preview a plan, wait for confirmation or revision, then execute step by step
+## Safety Notes
 
-### 2. Runtime Flow
+Real microscope operation can damage samples or hardware if configuration is wrong.
+Before running with `Simulation_mode=false`:
 
-The current runtime flow is:
+- verify the Micro-Manager `.cfg` in the official Micro-Manager GUI
+- configure objective, XY, Z, brightness, and exposure limits
+- confirm stage coordinate conventions
+- test low-risk movement commands first
+- keep emergency stop procedures available
+- validate Fiji and model checkpoint paths
 
-1. User enters a command.
-2. The planner generates a structured plan.
-3. Scopebot rewrites the plan into a short user-facing preview.
-4. The user can confirm execution, cancel, or append revisions.
-5. After confirmation, sub-agents generate code and execute each plan step.
-6. After each sub-agent finishes, Scopebot emits a short completion summary.
-7. If `model.checker_enabled=true` and new microscope images are produced, the checker validates them and may trigger auto-correction plus retry.
-8. After the full task completes, Scopebot emits a short final summary.
+Generated code execution is constrained, but it should still be treated as experimental
+automation. Use simulation mode for new workflows before running on hardware.
 
-### 3. Runtime Session Artifacts
+## Licensing Notes
 
-Each system startup creates a new isolated runtime session under `te/`.
+This project calls public APIs of external tools such as Fiji/ImageJ and Micro-Manager.
 
-Example:
+- Fiji is distributed under GPL-related licensing, with ImageJ2 components under BSD-style
+  licenses. Individual plugins may have their own licenses.
+- Micro-Manager is an open-source project under a BSD-style license.
 
-```plaintext
-te/
-└── run_20260318_170847_cd443080/
-    ├── agent_interactions.json
-    ├── meta.json
-    └── output/
-```
+Check upstream licenses for external distribution or commercial deployment.
 
-Important notes:
+## Contributions
 
-- Every startup is treated as a fresh session.
-- The runtime does not reuse the previous session's `meta.json` or agent history.
-- `agent_interactions.json` records planner / executor / checker interactions for the current run, rather than only storing generated code.
-
-## 📂 Project Structure
-
-```plaintext
-llm_miscope/
-├── app.py                          # FastAPI entry point for the Web UI
-├── main.py                         # CLI entry point
-├── front/                          # Web frontend
-├── api/                            # FastAPI routes
-├── services/                       # Runtime manager and task orchestration
-├── user_skills/
-│   └── planning/                   # User-provided planner skill documents
-├── te/
-│   └── run_*/                      # Per-startup runtime session folders
-├── agent/                          # Core agent logic
-│   ├── experiment_planner.py       # Task decomposition
-│   ├── experiment_executor.py      # Code generation & execution
-│   └── experiment_checker.py       # Validation & feedback
-├── core_tool/                      # Built-in tools
-│   ├── microscope.py               # MicroscopeController
-│   ├── fiji.py                     # ImageJProcessor
-│   ├── cellpose_tool.py            # Cellpose2D
-│   └── tool_utils.py               # Utilities (e.g., sharpness metric)
-├── tool/                           # Custom BaseTool extensions
-│   ├── base.py                     # BaseTool class
-│   └── ...                         # User-defined tools
-├── prompts/                        # Planner, executor, and generated user-tool prompts
-│   ├── generated/user_tools/       # executor_prompt.txt / planner_summary.txt
-├── config/                         # Static prompt / task configuration
-├── bootstrap/                      # Runtime configuration loading/saving
-├── prompts/                        # Planner and executor prompts
-│   ├── task_manager_full.py
-│   └── ...
-├── utils/                          # Runtime setup, logging, storage, sessions
-└── weights/                        # Model checkpoints (user-provided)
-```
-
-## ⚠️ Important Notes & Disclaimer
-
-- **Hardware Safety**: Always set physical limits (e.g., `Max_Z_position`) in `system_config.py` to prevent objective crashes.
-- **Model Weights**: MMDetection-based features require pre-downloaded weights. Ensure paths are correctly configured.
-- **Driver Compatibility**: Verify that your Micro-Manager `.cfg` file works in the official GUI before use.
-
-**Open-Source Licensing**:
-
-- **Fiji** is distributed under the **GNU GPL**, with its ImageJ2 core under the **BSD 2-Clause License**. Plugins may have individual licenses. See [Fiji Licensing](https://imagej.net/licensing).
-- **Micro-Manager (μManager)** is a free, open-source project hosted on GitHub under a **BSD-style license**, suitable for both academic and commercial use.
-
-This system only calls public APIs of Fiji and Micro-Manager without modifying their source code, fully complying with their respective licenses.
-
-## 🤝 Contributions
-
-Issues and Pull Requests are welcome!
+Issues, pull requests, tool integrations, planning skills, test tasks, and documentation
+improvements are welcome.
