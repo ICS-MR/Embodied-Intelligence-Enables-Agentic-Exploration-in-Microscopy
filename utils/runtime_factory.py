@@ -5,6 +5,7 @@ import inspect
 import logging
 import math
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ from utils.tool_manifest import (
     UserToolManifestEntry,
     import_string,
     load_tool_manifest,
+    resolve_default_tool_manifest_path,
 )
 
 
@@ -109,6 +111,20 @@ class _MissingOptionalModule:
 
     def __repr__(self) -> str:
         return f"<missing optional module {self._module_name}>"
+
+
+class _GeneratedTimeProxy:
+    def __init__(self, module: Any, *, max_sleep_seconds: float = 0.0) -> None:
+        self._module = module
+        self._max_sleep_seconds = max(float(max_sleep_seconds), 0.0)
+
+    def sleep(self, seconds: float = 0.0) -> None:
+        if self._max_sleep_seconds <= 0:
+            return
+        self._module.sleep(min(max(float(seconds), 0.0), self._max_sleep_seconds))
+
+    def __getattr__(self, attr_name: str) -> Any:
+        return getattr(self._module, attr_name)
 
 
 def load_runtime_config() -> Dict[str, Any]:
@@ -186,12 +202,18 @@ def _build_fixed_vars(required_helpers: Any = None, say_callable: Any = None) ->
         say_callable = required_helpers
         required_helpers = {"cv", "plt"}
     helper_names = set(DEFAULT_HELPERS) | set(required_helpers or [])
+    generated_time_helper: Any = time
+    if os.environ.get("EIMS_DISABLE_GENERATED_SLEEP", "").lower() in {"1", "true", "yes", "on"}:
+        generated_time_helper = _GeneratedTimeProxy(
+            time,
+            max_sleep_seconds=float(os.environ.get("EIMS_MAX_GENERATED_SLEEP_SECONDS", "0") or 0),
+        )
     values = {
         "np": np,
         "cv": _load_optional_runtime_module("cv2"),
         "math": math,
         "datetime": datetime,
-        "time": time,
+        "time": generated_time_helper,
         "csv": csv,
         "json": importlib.import_module("json"),
         "plt": _load_optional_runtime_module("matplotlib.pyplot"),
@@ -362,8 +384,9 @@ def _build_executor_execution_context(
     storage_manager: StorageManager,
     say_capture: SayCapture,
 ) -> Dict[str, Any]:
+    in_process_timeout = float(os.environ.get("EIMS_IN_PROCESS_EXECUTOR_TIMEOUT_SECONDS", "30") or 30)
     if role != "image_analysis" or simulation_mode:
-        return {}
+        return {"timeout_seconds": in_process_timeout}
     return {
         "use_fiji_subprocess": True,
         "session_dir": session_dir,
@@ -413,6 +436,80 @@ def _inject_user_tool_planner_prompt(prompt_text: str, resolved_user_tools: list
     rendered = prompt_text.replace("{{USER_TOOL_SUBMODULES}}", submodule_text)
     rendered = rendered.replace("{{USER_TOOL_EXAMPLES}}", example_text)
     return rendered
+
+
+def _discover_generated_user_tool_ids() -> set[str]:
+    discovered: set[str] = set()
+    if not TOOL_DOCS_DIR.exists():
+        return discovered
+    for path in TOOL_DOCS_DIR.glob("*.planner_summary.txt"):
+        name = path.name
+        if not name.endswith(".planner_summary.txt"):
+            continue
+        discovered.add(name[: -len(".planner_summary.txt")])
+    for path in TOOL_DOCS_DIR.glob("*.executor_prompt.txt"):
+        name = path.name
+        if not name.endswith(".executor_prompt.txt"):
+            continue
+        discovered.add(name[: -len(".executor_prompt.txt")])
+    return discovered
+
+
+def _validate_runtime_user_tool_consistency(
+    *,
+    manifest: ToolManifest,
+    resolved_user_tools: list[ResolvedUserTool],
+    planner_prompt_text: str,
+    tool_registry: ToolRegistry,
+) -> None:
+    enabled_manifest_ids = [entry.tool_id for entry in manifest.user_tools if entry.enabled]
+    resolved_tool_ids = [item.tool_id for item in resolved_user_tools]
+    if enabled_manifest_ids != resolved_tool_ids:
+        raise ToolManifestError(
+            "Enabled user tools in the manifest do not match the resolved runtime user tools: "
+            f"manifest={enabled_manifest_ids}, resolved={resolved_tool_ids}"
+        )
+
+    registry_tools = tool_registry.list_tools()
+    registry_user_tool_ids = sorted(
+        item["platform"]
+        for item in registry_tools
+        if str(item.get("role") or "") == "user_tool"
+    )
+    if sorted(resolved_tool_ids) != registry_user_tool_ids:
+        raise ToolManifestError(
+            "Resolved runtime user tools do not match the executor registry: "
+            f"resolved={sorted(resolved_tool_ids)}, registry={registry_user_tool_ids}"
+        )
+
+    generated_tool_ids = _discover_generated_user_tool_ids()
+    leaked_tool_ids = [
+        tool_id
+        for tool_id in sorted(generated_tool_ids - set(resolved_tool_ids))
+        if re.search(rf"(^|\n)###\s+{re.escape(tool_id)}(\s|$)", planner_prompt_text)
+    ]
+    if leaked_tool_ids:
+        raise ToolManifestError(
+            "Planner prompt contains stale user-tool documentation for tools that are not enabled in the manifest: "
+            + ", ".join(leaked_tool_ids)
+        )
+
+    missing_tool_ids = [
+        tool_id
+        for tool_id in resolved_tool_ids
+        if not re.search(rf"(^|\n)###\s+{re.escape(tool_id)}(\s|$)", planner_prompt_text)
+    ]
+    if missing_tool_ids:
+        raise ToolManifestError(
+            "Enabled user tools are missing from the injected planner prompt: "
+            + ", ".join(missing_tool_ids)
+        )
+
+    logger.info(
+        "Runtime user-tool self-check passed. manifest=%s enabled_user_tools=%s",
+        resolve_default_tool_manifest_path(),
+        resolved_tool_ids,
+    )
 
 
 def _needs_real_hardware_validation(manifest: ToolManifest) -> bool:
@@ -500,6 +597,13 @@ def _build_runtime_context_from_manifest(
             history_manager,
         )
         tool_registry.register_tool(item.tool_id, env_obj, executor, role="user_tool", validate_role=False, expose_public_callables=False)
+
+    _validate_runtime_user_tool_consistency(
+        manifest=manifest,
+        resolved_user_tools=resolved_user_tools,
+        planner_prompt_text=shared_lmps["Task_manger"]["prompt_text"],
+        tool_registry=tool_registry,
+    )
 
     task_manager = ExperimentPlanAgent(
         "Task_manager",

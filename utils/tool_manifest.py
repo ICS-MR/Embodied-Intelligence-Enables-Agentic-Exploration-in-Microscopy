@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -37,6 +38,13 @@ SYSTEM_TOOL_METADATA = {
 
 class ToolManifestError(ValueError):
     """Raised when the tool manifest is invalid or incomplete."""
+
+
+def resolve_default_tool_manifest_path() -> Path:
+    override = os.environ.get("EIMS_TOOL_MANIFEST_PATH", "").strip()
+    if override:
+        return Path(override)
+    return DEFAULT_TOOL_MANIFEST_PATH
 
 
 @dataclass(frozen=True)
@@ -94,18 +102,21 @@ def default_tool_manifest_payload() -> Dict[str, Any]:
             "microscope": {
                 "real_class_path": "core_tool.microscope:MicroscopeController",
                 "simulation_class_path": "Empty_function:MicroscopeController",
+                "prompt_source": SYSTEM_TOOL_METADATA["microscope"]["prompt_source"],
                 "constructor_kind": "microscope",
                 "validate_real_stack": True,
             },
             "image_analysis": {
                 "real_class_path": "core_tool.fiji:ImageJProcessor",
                 "simulation_class_path": "Empty_function:ImageJProcessor",
+                "prompt_source": SYSTEM_TOOL_METADATA["image_analysis"]["prompt_source"],
                 "constructor_kind": "storage_output",
                 "validate_real_stack": True,
             },
             "segmentation": {
                 "real_class_path": "core_tool.cellpose_tool:Cellpose2D",
                 "simulation_class_path": "Empty_function:Cellpose2D",
+                "prompt_source": SYSTEM_TOOL_METADATA["segmentation"]["prompt_source"],
                 "constructor_kind": "storage_output",
                 "validate_real_stack": True,
             },
@@ -115,7 +126,7 @@ def default_tool_manifest_payload() -> Dict[str, Any]:
 
 
 def read_tool_manifest_payload(manifest_path: Optional[Path] = None) -> Dict[str, Any]:
-    target_path = manifest_path or DEFAULT_TOOL_MANIFEST_PATH
+    target_path = manifest_path or resolve_default_tool_manifest_path()
     if not target_path.exists():
         return default_tool_manifest_payload()
     try:
@@ -125,7 +136,7 @@ def read_tool_manifest_payload(manifest_path: Optional[Path] = None) -> Dict[str
 
 
 def write_tool_manifest_payload(payload: Dict[str, Any], manifest_path: Optional[Path] = None) -> None:
-    target_path = manifest_path or DEFAULT_TOOL_MANIFEST_PATH
+    target_path = manifest_path or resolve_default_tool_manifest_path()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -213,7 +224,6 @@ def append_tool_manifest_entry(raw_entry: Dict[str, Any], manifest_path: Optiona
 
 
 def load_tool_manifest_from_payload(payload: Dict[str, Any]) -> ToolManifest:
-    temp_path = DEFAULT_TOOL_MANIFEST_PATH
     if "system_tools" not in payload or "user_tools" not in payload:
         raise ToolManifestError("Manifest payload must contain 'system_tools' and 'user_tools'")
     raw_system_tools = payload.get("system_tools")
@@ -239,12 +249,15 @@ def _parse_system_tool_entry(role: str, raw_item: Any) -> SystemToolEntry:
     metadata = SYSTEM_TOOL_METADATA[role]
     real_class_path = str(raw_item.get("real_class_path", "")).strip()
     simulation_class_path = str(raw_item.get("simulation_class_path", "")).strip()
+    prompt_source = str(raw_item.get("prompt_source", metadata["prompt_source"])).strip()
     constructor_kind = str(raw_item.get("constructor_kind", "")).strip()
 
     if not real_class_path:
         raise ToolManifestError(f"System tool '{role}' is missing 'real_class_path'")
     if not simulation_class_path:
         raise ToolManifestError(f"System tool '{role}' is missing 'simulation_class_path'")
+    if not prompt_source:
+        raise ToolManifestError(f"System tool '{role}' is missing 'prompt_source'")
     if constructor_kind not in SUPPORTED_CONSTRUCTOR_KINDS:
         raise ToolManifestError(
             f"System tool '{role}' uses unsupported constructor kind '{constructor_kind}'"
@@ -254,7 +267,7 @@ def _parse_system_tool_entry(role: str, raw_item: Any) -> SystemToolEntry:
         role=role,
         tool_id=metadata["tool_id"],
         platform_name=metadata["platform_name"],
-        prompt_source=metadata["prompt_source"],
+        prompt_source=prompt_source,
         port_kind=metadata["port_kind"],
         real_class_path=real_class_path,
         simulation_class_path=simulation_class_path,

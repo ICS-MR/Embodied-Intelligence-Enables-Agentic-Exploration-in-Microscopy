@@ -3,18 +3,21 @@
     "microscope": {
       "real_class_path": "core_tool.microscope:MicroscopeController",
       "simulation_class_path": "Empty_function:MicroscopeController",
+      "prompt_source": "prompts.micro_control_prompt_full:prompt_olympus",
       "constructor_kind": "microscope",
       "validate_real_stack": true
     },
     "image_analysis": {
       "real_class_path": "core_tool.fiji:ImageJProcessor",
       "simulation_class_path": "Empty_function:ImageJProcessor",
+      "prompt_source": "prompts.ansis_platform_prompt_full:prompt_imagej",
       "constructor_kind": "storage_output",
       "validate_real_stack": true
     },
     "segmentation": {
       "real_class_path": "core_tool.cellpose_tool:Cellpose2D",
       "simulation_class_path": "Empty_function:Cellpose2D",
+      "prompt_source": "prompts.cell_seg_prompt_full:prompt_cellpose",
       "constructor_kind": "storage_output",
       "validate_real_stack": true
     }

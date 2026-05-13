@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterable, Optional, Sequence, Set
 
 from config.agent_config import base_url, model_name, openai_api_key
 from tool.base import BaseTool
-from utils.tool_doc_paths import DEFAULT_USER_TOOL_DOCS_RELATIVE
+from utils.tool_doc_paths import DEFAULT_USER_TOOL_DOCS_DIR, DEFAULT_USER_TOOL_DOCS_RELATIVE
 from utils.tool_manifest import (
     DEFAULT_TOOL_MANIFEST_PATH,
     ToolManifestError,
@@ -24,6 +24,7 @@ from utils.tool_manifest import (
 
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_DOC_OUTPUT_DIR = str(DEFAULT_USER_TOOL_DOCS_RELATIVE)
+DOC_ARTIFACT_SUFFIXES = ("planner_summary.txt", "executor_prompt.txt")
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -129,6 +130,14 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     remove_parser.add_argument("target_tool_id", help="Tool id to remove")
     remove_parser.add_argument("--force", action="store_true", help="Skip the confirmation prompt")
 
+    uninstall_parser = subparsers.add_parser(
+        "uninstall",
+        parents=[common_parent],
+        help="Uninstall a user tool from the manifest and clean its prompt artifacts",
+    )
+    uninstall_parser.add_argument("target_tool_id", help="Tool id to uninstall")
+    uninstall_parser.add_argument("--force", action="store_true", help="Skip the confirmation prompt")
+
     generate_docs_parser = subparsers.add_parser(
         "generate-docs",
         parents=[common_parent, output_parent],
@@ -173,6 +182,13 @@ def _normalize_manifest_path(manifest: str) -> Path:
     if not manifest_path.is_absolute():
         manifest_path = ROOT_DIR / manifest_path
     return manifest_path
+
+
+def _normalize_output_dir(output_dir: str) -> Path:
+    target_dir = Path(output_dir)
+    if not target_dir.is_absolute():
+        target_dir = ROOT_DIR / target_dir
+    return target_dir
 
 
 def _derive_class_path(file_path: Path, class_name: str) -> str:
@@ -422,6 +438,26 @@ def _print_manifest_entry(entry: dict[str, Any], print_func: Callable[..., None]
     print_func(json.dumps(entry, indent=2, ensure_ascii=False))
 
 
+def _user_tool_doc_paths(tool_id: str, output_dir: str) -> list[Path]:
+    target_dir = _normalize_output_dir(output_dir)
+    return [target_dir / f"{tool_id}.{suffix}" for suffix in DOC_ARTIFACT_SUFFIXES]
+
+
+def _remove_user_tool_doc_artifacts(tool_id: str, output_dir: str, *, print_func: Callable[..., None] = print) -> list[Path]:
+    removed_paths: list[Path] = []
+    for artifact_path in _user_tool_doc_paths(tool_id, output_dir):
+        try:
+            if artifact_path.exists():
+                artifact_path.unlink()
+                removed_paths.append(artifact_path)
+        except OSError as exc:
+            raise ToolManifestError(f"Failed to delete tool prompt artifact '{artifact_path}': {exc}") from exc
+    if removed_paths:
+        for path in removed_paths:
+            print_func(f"[INFO] Removed prompt artifact: {path}")
+    return removed_paths
+
+
 def run_register_command(
     args: argparse.Namespace,
     *,
@@ -494,6 +530,7 @@ def run_update_command(
         payload = _load_mutable_manifest_payload(manifest_path)
         index = _find_user_tool_index(payload, args.target_tool_id)
         entry = dict(_manifest_user_tools(payload)[index])
+        old_tool_id = str(entry.get("tool_id", "")).strip()
     except ToolManifestError as exc:
         print_func(f"[ERROR] {exc}")
         return 1
@@ -542,8 +579,22 @@ def run_update_command(
         print_func(f"[ERROR] {exc}")
         return 1
 
+    new_tool_id = str(entry.get("tool_id", "")).strip()
+    output_dir = getattr(args, "output_dir", DEFAULT_DOC_OUTPUT_DIR)
+    if old_tool_id and new_tool_id and old_tool_id != new_tool_id:
+        try:
+            _remove_user_tool_doc_artifacts(old_tool_id, output_dir, print_func=print_func)
+        except ToolManifestError as exc:
+            print_func(f"[ERROR] {exc}")
+            return 1
+
     print_func(f"[SUCCESS] Updated user tool '{args.target_tool_id}' in manifest: {manifest_path}")
-    return 0
+    docs_args = argparse.Namespace(
+        manifest=args.manifest,
+        output_dir=output_dir,
+        selected_tool_ids=[new_tool_id] if new_tool_id else [],
+    )
+    return run_generate_docs_command(docs_args, print_func=print_func)
 
 
 def _set_enabled_state(args: argparse.Namespace, enabled: bool, *, print_func: Callable[..., None] = print) -> int:
@@ -574,6 +625,7 @@ def run_remove_command(
     try:
         payload = _load_mutable_manifest_payload(manifest_path)
         index = _find_user_tool_index(payload, args.target_tool_id)
+        entry = dict(_manifest_user_tools(payload)[index])
     except ToolManifestError as exc:
         print_func(f"[ERROR] {exc}")
         return 1
@@ -589,9 +641,20 @@ def run_remove_command(
             print_func("[INFO] Removal cancelled.")
             return 0
 
+    removed_tool_id = str(entry.get("tool_id", "")).strip()
     del _manifest_user_tools(payload)[index]
     try:
         _write_validated_manifest_payload(payload, manifest_path)
+    except ToolManifestError as exc:
+        print_func(f"[ERROR] {exc}")
+        return 1
+
+    try:
+        _remove_user_tool_doc_artifacts(
+            removed_tool_id,
+            getattr(args, "output_dir", DEFAULT_DOC_OUTPUT_DIR),
+            print_func=print_func,
+        )
     except ToolManifestError as exc:
         print_func(f"[ERROR] {exc}")
         return 1
@@ -638,7 +701,10 @@ def run_generate_docs_command(args: argparse.Namespace, *, print_func: Callable[
     from utils.tool_generation import ToolProcessingPipeline
 
     if not openai_api_key or openai_api_key == "your-openai-api-key":
-        print_func("[INFO] OPENAI_API_KEY is not configured; generating prompt artifacts with built-in fallback text.")
+        print_func(
+            "[ERROR] OPENAI_API_KEY is not configured. Prompt artifact generation now requires a real LLM and will not use fallback text."
+        )
+        return 1
     pipeline = ToolProcessingPipeline(openai_api_key, base_url, model_name)
     artifacts = pipeline.run_pipeline(allowed_class_paths=allowed_class_paths, output_dir=args.output_dir)
     print_func("=" * 50)
@@ -666,7 +732,7 @@ def run_cli(
         return _set_enabled_state(args, True, print_func=print_func)
     if command == "disable":
         return _set_enabled_state(args, False, print_func=print_func)
-    if command == "remove":
+    if command in {"remove", "uninstall"}:
         return run_remove_command(args, input_func=input_func, print_func=print_func)
     if command == "generate-docs":
         return run_generate_docs_command(args, print_func=print_func)
