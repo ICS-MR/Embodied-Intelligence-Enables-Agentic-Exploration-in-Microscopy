@@ -86,14 +86,63 @@ def combine_replanned_command(base_command: str, revisions: List[str]) -> str:
 
 
 def format_clarification_response(question: str, answer: str) -> str:
+    normalized_answer = answer.strip()
+    if not normalized_answer:
+        return ""
+    return normalized_answer
+
+
+def combine_clarification_context(entries: List[str]) -> str:
+    if not entries:
+        return ""
+    parts = [
+        "Resolved workflow parameters and clarification details collected so far:",
+    ]
+    for index, entry in enumerate(entries, start=1):
+        normalized_entry = entry.strip()
+        if not normalized_entry:
+            continue
+        parts.append(f"{index}. {normalized_entry}")
+    return "\n".join(parts)
+
+
+def build_consolidated_workflow_request(base_command: str, entries: List[str]) -> str:
+    normalized_command = base_command.strip()
+    if not entries:
+        return normalized_command
+
+    parts = [
+        "Consolidated workflow specification for replanning:",
+        "",
+        "Original workflow intent:",
+        normalized_command,
+        "",
+        "Resolved workflow parameters and execution constraints:",
+    ]
+    for index, entry in enumerate(entries, start=1):
+        normalized_entry = entry.strip()
+        if not normalized_entry:
+            continue
+        parts.append(f"{index}. {normalized_entry}")
+    parts.extend(
+        [
+            "",
+            "Planner instruction:",
+            "- Treat the resolved workflow parameters above as authoritative clarified requirements.",
+            "- Do not ask again for parameters that are already resolved above.",
+            "- Rewrite the clarified workflow into a complete executable experiment plan directly unless a genuinely new blocking ambiguity still remains.",
+        ]
+    )
+    return "\n".join(parts)
+
+
+def summarize_clarification_request(question: str, answer: str) -> str:
     normalized_question = question.strip()
     normalized_answer = answer.strip()
     if not normalized_question:
         return normalized_answer
     return (
-        "Clarification exchange:\n"
-        f"Planner question: {normalized_question}\n"
-        f"User answer: {normalized_answer}"
+        f"Resolved clarification for request \"{normalized_question}\": {normalized_answer}"
     )
 
 
@@ -103,6 +152,14 @@ class PlanFeedbackDecision:
     reply: str
     revisions: List[str]
     current_command: str
+
+
+@dataclass(frozen=True)
+class ClarificationFeedbackDecision:
+    action: Literal["cancel", "empty", "revise", "confirm_without_plan"]
+    reply: str
+    entries: List[str]
+    planner_context: str
 
 
 def interpret_plan_feedback(
@@ -147,4 +204,46 @@ def interpret_plan_feedback(
         reply=reply,
         revisions=updated_revisions,
         current_command=combine_replanned_command(original_command, updated_revisions),
+    )
+
+
+def interpret_clarification_feedback(
+    reply: str,
+    *,
+    entries: List[str],
+    planner_question: str = "",
+) -> ClarificationFeedbackDecision:
+    decision = parse_confirmation(reply)
+    if decision is False:
+        return ClarificationFeedbackDecision(
+            action="cancel",
+            reply=reply,
+            entries=list(entries),
+            planner_context=combine_clarification_context(entries),
+        )
+
+    if decision is True:
+        return ClarificationFeedbackDecision(
+            action="confirm_without_plan",
+            reply=reply,
+            entries=list(entries),
+            planner_context=combine_clarification_context(entries),
+        )
+
+    revision = reply.strip()
+    if not revision:
+        return ClarificationFeedbackDecision(
+            action="empty",
+            reply=reply,
+            entries=list(entries),
+            planner_context=combine_clarification_context(entries),
+        )
+
+    normalized_entry = summarize_clarification_request(planner_question, revision)
+    updated_entries = [*entries, normalized_entry]
+    return ClarificationFeedbackDecision(
+        action="revise",
+        reply=reply,
+        entries=updated_entries,
+        planner_context=combine_clarification_context(updated_entries),
     )

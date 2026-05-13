@@ -7,11 +7,14 @@ Supported layouts:
 - Package skills: `skill_name/SKILL.md`
 
 How it works:
-- The planner automatically loads skills from `user_skills/planning`.
-- It ranks them against the current user command using trigger phrases, tags, example queries, keyword overlap, and priority.
-- The selected skills are injected into the planning prompt as structured planning guidance.
+- The skill resolver automatically loads skills from `user_skills/planning`.
+- It routes the current user command by reading a concise semantic view of each available `SKILL.md` package, including metadata plus a content excerpt, and judging whether each skill's actual workflow semantics fit the request.
+- Only the selected skills are then read in full during the resolution stage. This progressive disclosure keeps routing lightweight while still relying on model-based understanding instead of keyword matching alone.
+- The selected skills are used to decide whether the system should ask for missing information or directly rewrite the request into one complete task instruction for the planner.
+- The downstream planner then converts that resolved task instruction into executable task steps.
 
 Recommended structure:
+- Prefer package skills: `skill_name/SKILL.md`.
 - One workflow or rule set per skill.
 - Keep the guidance concise and actionable.
 - Use explicit trigger phrases when the skill should activate in a specific scenario.
@@ -25,19 +28,16 @@ Supported metadata:
 - `triggers`
 - `examples`
 - `priority`
-- `skill_type`
 - `template_goal`
 - `required_inputs`
 - `planning_stages`
 - `output_strategy`
 - `content` / `guidance`
 
-Skill types:
-- `guidance`: default rule or workflow guidance
-- `planning_template`: a reusable planning mode or workflow template
+Optional metadata:
+- `skill_type`: optional descriptive label only. It can be omitted. Routing and resolution should be driven by the skill content itself, not by this field.
 
 Template-specific metadata:
-- `skill_type: planning_template`
 - `template_goal`: what planning problem the template solves
 - `required_inputs`: key slots the template checks before planning
 - `planning_stages`: ordered planning workflow stages
@@ -84,7 +84,6 @@ Example planning template skill:
 ```md
 ---
 name: Clarify Missing Imaging Parameters
-skill_type: planning_template
 description: Ask one blocking question before final planning when key imaging inputs are missing
 tags:
 - planning

@@ -122,6 +122,7 @@ class ModelConfig:
     Simulation_mode: bool = True
     clarify_enabled: bool = False
     checker_enabled: bool = False
+    emit_skill_routing: bool = False
     openai_api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     model_name: str = "claude-sonnet-4-6"
@@ -347,6 +348,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
         "Simulation_mode": settings.model.Simulation_mode,
         "clarify_enabled": settings.model.clarify_enabled,
         "checker_enabled": settings.model.checker_enabled,
+        "emit_skill_routing": settings.model.emit_skill_routing,
         "base_url": settings.model.base_url,
         "model_name": settings.model.model_name,
         "vlm_base_url": settings.model.vlm_base_url,

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from config.system_config import objective_labels
+from services.skill_resolver import SkillResolutionRequest, SkillResolver
 from utils.runtime_text import format_planner_failure_message
 
 
@@ -12,6 +13,7 @@ class TaskRequest:
     user_command: str
     human_mode: bool = True
     session_id: str = "default"
+    planner_context: str = ""
 
 
 @dataclass
@@ -103,6 +105,19 @@ class TaskOrchestrator:
         self._rewrite_plan_for_confirmation = rewrite_plan_for_confirmation
         self._stream_plan_for_confirmation = stream_plan_for_confirmation
         self._stream_task_execution_summary = stream_task_execution_summary
+        task_manager_cfg = getattr(self.runtime_context.task_manager, "_cfg", {}) or {}
+        self._skill_resolver = SkillResolver(
+            client=self.runtime_context.llm_client,
+            model_name=self.runtime_context.runtime["agent"].model_name,
+            history_manager=self.runtime_context.history_manager,
+            skill_dirs=task_manager_cfg.get("skill_dirs"),
+            skill_max_files=task_manager_cfg.get("skill_max_files", 20),
+            skill_max_chars_per_file=task_manager_cfg.get("skill_max_chars_per_file", 2000),
+            skill_max_selected=task_manager_cfg.get("skill_max_selected", 2),
+            skill_route_max_tokens=task_manager_cfg.get("skill_route_max_tokens", 512),
+            skill_route_temperature=task_manager_cfg.get("skill_route_temperature", 0),
+            resolution_max_tokens=task_manager_cfg.get("max_tokens", 4096),
+        )
 
 
     def _capture_microscope_state(self) -> Dict[str, Any]:
@@ -116,6 +131,21 @@ class TaskOrchestrator:
             "exposure": self.runtime_context.env_olympus.get_exposure(),
             "brightness": self.runtime_context.env_olympus.get_brightness(),
         }
+
+    def _resolved_planner_context(self) -> str:
+        return (
+            "The user request below was produced by the skill resolver as a complete task instruction. "
+            "Treat it as authoritative, and do not ask again for workflow parameters that have already been resolved."
+        )
+
+    def _merge_usage(self, *usages: Optional[Dict[str, int]]) -> Optional[Dict[str, int]]:
+        merged: Dict[str, int] = {}
+        for usage in usages:
+            if not usage:
+                continue
+            for key, value in usage.items():
+                merged[key] = merged.get(key, 0) + int(value)
+        return merged or None
 
     def record_confirmed_plan_history(self, plan: TaskPlan) -> None:
         if not plan.ready or not plan.steps:
@@ -132,22 +162,88 @@ class TaskOrchestrator:
         )
     def plan(self, request: TaskRequest) -> TaskPlan:
         microscope_state = self._capture_microscope_state()
-        planner_result = self.runtime_context.task_manager(
-            request.user_command,
-            microscope_state,
-            "",
-        )
+        planner_result = None
+        planner_query = request.user_command
+        skill_routing_raw_response = ""
+        merged_tokens: Optional[Dict[str, int]] = None
+        emit_skill_routing = bool(getattr(self.runtime_context.runtime["agent"], "emit_skill_routing", False))
+
+        if emit_skill_routing:
+            resolution_result = self._skill_resolver.resolve(
+                SkillResolutionRequest(
+                    user_request=request.user_command,
+                    system_state=microscope_state,
+                    clarification_history=request.planner_context,
+                )
+            )
+            skill_routing_raw_response = str(resolution_result.routing_raw_response or "")
+            merged_tokens = resolution_result.usage
+            if resolution_result.status == "ask_user":
+                task_id = str(uuid.uuid4())
+                return TaskPlan(
+                    task_id=task_id,
+                    session_id=request.session_id,
+                    user_command=request.user_command,
+                    status="ask_user",
+                    question=resolution_result.question,
+                    selected_skills=list(resolution_result.selected_skills),
+                    skill_reason=resolution_result.reason,
+                    active_templates=list(resolution_result.active_templates),
+                    planner_raw_response=resolution_result.raw_response,
+                    skill_routing_raw_response=skill_routing_raw_response,
+                    ready=False,
+                    tokens=merged_tokens,
+                    error=resolution_result.error,
+                )
+            if resolution_result.status == "ready_for_planner":
+                planner_query = resolution_result.resolved_task_instruction or request.user_command
+                planner_result = self.runtime_context.task_manager.plan_with_selected_skills(
+                    planner_query,
+                    microscope_state,
+                    self._resolved_planner_context(),
+                    selected_skill_names=list(resolution_result.selected_skills),
+                    skill_reason=resolution_result.reason,
+                    active_templates=list(resolution_result.active_templates),
+                    allow_ask_user_override=False,
+                )
+                merged_tokens = self._merge_usage(merged_tokens, planner_result.tokens)
+            else:
+                task_id = str(uuid.uuid4())
+                return TaskPlan(
+                    task_id=task_id,
+                    session_id=request.session_id,
+                    user_command=request.user_command,
+                    status="error",
+                    question="",
+                    selected_skills=list(resolution_result.selected_skills),
+                    skill_reason=resolution_result.reason,
+                    active_templates=list(resolution_result.active_templates),
+                    planner_raw_response=resolution_result.raw_response,
+                    skill_routing_raw_response=skill_routing_raw_response,
+                    ready=False,
+                    tokens=merged_tokens,
+                    error=resolution_result.error or "Skill resolver failed before planner execution.",
+                )
+
+        if planner_result is None:
+            planner_result = self.runtime_context.task_manager(
+                request.user_command,
+                microscope_state,
+                request.planner_context,
+            )
         task_manager = self.runtime_context.task_manager
-        skill_routing_raw_response = str(
-            getattr(task_manager, "_last_skill_routing_raw_response", "") or ""
-        )
+        if not skill_routing_raw_response:
+            skill_routing_raw_response = str(
+                getattr(task_manager, "_last_skill_routing_raw_response", "") or ""
+            )
         task_id = str(uuid.uuid4())
+        tokens = self._merge_usage(merged_tokens, planner_result.tokens)
 
         if planner_result.ready and planner_result.steps:
             return TaskPlan(
                 task_id=task_id,
                 session_id=request.session_id,
-                user_command=request.user_command,
+                user_command=planner_query,
                 status="final_plan",
                 selected_skills=list(planner_result.selected_skills),
                 skill_reason=planner_result.skill_reason,
@@ -157,7 +253,7 @@ class TaskOrchestrator:
                 steps=planner_result.steps,
                 display_text="",
                 ready=True,
-                tokens=planner_result.tokens,
+                tokens=tokens,
             )
 
         if planner_result.status == "ask_user":
@@ -173,7 +269,7 @@ class TaskOrchestrator:
                 planner_raw_response=planner_result.raw_response,
                 skill_routing_raw_response=skill_routing_raw_response,
                 ready=False,
-                tokens=planner_result.tokens,
+                tokens=tokens,
                 error=planner_result.error,
             )
 
@@ -189,7 +285,7 @@ class TaskOrchestrator:
             planner_raw_response=planner_result.raw_response,
             skill_routing_raw_response=skill_routing_raw_response,
             ready=False,
-            tokens=planner_result.tokens,
+            tokens=tokens,
             error=planner_result.error or "Unable to generate an executable plan.",
         )
 

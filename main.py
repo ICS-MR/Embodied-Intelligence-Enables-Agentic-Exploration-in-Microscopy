@@ -12,6 +12,8 @@ from bootstrap.config import load_runtime_settings
 from services.task_orchestrator import TaskPlan, TaskRequest
 from utils.cli_logging import configure_cli_logging, get_cli_logger
 from utils.interaction_flow import (
+    combine_clarification_context,
+    interpret_clarification_feedback,
     interpret_plan_feedback,
     is_debug_plan_request,
     pick_text,
@@ -220,11 +222,16 @@ def _record_cli_user_input(
 def request_plan_confirmation(runtime_context, original_command: str) -> Optional[TaskPlan]:
     current_command = original_command.strip()
     revisions: list[str] = []
+    clarification_entries: list[str] = []
     prefers_zh = prefers_chinese(original_command)
 
     while True:
         plan = runtime_context.task_orchestrator.plan(
-            TaskRequest(user_command=current_command, human_mode=True)
+            TaskRequest(
+                user_command=current_command,
+                human_mode=True,
+                planner_context=combine_clarification_context(clarification_entries),
+            )
         )
         if plan.tokens:
             planner_logger.info("Planner tokens: %s", plan.tokens)
@@ -315,14 +322,12 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
             if is_debug_plan_request(reply):
                 print_cli_raw_planner_debug(plan, prefers_zh=prefers_zh)
                 continue
-            decision = interpret_plan_feedback(
+            clarification_decision = interpret_clarification_feedback(
                 reply,
-                plan_ready=False,
-                original_command=original_command,
-                revisions=revisions,
+                entries=clarification_entries,
                 planner_question=prompt_text,
             )
-            if decision.action == "cancel":
+            if clarification_decision.action == "cancel":
                 print_scopebot_message(
                     pick_text(
                         prefers_zh,
@@ -331,7 +336,7 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
                     )
                 )
                 return None
-            if decision.action == "confirm_without_plan":
+            if clarification_decision.action == "confirm_without_plan":
                 print_scopebot_message(
                     pick_text(
                         prefers_zh,
@@ -340,7 +345,7 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
                     )
                 )
                 continue
-            if decision.action == "empty":
+            if clarification_decision.action == "empty":
                 print_scopebot_message(
                     pick_text(
                         prefers_zh,
@@ -350,12 +355,11 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
                 )
                 continue
 
-            revisions = decision.revisions
-            current_command = decision.current_command
+            clarification_entries = clarification_decision.entries
             print_scopebot_message(
                 pick_text(
                     prefers_zh,
-                    "Received. I will replan with that new detail.",
+                    "Received. I will replan using that resolved workflow detail.",
                     "Received. I will replan with that new detail.",
                 )
             )

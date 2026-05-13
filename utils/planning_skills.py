@@ -21,7 +21,7 @@ class PlanningSkill:
     triggers: List[str] = field(default_factory=list)
     examples: List[str] = field(default_factory=list)
     priority: int = 0
-    skill_type: str = "guidance"
+    skill_type: str = ""
     template_goal: str = ""
     planning_stages: List[str] = field(default_factory=list)
     required_inputs: List[str] = field(default_factory=list)
@@ -40,7 +40,7 @@ class _SkillPayload:
     triggers: List[str] = field(default_factory=list)
     examples: List[str] = field(default_factory=list)
     priority: int = 0
-    skill_type: str = "guidance"
+    skill_type: str = ""
     template_goal: str = ""
     planning_stages: List[str] = field(default_factory=list)
     required_inputs: List[str] = field(default_factory=list)
@@ -49,6 +49,13 @@ class _SkillPayload:
 
 def _tokenize(text: str) -> set[str]:
     return {token.lower() for token in re.findall(r"[A-Za-z0-9\u4e00-\u9fff_+-]+", text or "") if len(token) >= 2}
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    normalized = str(text or "").strip()
+    if max_chars <= 0 or len(normalized) <= max_chars:
+        return normalized
+    return normalized[: max(0, max_chars - 3)].rstrip() + "..."
 
 
 def _normalize_skill_dirs(skill_dirs: Optional[Sequence[str | Path]]) -> List[Path]:
@@ -86,9 +93,9 @@ def _coerce_int(value: Any, default: int = 0) -> int:
 
 def _normalize_skill_type(value: Any) -> str:
     normalized = str(value or "").strip().lower()
-    if normalized == "planning_template":
-        return "planning_template"
-    return "guidance"
+    if not normalized:
+        return ""
+    return normalized
 
 
 def _normalize_output_strategy(value: Any) -> str:
@@ -361,14 +368,14 @@ def format_planning_skills_for_prompt(skills: Sequence[PlanningSkill]) -> str:
     ]
     for index, skill in enumerate(skills, start=1):
         lines.append(f"Skill {index}: {skill.name}")
-        lines.append(f"Skill type: {skill.skill_type}")
+        if skill.skill_type:
+            lines.append(f"Skill type: {skill.skill_type}")
         if skill.description:
             lines.append(f"Description: {skill.description}")
-        if skill.skill_type == "planning_template":
-            if skill.output_strategy:
-                lines.append(f"Output strategy: {skill.output_strategy}")
-            if skill.required_inputs:
-                lines.append(f"Required inputs: {', '.join(skill.required_inputs)}")
+        if skill.output_strategy:
+            lines.append(f"Output strategy: {skill.output_strategy}")
+        if skill.required_inputs:
+            lines.append(f"Required inputs: {', '.join(skill.required_inputs)}")
         lines.append("Guidance:")
         lines.append(skill.content)
     return "\n".join(lines)
@@ -385,6 +392,35 @@ def build_skill_catalog(skills: Sequence[PlanningSkill]) -> List[dict[str, Any]]
             }
         )
     return catalog
+
+
+def format_skills_for_routing_prompt(skills: Sequence[PlanningSkill], *, excerpt_chars: int = 900) -> str:
+    if not skills:
+        return "No planning skills are available."
+
+    lines = [
+        "Available planning skill packages:",
+        "Read each skill package summary and content excerpt, then decide whether its actual workflow content should be applied.",
+        "Use semantic understanding of the skill package. Do not rely only on the skill name or obvious keyword overlap.",
+        "This is a progressive disclosure stage: routing sees a concise semantic profile first, and only selected skills are read in full later.",
+    ]
+    for index, skill in enumerate(skills, start=1):
+        lines.append(f"Skill {index}: {skill.name}")
+        if skill.description:
+            lines.append(f"Description: {skill.description}")
+        if skill.triggers:
+            lines.append(f"Triggers: {', '.join(skill.triggers)}")
+        if skill.examples:
+            lines.append(f"Examples: {', '.join(skill.examples)}")
+        if skill.output_strategy:
+            lines.append(f"Output strategy: {skill.output_strategy}")
+        if skill.required_inputs:
+            lines.append(f"Required inputs: {', '.join(skill.required_inputs)}")
+        if skill.template_goal:
+            lines.append(f"Template goal: {skill.template_goal}")
+        lines.append("Skill package content excerpt:")
+        lines.append(_truncate_text(skill.content, excerpt_chars))
+    return "\n".join(lines)
 
 
 def find_skills_by_name(
@@ -438,7 +474,14 @@ def format_selected_skills_for_prompt(skills: Sequence[PlanningSkill]) -> str:
 
 
 def extract_active_planning_templates(skills: Sequence[PlanningSkill]) -> List[PlanningSkill]:
-    return [skill for skill in skills if skill.skill_type == "planning_template"]
+    active_templates: List[PlanningSkill] = []
+    for skill in skills:
+        if skill.output_strategy == "single_question_then_plan":
+            active_templates.append(skill)
+            continue
+        if skill.required_inputs or skill.template_goal or skill.planning_stages:
+            active_templates.append(skill)
+    return active_templates
 
 
 def build_active_template_metadata(skills: Sequence[PlanningSkill]) -> List[dict[str, Any]]:

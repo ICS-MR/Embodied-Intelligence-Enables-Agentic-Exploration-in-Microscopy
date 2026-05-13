@@ -19,6 +19,7 @@ _config = load_model_config()
 Simulation_mode = _config.Simulation_mode
 clarify_enabled = _config.clarify_enabled
 checker_enabled = _config.checker_enabled
+emit_skill_routing = _config.emit_skill_routing
 openai_api_key = _config.openai_api_key
 base_url = _config.base_url
 model_name = _config.model_name
@@ -73,7 +74,7 @@ def build_executor_lmp_config_from_text(
     cfg = {
         "prompt_text": resolved_prompt_text,
         "engine": model_name,
-        "max_tokens": 5120,
+        "max_tokens": 51200,
         "temperature": 0,
         "query_prefix": "#",
         "query_suffix": ".",
@@ -107,7 +108,7 @@ def build_planner_lmp_config() -> Dict[str, Any]:
     return {
         "prompt_text": prompt_manger,
         "engine": model_name,
-        "max_tokens": 5120,
+        "max_tokens": 51200,
         "temperature": 0,
         "query_prefix": "# ",
         "query_suffix": ".",
@@ -124,7 +125,7 @@ def build_planner_lmp_config() -> Dict[str, Any]:
         "skill_max_selected": 2,
         "skill_route_max_tokens": 512,
         "skill_route_temperature": 0,
-        "emit_skill_routing": False,
+        "emit_skill_routing": emit_skill_routing,
     }
 
 
