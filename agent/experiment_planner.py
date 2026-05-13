@@ -525,8 +525,64 @@ class ExperimentPlanAgent:
                 raw_response=answer_content,
             )
 
+        if state_status == "unsupported":
+            unsupported_reason = state_reason or "The current system cannot execute this request."
+            if self._historyManager:
+                self._historyManager.record_interaction(
+                    agent_name=self._name,
+                    event_type="planning_unsupported",
+                    message="Planner reported that the request is unsupported by current system capabilities.",
+                    payload={
+                        "query": query,
+                        "selected_skills": selected_skill_names,
+                        "reason": unsupported_reason,
+                        "active_templates": active_templates,
+                        "raw_response": answer_content,
+                        "usage": usage_dict or {},
+                    },
+                )
+            return PlannerResult(
+                status="unsupported",
+                question="",
+                selected_skills=selected_skill_names,
+                skill_reason=unsupported_reason,
+                active_templates=active_templates,
+                ready=False,
+                tokens=usage_dict,
+                error=unsupported_reason,
+                raw_response=answer_content,
+            )
+
         if state_status == "final_plan":
             steps_content = extract_task_steps(answer_content)
+            if not steps_content.strip():
+                missing_steps_error = (
+                    "Planner declared final_plan but did not provide a <Task steps> block."
+                )
+                if self._historyManager:
+                    self._historyManager.record_interaction(
+                        agent_name=self._name,
+                        event_type="planning_missing_task_steps",
+                        message=missing_steps_error,
+                        payload={
+                            "query": query,
+                            "selected_skills": selected_skill_names,
+                            "reason": state_reason or skill_reason,
+                            "active_templates": active_templates,
+                            "raw_response": answer_content,
+                            "usage": usage_dict or {},
+                        },
+                    )
+                return PlannerResult(
+                    status="error",
+                    selected_skills=selected_skill_names,
+                    skill_reason=state_reason or skill_reason,
+                    active_templates=active_templates,
+                    ready=False,
+                    tokens=usage_dict,
+                    error=missing_steps_error,
+                    raw_response=answer_content,
+                )
             tasks = _parse_json_response(steps_content)
             if tasks:
                 tasks = merge_module_tasks(tasks)
@@ -541,6 +597,7 @@ class ExperimentPlanAgent:
                             "selected_skills": selected_skill_names,
                             "reason": state_reason or skill_reason,
                             "active_templates": active_templates,
+                            "raw_response": answer_content,
                             "usage": usage_dict or {},
                         },
                     )
@@ -554,6 +611,34 @@ class ExperimentPlanAgent:
                     tokens=usage_dict,
                     raw_response=answer_content,
                 )
+            invalid_steps_error = (
+                "Planner returned a <Task steps> block, but it could not be parsed as a JSON step list."
+            )
+            if self._historyManager:
+                self._historyManager.record_interaction(
+                    agent_name=self._name,
+                    event_type="planning_invalid_task_steps",
+                    message=invalid_steps_error,
+                    payload={
+                        "query": query,
+                        "selected_skills": selected_skill_names,
+                        "reason": state_reason or skill_reason,
+                        "active_templates": active_templates,
+                        "raw_response": answer_content,
+                        "task_steps_content": steps_content,
+                        "usage": usage_dict or {},
+                    },
+                )
+            return PlannerResult(
+                status="error",
+                selected_skills=selected_skill_names,
+                skill_reason=state_reason or skill_reason,
+                active_templates=active_templates,
+                ready=False,
+                tokens=usage_dict,
+                error=invalid_steps_error,
+                raw_response=answer_content,
+            )
 
         if self._historyManager:
             self._historyManager.record_interaction(
@@ -727,6 +812,22 @@ class ExperimentPlanAgent:
             planner_result = self.plan_with_clarify(query, state, context)
             self._last_selected_skills = []
             self._last_skill_reason = planner_result.skill_reason
+            self._last_active_templates = []
+            self._last_skill_routing_raw_response = ""
+            self._last_planner_raw_response = planner_result.raw_response
+            return planner_result
+
+        if not self._emit_skill_routing:
+            planner_result = self.plan_with_selected_skills(
+                query,
+                state,
+                context,
+                selected_skill_names=[],
+                skill_reason="",
+                active_templates=[],
+            )
+            self._last_selected_skills = []
+            self._last_skill_reason = ""
             self._last_active_templates = []
             self._last_skill_routing_raw_response = ""
             self._last_planner_raw_response = planner_result.raw_response

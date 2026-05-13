@@ -2,6 +2,8 @@ import ast
 import json
 import logging
 import re
+import sys
+import time as _time
 from typing import Any, Dict, List, Optional, Set
 
 from openai import OpenAI
@@ -20,8 +22,11 @@ SAFE_BUILTIN_CALLS = {
     "enumerate",
     "float",
     "int",
+    "isinstance",
+    "issubclass",
     "len",
     "list",
+    "map",
     "max",
     "min",
     "range",
@@ -32,7 +37,18 @@ SAFE_BUILTIN_CALLS = {
     "str",
     "sum",
     "tuple",
+    "type",
     "zip",
+    "Exception",
+    "ValueError",
+    "RuntimeError",
+    "TypeError",
+    "FileNotFoundError",
+    "KeyError",
+    "IndexError",
+    "TimeoutError",
+    "ImportError",
+    "AssertionError",
 }
 SAFE_IMPORT_MODULES = {
     "collections",
@@ -75,12 +91,25 @@ FORBIDDEN_ROOT_NAMES = {
         
         
 def _parse_json_response(content: str) -> Optional[List[Dict]]:
+    content = (content or "").strip()
+    if not content:
+        return None
     try:
-        content = content.strip()
-        if content.startswith("```json"):
-            content = content.split("```json")[-1].split("```")[0].strip()
-        return json.loads(content)
+        if content.startswith("```"):
+            fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
+            if fence_match:
+                content = fence_match.group(1).strip()
+
+        payload = json.loads(content)
+        return payload if isinstance(payload, list) else None
     except json.JSONDecodeError as e:
+        array_match = re.search(r"\[[\s\S]*\]", content)
+        if array_match:
+            try:
+                payload = json.loads(array_match.group(0))
+                return payload if isinstance(payload, list) else None
+            except json.JSONDecodeError:
+                pass
         logger.warning("JSON parsing failed: %s\nContent:\n%s", e, content)
         return None
     except Exception as e:
@@ -123,6 +152,8 @@ def _collect_assigned_names(tree: ast.AST) -> Set[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             assigned.add(node.id)
+        elif isinstance(node, ast.arg):
+            assigned.add(node.arg)
     return assigned
 
 
@@ -251,7 +282,7 @@ def _collect_unsafe_operations(
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
-        elif isinstance(node, (ast.AsyncWith, ast.Try, ast.Raise, ast.ClassDef, ast.Lambda, ast.Nonlocal)):
+        elif isinstance(node, (ast.AsyncWith, ast.ClassDef, ast.Nonlocal)):
             banned_ops.append(f"Unsupported syntax prohibited: {type(node).__name__}")
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("__"):
@@ -277,6 +308,7 @@ def exec_safe(
     *,
     allowed_call_names: Optional[Set[str]] = None,
     allowed_attribute_roots: Optional[Set[str]] = None,
+    timeout_seconds: Optional[float] = None,
 ) -> None:
     if not code_str.strip():
         logger.warning("Code to execute is empty")
@@ -311,8 +343,35 @@ def exec_safe(
         'compile': lambda *a, **k: None
     }])
     exec_scope = merge_dicts([custom_gvars, locals_dict])
+    original_import = __import__
+
+    def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+        module = original_import(name, globals, locals, fromlist, level)
+        if name == "time" and "time" in custom_gvars:
+            return custom_gvars["time"]
+        return module
+
+    exec_scope["__builtins__"] = dict(__builtins__ if isinstance(__builtins__, dict) else __builtins__.__dict__)
+    exec_scope["__builtins__"]["__import__"] = _safe_import
+    previous_trace = sys.gettrace()
+    deadline = None
+    generated_code_filename = "<generated-code>"
+    if timeout_seconds is not None and timeout_seconds > 0:
+        deadline = _time.monotonic() + float(timeout_seconds)
+
+        def _timeout_trace(frame, event, arg):
+            if (
+                event == "line"
+                and frame.f_code.co_filename == generated_code_filename
+                and _time.monotonic() > deadline
+            ):
+                raise TimeoutError(f"Generated code execution timed out after {timeout_seconds:.1f}s")
+            return _timeout_trace
+
+        sys.settrace(_timeout_trace)
     try:
-        exec(code_str, exec_scope, exec_scope)
+        compiled_code = compile(code_str, generated_code_filename, "exec")
+        exec(compiled_code, exec_scope, exec_scope)
         if lvars is not None:
             result_keys = initial_local_keys | {
                 name for name in exec_scope.keys()
@@ -324,6 +383,9 @@ def exec_safe(
     except Exception as e:
         logger.error("Code execution failed: %s", e)
         raise
+    finally:
+        if deadline is not None:
+            sys.settrace(previous_trace)
 
 def var_exists(name: str, all_vars: Dict) -> bool:
     if not (validate_param_type(all_vars, dict, "all_vars") and name.strip()):
@@ -359,18 +421,22 @@ def call_openai_generic(
     )
 
 
-def extract_task_ready(input_text: str) -> str:
-    match = re.search(r'<Task Ready>(.*?)</Task Ready>', input_text, re.DOTALL)
+def _extract_tag_block(input_text: str, tag_name: str) -> str:
+    normalized_tag = re.escape(str(tag_name).strip())
+    pattern = rf"<\s*{normalized_tag}\s*>([\s\S]*?)</\s*{normalized_tag}\s*>"
+    match = re.search(pattern, input_text or "", re.IGNORECASE)
     return match.group(1).strip() if match else ""
 
+
+def extract_task_ready(input_text: str) -> str:
+    return _extract_tag_block(input_text, "Task Ready")
+
 def extract_task_steps(input_text: str) -> str:
-    match = re.search(r'<Task steps>(.*?)</Task steps>', input_text, re.DOTALL)
-    return match.group(1).strip() if match else ""
+    return _extract_tag_block(input_text, "Task steps")
 
 
 def extract_planner_state(input_text: str) -> str:
-    match = re.search(r'<Planner State>(.*?)</Planner State>', input_text, re.DOTALL)
-    return match.group(1).strip() if match else ""
+    return _extract_tag_block(input_text, "Planner State")
 
 def merge_module_tasks(task_list: List[Dict]) -> List[Dict]:
     if not task_list:

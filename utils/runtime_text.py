@@ -62,6 +62,18 @@ def format_raw_planner_debug(plan: Any, *, prefers_zh: bool) -> str:
     return "\n".join(lines)
 
 
+def format_planner_failure_message(plan: Any, *, prefers_zh: bool) -> str:
+    del prefers_zh
+    planner_raw = str(getattr(plan, "planner_raw_response", "") or "").strip()
+    skill_raw = str(getattr(plan, "skill_routing_raw_response", "") or "").strip()
+
+    if planner_raw:
+        return planner_raw
+    if skill_raw:
+        return skill_raw
+    return "There is no raw planner output available yet."
+
+
 def summarize_my_spoken_messages(client: Optional[Any], model_name: str, spoken_messages: List[str]) -> str:
     if not spoken_messages:
         return "(No spoken output)"

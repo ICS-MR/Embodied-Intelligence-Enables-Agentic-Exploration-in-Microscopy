@@ -3,6 +3,7 @@ import os
 import multiprocessing as mp
 import sys
 from typing import Callable, Optional
+import time
 
 os.environ["PYMM_LOG_FILE"] = "0"
 os.environ["BFIO_LOG_TO_FILE"] = "0"
@@ -360,6 +361,17 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
             )
             print_divider()
             continue
+
+        if getattr(plan, "status", "") == "unsupported":
+            print_scopebot_message(
+                pick_text(
+                    prefers_zh,
+                    "The current system cannot execute this request. Here is the original planner output:",
+                    "The current system cannot execute this request. Here is the original planner output:",
+                )
+            )
+            print_scopebot_message(plan.planner_raw_response or plan.error or "Unsupported request.")
+            return None
 
         print_scopebot_message(
             pick_text(

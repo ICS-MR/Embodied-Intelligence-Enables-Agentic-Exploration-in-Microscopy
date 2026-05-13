@@ -119,8 +119,8 @@ class RuntimeManager:
         except RuntimeError:
             self.server_loop = None
 
-    def current_snapshot(self) -> dict[str, Any]:
-        return read_config_snapshot()
+    def current_snapshot(self, *, apply_env: bool = True) -> dict[str, Any]:
+        return read_config_snapshot(apply_env=apply_env)
 
     def update_settings(
         self,
@@ -908,6 +908,26 @@ class RuntimeManager:
                         ),
                     )
                     continue
+
+                if getattr(plan, "status", "") == "unsupported":
+                    unsupported_text = pick_text(
+                        prefers_zh,
+                        "The current system cannot execute this request. Here is the original planner output:",
+                        "The current system cannot execute this request. Here is the original planner output:",
+                    )
+                    self._send_message("robot_say", unsupported_text)
+                    self._send_message(
+                        "robot_say",
+                        str(getattr(plan, "planner_raw_response", "") or getattr(plan, "error", "") or "Unsupported request."),
+                    )
+                    self._send_message("task_complete", "")
+                    return self._make_task_response(
+                        status="unsupported",
+                        retry_times=0,
+                        summary=str(getattr(plan, "planner_raw_response", "") or getattr(plan, "error", "") or unsupported_text),
+                        task_id=plan.task_id if plan is not None else uuid.uuid4().hex,
+                        model_name=runtime_agent.model_name,
+                    ).model_dump()
 
                 self._send_message(
                     "robot_say",

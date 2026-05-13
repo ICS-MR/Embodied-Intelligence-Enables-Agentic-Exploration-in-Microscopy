@@ -3,6 +3,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from config.system_config import objective_labels
+from utils.runtime_text import format_planner_failure_message
+
 
 @dataclass
 class TaskRequest:
@@ -60,6 +63,21 @@ class CheckResult:
     has_no_target_error: bool = False
 
 
+CHANNEL_SEMANTICS = {
+    "1-NONE": "Brightfield",
+    "2-U-FUNA": "DAPI / 405 nm",
+    "3-U-FBNA": "FITC / 488 nm",
+    "4-U-FGNA": "TRITC / 640 nm",
+}
+
+
+def format_objective_semantic(objective_label: str) -> str:
+    magnification = objective_labels.get(str(objective_label).strip())
+    if magnification is None:
+        return "Unknown"
+    return f"{magnification}x objective"
+
+
 class TaskOrchestrator:
     def __init__(
         self,
@@ -88,9 +106,13 @@ class TaskOrchestrator:
 
 
     def _capture_microscope_state(self) -> Dict[str, Any]:
+        channel = self.runtime_context.env_olympus.get_channel()
+        objective = self.runtime_context.env_olympus.get_objective()
         return {
-            "objective": self.runtime_context.env_olympus.get_objective(),
-            "channel": self.runtime_context.env_olympus.get_channel(),
+            "objective": objective,
+            "objective_semantic": format_objective_semantic(objective),
+            "channel": channel,
+            "channel_semantic": CHANNEL_SEMANTICS.get(channel, "Unknown"),
             "exposure": self.runtime_context.env_olympus.get_exposure(),
             "brightness": self.runtime_context.env_olympus.get_brightness(),
         }
@@ -177,7 +199,7 @@ class TaskOrchestrator:
         if plan.status == "ask_user" and plan.question.strip():
             return plan.question.strip()
         if not plan.steps:
-            return "I do not have an executable experiment plan yet."
+            return format_planner_failure_message(plan, prefers_zh=False)
 
         try:
             rewritten = self._rewrite_plan_for_confirmation(
@@ -391,12 +413,15 @@ class TaskOrchestrator:
             command = step["command"]
 
             if module_name == "Microscope Operation Platform":
+                current_objective = env_olympus.get_objective()
                 env_info = (
                     f"Current xy_position:{env_olympus.get_x_y_position()}, "
                     f"z_position:{env_olympus.get_z_position()}, "
                     f"exposure_time:{env_olympus.get_exposure()}, "
-                    f"objective:{env_olympus.get_objective()}, "
-                    f"dichroic:{env_olympus.get_channel()}, "
+                    f"objective:{current_objective} "
+                    f"({format_objective_semantic(current_objective)}), "
+                    f"dichroic:{env_olympus.get_channel()} "
+                    f"({CHANNEL_SEMANTICS.get(env_olympus.get_channel(), 'Unknown')}), "
                     f"brightness:{env_olympus.get_brightness()}"
                 )
                 context += f"\n# Current environment:{env_info}"
