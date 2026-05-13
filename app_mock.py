@@ -629,7 +629,7 @@ async def upload_cfg(file: UploadFile = File(...)) -> Dict[str, Any]:
 
     suggestions = suggest_values(saved_path)
     cfg_data = parse_mm_config(saved_path)
-    existing = read_config_snapshot()["system"]
+    existing = read_config_snapshot(apply_env=False)["system"]
     objective_labels = build_objective_labels(cfg_data, suggestions["objective_device"]["value"], existing["objective_labels"])
     dichroic_colors = build_dichroic_colors(cfg_data, suggestions["Dichroic"]["value"], existing["dichroic_colors"])
 
@@ -651,7 +651,7 @@ async def upload_cfg(file: UploadFile = File(...)) -> Dict[str, Any]:
 
 @app.post("/api/config/save")
 async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
-    snapshot = read_config_snapshot()
+    snapshot = read_config_snapshot(apply_env=False)
     system_current = snapshot["system"]
     agent_current = snapshot["agent"]
     startup_current = snapshot["startup"]

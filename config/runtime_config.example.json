@@ -29,6 +29,7 @@
     "organoid": {
       "target_class_id": 0,
       "target_class_name": "organoid",
+      "score_thr": 0.2,
       "output_filename": "organoid_locations_list.json",
       "model_config": "configs/organoid.py",
       "model_checkpoint": "weights/organoid.pth"
@@ -36,6 +37,7 @@
     "mitosis": {
       "target_class_id": 0,
       "target_class_name": "mitosis",
+      "score_thr": 0.2,
       "output_filename": "mitosis_locations_list.json",
       "model_config": "",
       "model_checkpoint": ""

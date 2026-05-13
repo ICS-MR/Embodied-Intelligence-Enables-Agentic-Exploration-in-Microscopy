@@ -31,33 +31,14 @@ task_similarity_threshold = _config.task_similarity_threshold
 
 SANDBOX_EXECUTOR_GUIDANCE = """
 
-# Sandbox Execution Constraints
-- The runtime uses a security sandbox. Generate code that obeys this whitelist exactly and do not guess unavailable capabilities.
-- Allowed imports are limited to: collections, csv, datetime, functools, itertools, json, math, statistics, time.
-- You may define and call local helper functions with `def`.
-- You may use `with` and `global` when necessary.
-- Do not use lambda expressions. If custom callable logic is needed, define a named helper function with `def`.
-- Use only the API functions explicitly listed in this prompt plus safe Python builtins and the allowed imports above.
-- Do not call functions, classes, or modules that are not explicitly listed or imported from the allowed whitelist above.
-- Do not use file I/O directly. Never use `open`.
-- Do not use `eval`, `exec`, `compile`, `__import__`, `getattr`, `setattr`, or `delattr`.
-- Do not use `os`, `sys`, `pathlib`, `subprocess`, `socket`, `shutil`, `requests`, `httpx`, `urllib`, or `builtins`.
-- If a save/load operation is needed, use the provided platform API functions instead of writing your own file access code.
-- Prefer the provided platform API functions over custom implementations whenever possible.
+# Sandbox Constraints
+- No direct file, system, network, import, reflection, or dynamic execution APIs: `open`, `eval`, `exec`, `compile`, `__import__`, `getattr`, `setattr`, `delattr`, `os`, `sys`, `pathlib`, `subprocess`, `socket`, `shutil`, `requests`, `httpx`, `urllib`, `builtins`.
+- Use platform APIs for save/load and prefer them over custom implementations.
 """.strip()
 
 SANDBOX_FGEN_GUIDANCE = """
-
-# Sandbox Execution Constraints
-- The generated function will run inside a security sandbox. Follow this whitelist exactly and do not assume extra capabilities.
-- Allowed imports are limited to: collections, csv, datetime, functools, itertools, json, math, statistics, time.
-- You may define and call local helper functions with `def`.
-- You may use `with` and `global` when necessary.
-- Do not use lambda expressions. If custom callable logic is needed, define a named helper function with `def`.
-- Do not use file I/O directly. Never use `open`.
-- Do not use `eval`, `exec`, `compile`, `__import__`, `getattr`, `setattr`, or `delattr`.
-- Do not use `os`, `sys`, `pathlib`, `subprocess`, `socket`, `shutil`, `requests`, `httpx`, `urllib`, or `builtins`.
-- Only rely on safe Python builtins and the allowed imports above.
+# Sandbox Constraints
+- No direct file, system, network, import, reflection, or dynamic execution APIs: `open`, `eval`, `exec`, `compile`, `__import__`, `getattr`, `setattr`, `delattr`, `os`, `sys`, `pathlib`, `subprocess`, `socket`, `shutil`, `requests`, `httpx`, `urllib`, `builtins`.
 """.strip()
 
 
@@ -143,7 +124,7 @@ def build_planner_lmp_config() -> Dict[str, Any]:
         "skill_max_selected": 2,
         "skill_route_max_tokens": 512,
         "skill_route_temperature": 0,
-        "emit_skill_routing": True,
+        "emit_skill_routing": False,
     }
 
 

@@ -87,7 +87,7 @@ async def upload_cfg(file: UploadFile = File(...), runtime_manager=Depends(get_r
 
 @router.post("/api/config/save", response_model=ConfigSaveResponse)
 async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtime_manager)) -> ConfigSaveResponse:
-    snapshot = runtime_manager.current_snapshot()
+    snapshot = runtime_manager.current_snapshot(apply_env=False)
     agent_current = snapshot["agent"]
     system_current = snapshot["system"]
     startup_current = snapshot["startup"]

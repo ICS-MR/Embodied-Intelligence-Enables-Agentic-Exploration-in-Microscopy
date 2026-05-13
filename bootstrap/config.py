@@ -35,6 +35,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "tumor": {
         "target_class_id": 0,
         "target_class_name": "tumor",
+        "score_thr": 0.2,
         "output_filename": "tumor_locations_list.json",
         "model_config": "",
         "model_checkpoint": "",
@@ -42,6 +43,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "lesion": {
         "target_class_id": 0,
         "target_class_name": "lesion",
+        "score_thr": 0.2,
         "output_filename": "lesion_locations_list.json",
         "model_config": "",
         "model_checkpoint": "",
@@ -49,6 +51,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "bacteria": {
         "target_class_id": 0,
         "target_class_name": "bacteria",
+        "score_thr": 0.2,
         "output_filename": "bacteria_locations_list.json",
         "model_config": "",
         "model_checkpoint": "",
@@ -56,6 +59,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "2Dcell": {
         "target_class_id": 0,
         "target_class_name": "2Dcell",
+        "score_thr": 0.2,
         "output_filename": "2Dcell_locations_list.json",
         "model_config": "",
         "model_checkpoint": "",
@@ -63,6 +67,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "organoid": {
         "target_class_id": 0,
         "target_class_name": "organoid",
+        "score_thr": 0.2,
         "output_filename": "organoid_locations_list.json",
         "model_config": "configs/organoid.py",
         "model_checkpoint": "weights/organoid.pth",
@@ -117,11 +122,11 @@ class ModelConfig:
     Simulation_mode: bool = True
     clarify_enabled: bool = False
     checker_enabled: bool = False
-    openai_api_key: str = ""
-    base_url: str = "https://api.openai.com/v1"
+    openai_api_key: str = "sk-ngWYYJ3lt5pFB9YF5mTCuFRp7KQQtRATn0NdsV0X21rHRoSt"
+    base_url: str = "https://jeniya.top/v1"
     model_name: str = "claude-sonnet-4-6"
-    vlm_api_key: str = ""
-    vlm_base_url: str = "https://api.openai.com/v1"
+    vlm_api_key: str = "sk-ngWYYJ3lt5pFB9YF5mTCuFRp7KQQtRATn0NdsV0X21rHRoSt"
+    vlm_base_url: str = "https://jeniya.top/v1"
     vlm_model_name: str = "claude-sonnet-4-6"
     CROSS_ENCODER_MODEL_PATH: str = r"model\bge-m3"
     task_similarity_threshold: float = 0.17
@@ -192,11 +197,26 @@ def _apply_file_overrides(settings: RuntimeSettings, payload: Mapping[str, Any])
     if isinstance(startup_payload, Mapping):
         _update_dataclass(settings.startup, startup_payload)
     if isinstance(detection_payload, Mapping):
-        settings.detection_targets = {
-            str(key): dict(value)
-            for key, value in detection_payload.items()
-            if isinstance(value, Mapping)
-        }
+        settings.detection_targets = _merge_detection_targets(settings.detection_targets, detection_payload)
+
+
+def _merge_detection_targets(
+    defaults: Mapping[str, Mapping[str, Any]],
+    overrides: Mapping[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    merged: Dict[str, Dict[str, Any]] = {
+        str(key): dict(value)
+        for key, value in defaults.items()
+        if isinstance(value, Mapping)
+    }
+    for key, value in overrides.items():
+        if not isinstance(value, Mapping):
+            continue
+        target_key = str(key)
+        base = dict(merged.get(target_key, {}))
+        base.update(dict(value))
+        merged[target_key] = base
+    return merged
 
 
 def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str]) -> None:
@@ -254,12 +274,13 @@ def _load_env_values(*, include_dotenv: bool) -> Dict[str, str]:
     return merged
 
 
-def load_runtime_settings(config_path: Optional[Path] = None) -> RuntimeSettings:
+def load_runtime_settings(config_path: Optional[Path] = None, *, apply_env: bool = True) -> RuntimeSettings:
     settings = RuntimeSettings()
     target_path = config_path or RUNTIME_CONFIG_PATH
     payload = _read_json(target_path)
     _apply_file_overrides(settings, payload)
-    _apply_env_overrides(settings, _load_env_values(include_dotenv=target_path == RUNTIME_CONFIG_PATH))
+    if apply_env:
+        _apply_env_overrides(settings, _load_env_values(include_dotenv=target_path == RUNTIME_CONFIG_PATH))
     return settings
 
 
@@ -277,7 +298,7 @@ def save_runtime_settings(
     config_path: Optional[Path] = None,
 ) -> RuntimeSettings:
     target_path = config_path or RUNTIME_CONFIG_PATH
-    settings = load_runtime_settings(target_path)
+    settings = load_runtime_settings(target_path, apply_env=False)
     if system_updates:
         _update_dataclass(settings.system, system_updates)
     if model_updates:
@@ -364,13 +385,13 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
     }
 
 
-def read_config_snapshot(config_path: Optional[Path] = None) -> Dict[str, Any]:
-    settings = load_runtime_settings(config_path)
+def read_config_snapshot(config_path: Optional[Path] = None, *, apply_env: bool = True) -> Dict[str, Any]:
+    settings = load_runtime_settings(config_path, apply_env=apply_env)
     return _snapshot_payload(settings, include_secrets=True)
 
 
-def read_public_config_snapshot(config_path: Optional[Path] = None) -> Dict[str, Any]:
-    settings = load_runtime_settings(config_path)
+def read_public_config_snapshot(config_path: Optional[Path] = None, *, apply_env: bool = True) -> Dict[str, Any]:
+    settings = load_runtime_settings(config_path, apply_env=apply_env)
     return _snapshot_payload(settings, include_secrets=False)
 
 

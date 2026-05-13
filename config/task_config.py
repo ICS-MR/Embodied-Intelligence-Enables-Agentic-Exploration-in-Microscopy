@@ -1,4 +1,4 @@
-HISTORY_DIR = r'History'
+HISTORY_DIR = r'history'
 OUTPUT_DIR = r'output'
 
 MAX_RETRY_TIMES = 3
