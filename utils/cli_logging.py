@@ -1,5 +1,6 @@
 import logging
 import sys
+from pathlib import Path
 from typing import Any, Mapping
 
 
@@ -54,13 +55,29 @@ class CliFormatter(logging.Formatter):
         return f"{timestamp} [{category}] {level} {message}"
 
 
-def configure_cli_logging(level: int = logging.INFO) -> None:
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(CliFormatter(use_color=sys.stdout.isatty()))
+def configure_cli_logging(
+    level: int = logging.INFO,
+    *,
+    log_path: str | Path | None = None,
+    console_level: int | None = None,
+) -> None:
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(level)
-    root.addHandler(handler)
+
+    if log_path is not None:
+        resolved_log_path = Path(log_path)
+        resolved_log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(resolved_log_path, encoding="utf-8")
+        file_handler.setLevel(level)
+        file_handler.setFormatter(CliFormatter(use_color=False))
+        root.addHandler(file_handler)
+
+    if console_level is not None:
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setLevel(console_level)
+        console_handler.setFormatter(CliFormatter(use_color=sys.stderr.isatty()))
+        root.addHandler(console_handler)
 
 
 def get_cli_logger(category: str) -> CliCategoryAdapter:

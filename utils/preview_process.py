@@ -89,7 +89,28 @@ def _run_pyqt_preview(frame_queue: MPQueue, status_queue: MPQueue, stop_event: M
     from PyQt6.QtGui import QImage, QKeyEvent, QPixmap
     from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
-    fallback_frame = np.zeros((720, 720, 3), dtype=np.uint8)
+    fallback_frame = np.full((720, 720, 3), 24, dtype=np.uint8)
+    cv2.rectangle(fallback_frame, (24, 24), (696, 696), (0, 180, 255), 2)
+    cv2.putText(
+        fallback_frame,
+        "Waiting for microscope frames...",
+        (70, 340),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.9,
+        (230, 230, 230),
+        2,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        fallback_frame,
+        "If this stays here, check camera exposure / illumination.",
+        (70, 390),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (190, 190, 190),
+        1,
+        cv2.LINE_AA,
+    )
 
     class PreviewWindow(QWidget):
         def __init__(self) -> None:
@@ -195,7 +216,10 @@ def _run_pyqt_preview(frame_queue: MPQueue, status_queue: MPQueue, stop_event: M
         app = QApplication([])
 
     window = PreviewWindow()
+    window.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
     window.show()
+    window.raise_()
+    window.activateWindow()
     _safe_put_status(status_queue, "preview_info", f"PyQt6 preview window started: {window_name}")
 
     try:

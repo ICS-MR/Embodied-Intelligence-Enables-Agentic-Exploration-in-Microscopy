@@ -2,6 +2,8 @@
 import os
 import multiprocessing as mp
 import sys
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from pathlib import Path
 from typing import Callable, Optional
 import time
 
@@ -27,6 +29,9 @@ from utils.runtime_text import format_raw_planner_debug
 NOISY_LOGGERS = [
     "pymmcore_plus",
     "bfio",
+    "bfio.backends",
+    "jpype",
+    "scyjava",
     "openai",
     "httpx",
     "httpcore",
@@ -34,6 +39,10 @@ NOISY_LOGGERS = [
 ]
 
 EXIT_KEYWORDS = {"exit", "quit", "bye"}
+ROOT_DIR = Path(__file__).resolve().parent
+CLI_LOG_PATH = ROOT_DIR / "logs" / "cli_runtime.log"
+CLI_STDOUT = sys.stdout
+CLI_STDIN = sys.stdin
 
 class Color:
     RESET = "\033[0m"
@@ -46,6 +55,17 @@ class Color:
     WHITE = "\033[37m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+
+def silence_external_console_noise() -> None:
+    """Keep third-party technical logs out of the interactive CLI prompt."""
+    logging.captureWarnings(True)
+    for name in NOISY_LOGGERS:
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.propagate = True
+        logger.setLevel(logging.ERROR)
+
 
 def show_eims_welcome_logo() -> None:
     """Display the static EIMS welcome banner."""
@@ -69,62 +89,77 @@ def show_eims_welcome_logo() -> None:
 {Color.WHITE}📌 Waiting for your commands (type 'exit' to quit){Color.RESET}
 """
     # Print the static banner directly
-    print(eims_logo)
+    cli_print(eims_logo)
 
-configure_cli_logging(logging.INFO)
-for name in NOISY_LOGGERS:
-    logging.getLogger(name).setLevel(logging.WARNING)
+configure_cli_logging(logging.INFO, log_path=CLI_LOG_PATH, console_level=None)
+silence_external_console_noise()
 system_logger = get_cli_logger("SYSTEM")
 planner_logger = get_cli_logger("PLANNER")
 
 
+def cli_print(text: str = "", *, end: str = "\n", flush: bool = True) -> None:
+    CLI_STDOUT.write(f"{text}{end}")
+    if flush:
+        CLI_STDOUT.flush()
+
+
+@contextmanager
+def capture_technical_output():
+    CLI_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with CLI_LOG_PATH.open("a", encoding="utf-8", buffering=1) as log_file:
+        with redirect_stdout(log_file), redirect_stderr(log_file):
+            yield
+
+
 def cli_input(prompt: str) -> str:
-    return input(prompt).strip()
+    cli_print(prompt, end="")
+    with capture_technical_output():
+        return CLI_STDIN.readline().strip()
 
 
 def print_divider() -> None:
-    print("-" * 72)
+    cli_print("-" * 72)
 
 
 def print_scopebot_message(text: str) -> None:
     if text:
-        print(f"Scopebot: {text}")
+        cli_print(f"Scopebot: {text}")
 
 
 def stream_scopebot_message(producer: Callable[[Callable[[str], None]], str]) -> str:
     chunks: list[str] = []
-    sys.stdout.write("Scopebot: ")
-    sys.stdout.flush()
+    CLI_STDOUT.write("Scopebot: ")
+    CLI_STDOUT.flush()
 
     def on_delta(delta: str) -> None:
         if not delta:
             return
         chunks.append(delta)
-        sys.stdout.write(delta)
-        sys.stdout.flush()
+        CLI_STDOUT.write(delta)
+        CLI_STDOUT.flush()
 
     text = producer(on_delta) or ""
     if text and not chunks:
-        sys.stdout.write(text)
-        sys.stdout.flush()
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+        CLI_STDOUT.write(text)
+        CLI_STDOUT.flush()
+    CLI_STDOUT.write("\n")
+    CLI_STDOUT.flush()
     return text or "".join(chunks)
 
 
 def emit_robot_action(text: str) -> None:
     if text:
-        print(f"Action: {text}")
+        cli_print(f"Action: {text}")
 
 
 def emit_step_summary(text: str) -> None:
     if text:
-        print(f"Scopebot: {text}")
+        cli_print(f"Scopebot: {text}")
 
 
 def emit_checker_warning(text: str) -> None:
     if text:
-        print(f"Scopebot: {text}")
+        cli_print(f"Scopebot: {text}")
 
 
 def show_cli_interaction_artifact(artifact: dict) -> None:
@@ -226,13 +261,14 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
     prefers_zh = prefers_chinese(original_command)
 
     while True:
-        plan = runtime_context.task_orchestrator.plan(
-            TaskRequest(
-                user_command=current_command,
-                human_mode=True,
-                planner_context=combine_clarification_context(clarification_entries),
+        with capture_technical_output():
+            plan = runtime_context.task_orchestrator.plan(
+                TaskRequest(
+                    user_command=current_command,
+                    human_mode=True,
+                    planner_context=combine_clarification_context(clarification_entries),
+                )
             )
-        )
         if plan.tokens:
             planner_logger.info("Planner tokens: %s", plan.tokens)
         print_cli_skill_routing_summary(runtime_context, plan, prefers_zh=prefers_zh)
@@ -441,24 +477,34 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
 
 def main() -> None:
     show_eims_welcome_logo()
+    cli_print(f"Technical logs: {CLI_LOG_PATH}")
     settings = load_runtime_settings()
     simulation_mode = bool(settings.model.Simulation_mode)
-    runtime_context = initialize_system_components(settings.model.Simulation_mode)
+    with capture_technical_output():
+        runtime_context = initialize_system_components(settings.model.Simulation_mode)
     preview_manager: Optional[PreviewProcessManager] = None
 
     try:
         if hasattr(runtime_context.env_imagej, "set_interaction_artifact_listener"):
             runtime_context.env_imagej.set_interaction_artifact_listener(show_cli_interaction_artifact)
-        setup_microscope(runtime_context.env_olympus, settings.startup)
+        with capture_technical_output():
+            setup_microscope(runtime_context.env_olympus, settings.startup)
         if simulation_mode:
             system_logger.info("Simulation mode detected; skipping local preview window startup.")
         else:
+            if bool(getattr(settings.startup, "start_preview", True)) and hasattr(runtime_context.env_olympus, "start_preview"):
+                try:
+                    with capture_technical_output():
+                        runtime_context.env_olympus.start_preview()
+                except Exception as exc:
+                    system_logger.warning("Failed to start microscope preview acquisition: %s", exc)
             try:
                 preview_manager = PreviewProcessManager(
                     runtime_context.env_olympus.get_live_preview_image,
                     window_name=getattr(runtime_context.env_olympus, "preview_window_name", "micro live"),
                 )
-                preview_manager.start()
+                with capture_technical_output():
+                    preview_manager.start()
             except Exception as exc:
                 preview_manager = None
                 system_logger.warning("Local preview window is unavailable: %s", exc)
@@ -494,13 +540,14 @@ def main() -> None:
                 )
             )
 
-            result = runtime_context.task_orchestrator.execute(
-                plan,
-                on_robot_action=emit_robot_action,
-                on_step_summary=emit_step_summary,
-                on_checker_warning=emit_checker_warning,
-                summarize_completion=False,
-            )
+            with capture_technical_output():
+                result = runtime_context.task_orchestrator.execute(
+                    plan,
+                    on_robot_action=emit_robot_action,
+                    on_step_summary=emit_step_summary,
+                    on_checker_warning=emit_checker_warning,
+                    summarize_completion=False,
+                )
             if not result.success:
                 system_logger.error("Task failed. retry_times=%s error=%s", result.retry_times, result.error)
                 print_scopebot_message(result.summary or "Task execution failed.")
@@ -514,12 +561,14 @@ def main() -> None:
     finally:
         if preview_manager is not None:
             try:
-                preview_manager.stop()
+                with capture_technical_output():
+                    preview_manager.stop()
             except Exception as exc:
                 system_logger.warning("Failed to stop preview process cleanly: %s", exc)
         if hasattr(runtime_context.env_imagej, "set_interaction_artifact_listener"):
             runtime_context.env_imagej.set_interaction_artifact_listener(None)
-        release_resources(runtime_context)
+        with capture_technical_output():
+            release_resources(runtime_context)
 
 
 if __name__ == "__main__":
