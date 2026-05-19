@@ -295,6 +295,7 @@ class ExperimentCheckAgent:
                     }
                 ],
                 temperature=self._cfg.get('vlm_temperature'),
+                seed=self._cfg.get('seed'),
                 max_tokens=self._cfg.get('vlm_max_tokens'),
             )
             content = response.choices[0].message.content
@@ -337,6 +338,7 @@ class ExperimentCheckAgent:
                 model=self._cfg.get('engine'),  # Or specify another text model
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self._cfg.get('temperature'),
+                seed=self._cfg.get('seed'),
                 max_tokens=self._cfg.get('max_tokens'),
             )
             content = response.choices[0].message.content.strip()

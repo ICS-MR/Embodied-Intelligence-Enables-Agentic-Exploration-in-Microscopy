@@ -41,6 +41,7 @@ class SkillResolver:
         *,
         client: Any,
         model_name: str,
+        seed: Optional[int] = None,
         history_manager: Any = None,
         skill_dirs: Optional[Sequence[str]] = None,
         skill_max_files: int = 20,
@@ -52,6 +53,7 @@ class SkillResolver:
     ) -> None:
         self._client = client
         self._model_name = model_name
+        self._seed = seed
         self._history_manager = history_manager
         self._skill_dirs = list(skill_dirs or [])
         self._skill_max_files = int(skill_max_files)
@@ -77,6 +79,7 @@ class SkillResolver:
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
+            seed=self._seed,
             stop=[],
             stream=False,
             max_tokens=max_tokens,
@@ -161,13 +164,14 @@ class SkillResolver:
         )
         prompt_parts.append(self._wrap_prompt_section("User Request", user_request))
         prompt = "\n\n".join(part for part in prompt_parts if part)
+        routing_system_prompt = (
+            "You are a skill router. Read the available skill package summaries and excerpts, understand their workflow "
+            "semantics, and decide which reusable skills are truly relevant to the current request. Do not route by "
+            "keyword matching alone. Use progressive disclosure: make a routing decision from the concise skill views, "
+            "then let the later resolution stage read the selected skills in full. Return valid JSON only."
+        )
         raw_response, usage = self._chat_completion(
-            system_prompt=(
-                "You are a skill router. Read the available skill package summaries and excerpts, understand their workflow "
-                "semantics, and decide which reusable skills are truly relevant to the current request. Do not route by "
-                "keyword matching alone. Use progressive disclosure: make a routing decision from the concise skill views, "
-                "then let the later resolution stage read the selected skills in full. Return valid JSON only."
-            ),
+            system_prompt=routing_system_prompt,
             prompt=prompt,
             temperature=self._skill_route_temperature,
             max_tokens=self._skill_route_max_tokens,
@@ -196,6 +200,7 @@ class SkillResolver:
                     "need_skill": need_skill,
                     "reason": reason,
                     "active_templates": active_templates,
+                    "system_prompt": routing_system_prompt,
                     "raw_response": raw_response,
                     "usage": usage or {},
                 },
@@ -266,15 +271,16 @@ class SkillResolver:
         prompt_parts.append(self._wrap_prompt_section("Current System State", self._serialize_state_text(system_state)))
         prompt_parts.append(self._wrap_prompt_section("User Request", user_request))
         prompt = "\n\n".join(part for part in prompt_parts if part)
+        resolution_system_prompt = (
+            "You are a skill resolver. Use the selected skill packages as the source of truth, combine them with the "
+            "user request and clarification history, and either ask one blocking clarification question or produce one "
+            "complete task instruction for the downstream planner. When information is complete, the resolved task "
+            "instruction must be detailed enough to hand directly to the downstream planner without requiring the "
+            "planner to reinterpret missing workflow semantics. Match the selected skill's preferred workflow style as "
+            "closely as possible, especially when it provides an explicit resolved instruction example. Return valid JSON only."
+        )
         raw_response, usage = self._chat_completion(
-            system_prompt=(
-                "You are a skill resolver. Use the selected skill packages as the source of truth, combine them with the "
-                "user request and clarification history, and either ask one blocking clarification question or produce one "
-                "complete task instruction for the downstream planner. When information is complete, the resolved task "
-                "instruction must be detailed enough to hand directly to the downstream planner without requiring the "
-                "planner to reinterpret missing workflow semantics. Match the selected skill's preferred workflow style as "
-                "closely as possible, especially when it provides an explicit resolved instruction example. Return valid JSON only."
-            ),
+            system_prompt=resolution_system_prompt,
             prompt=prompt,
             temperature=0,
             max_tokens=self._resolution_max_tokens,
@@ -296,6 +302,7 @@ class SkillResolver:
                     "selected_skills": [skill.name for skill in selected_skills],
                     "reason": resolved_reason,
                     "active_templates": list(active_templates),
+                    "system_prompt": resolution_system_prompt,
                     "prompt": prompt,
                     "raw_response": raw_response,
                     "resolution_status": status or "error",

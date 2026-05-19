@@ -123,6 +123,7 @@ class ModelConfig:
     clarify_enabled: bool = False
     checker_enabled: bool = False
     emit_skill_routing: bool = False
+    llm_seed: int | None = 42
     openai_api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     model_name: str = "claude-sonnet-4-6"
@@ -239,6 +240,7 @@ def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str
             setattr(settings.system, field_name, value)
 
     model_env_map = {
+        "llm_seed": ("EIMS_LLM_SEED",),
         "openai_api_key": ("EIMS_OPENAI_API_KEY", "OPENAI_API_KEY"),
         "base_url": ("EIMS_BASE_URL",),
         "model_name": ("EIMS_MODEL_NAME",),

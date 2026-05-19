@@ -78,6 +78,7 @@ class ExperimentExecuteAgent:
             system_prompt=base_prompt,
             model=self._cfg.get('engine', 'gpt-3.5-turbo'),
             temperature=self._cfg.get('temperature', 0.7),
+            seed=self._cfg.get('seed'),
             stop_tokens=list(self._cfg.get('stop', [])),
             stream=False  # Disable streaming so we receive the full response at once.
         )
@@ -117,6 +118,7 @@ class ExperimentExecuteAgent:
                     "query": query,
                     "formatted_query": use_query,
                     "context": context,
+                    "system_prompt": base_prompt,
                     "prompt": prompt,
                     "raw_response": answer_content,
                     "generated_code": code_str,

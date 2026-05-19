@@ -50,6 +50,7 @@ class LMPFGen:
             prompt=prompt,
             model=self._cfg.get('engine', 'gpt-3.5-turbo'),
             temperature=self._cfg.get('temperature', 0.7),
+            seed=self._cfg.get('seed'),
             stop_tokens=self._stop_tokens,
             stream=True
         )

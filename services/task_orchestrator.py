@@ -109,6 +109,7 @@ class TaskOrchestrator:
         self._skill_resolver = SkillResolver(
             client=self.runtime_context.llm_client,
             model_name=self.runtime_context.runtime["agent"].model_name,
+            seed=getattr(self.runtime_context.runtime["agent"], "llm_seed", None),
             history_manager=self.runtime_context.history_manager,
             skill_dirs=task_manager_cfg.get("skill_dirs"),
             skill_max_files=task_manager_cfg.get("skill_max_files", 20),

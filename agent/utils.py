@@ -404,6 +404,7 @@ def call_openai_generic(
     system_prompt: str = "",
     model: str = "gpt-3.5-turbo",
     temperature: float = 0.7,
+    seed: Optional[int] = None,
     stop_tokens: list = None,
     stream: bool = False
 ) -> Any:
@@ -417,6 +418,7 @@ def call_openai_generic(
         ],
         stop=stop_tokens,
         temperature=temperature,
+        seed=seed,
         stream=stream,
     )
 

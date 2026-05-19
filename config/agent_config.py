@@ -23,6 +23,7 @@ emit_skill_routing = _config.emit_skill_routing
 openai_api_key = _config.openai_api_key
 base_url = _config.base_url
 model_name = _config.model_name
+llm_seed = _config.llm_seed
 vlm_api_key = _config.vlm_api_key
 vlm_base_url = _config.vlm_base_url
 vlm_model_name = _config.vlm_model_name
@@ -74,7 +75,8 @@ def build_executor_lmp_config_from_text(
     cfg = {
         "prompt_text": resolved_prompt_text,
         "engine": model_name,
-        "max_tokens": 51200,
+        "seed": llm_seed,
+        "max_tokens": 5120,
         "temperature": 0,
         "query_prefix": "#",
         "query_suffix": ".",
@@ -108,7 +110,8 @@ def build_planner_lmp_config() -> Dict[str, Any]:
     return {
         "prompt_text": prompt_manger,
         "engine": model_name,
-        "max_tokens": 51200,
+        "seed": llm_seed,
+        "max_tokens": 5120,
         "temperature": 0,
         "query_prefix": "# ",
         "query_suffix": ".",
@@ -133,6 +136,7 @@ def build_fgen_lmp_config() -> Dict[str, Any]:
     return {
         "prompt_text": _append_sandbox_guidance(prompt_fgen, SANDBOX_FGEN_GUIDANCE),
         "engine": model_name,
+        "seed": llm_seed,
         "max_tokens": 1024,
         "temperature": 0,
         "query_prefix": "# define function: ",
@@ -154,6 +158,7 @@ def build_checker_lmp_config() -> Dict[str, Any]:
         "instruction_prompt_without_no_target": instruction_prompt_without_no_target,
         "engine": model_name,
         "vlm_engine": vlm_model_name,
+        "seed": llm_seed,
         "max_tokens": 1024,
         "temperature": 0,
         "vlm_max_tokens": 1024,

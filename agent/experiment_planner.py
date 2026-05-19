@@ -245,6 +245,21 @@ class ExperimentPlanAgent:
     def _format_query(self, query: str) -> str:
         return f"{self._cfg.get('query_prefix', '')}{query}{self._cfg.get('query_suffix', '')}"
 
+    def _extract_observation_object(self, context: str) -> str:
+        normalized = str(context or "").strip()
+        prefix = "Observation object:"
+        if not normalized.lower().startswith(prefix.lower()):
+            return ""
+        return normalized[len(prefix):].strip()
+
+    def _extract_imaging_target(self, query: str) -> str:
+        match = re.search(r"\bImaging\s+(?:target|object)\s*:\s*([^;\n\r]+)", str(query or ""), re.IGNORECASE)
+        return match.group(0).strip() if match else ""
+
+    def _is_internal_planner_context(self, context: str) -> bool:
+        normalized = str(context or "").strip()
+        return normalized.startswith("The user request below was produced by the skill resolver")
+
     def _chat_completion(
         self,
         *,
@@ -265,6 +280,7 @@ class ExperimentPlanAgent:
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
+            seed=self._cfg.get("seed"),
             stop=stop_tokens or [],
             stream=False,
             max_tokens=max_tokens,
@@ -393,67 +409,28 @@ class ExperimentPlanAgent:
         active_template_prompt: str = "",
         allow_ask_user: bool = False,
         compact_skill_guidance: bool = False,
+        include_output_policy: bool = True,
+        include_additional_context: bool = True,
     ) -> Tuple[str, str, str]:
-        prompt_parts: List[str] = []
-
-        if self._cfg.get("maintain_session") and self.code_history:
-            max_hist = self._cfg.get("max_history", 10)
-            history_items: List[Any] = []
-            for item in self.code_history[-max_hist:]:
-                if isinstance(item, str):
-                    try:
-                        history_items.append(json.loads(item))
-                    except json.JSONDecodeError:
-                        history_items.append(item)
-                else:
-                    history_items.append(item)
-            prompt_parts.append(
-                self._wrap_prompt_section(
-                    "Historical Tasks",
-                    json.dumps(history_items, indent=2),
-                )
-            )
-
-        guidance_parts: List[str] = []
-        if selected_skill_names:
-            guidance_parts.append("Selected skills for this round: " + ", ".join(selected_skill_names))
-            if skill_reason:
-                guidance_parts.append(f"Selection reason: {skill_reason}")
-        if selected_skills_prompt:
-            guidance_parts.append(selected_skills_prompt)
-        elif active_template_prompt:
-            guidance_parts.append(active_template_prompt)
-        prompt_parts.append(
-            self._wrap_prompt_section(
-                "Planning Guidance",
-                "\n\n".join(part for part in guidance_parts if part),
-            )
+        del (
+            selected_skills_prompt,
+            selected_skill_names,
+            skill_reason,
+            active_template_prompt,
+            allow_ask_user,
+            compact_skill_guidance,
+            include_output_policy,
+            include_additional_context,
         )
 
-        policy_text = (
-            "ask_user_allowed: true\n"
-            "rule: The active planning template may use ask_user only when one blocking question is required before a final executable plan."
-            if allow_ask_user
-            else "ask_user_allowed: false\n"
-            "rule: Prefer returning final_plan directly. Do not ask the user for clarification in this round."
-        )
-        prompt_parts.append(self._wrap_prompt_section("Planner Output Policy", policy_text))
-
-        if context.strip():
+        observation_object = self._extract_observation_object(context) or self._extract_imaging_target(query)
+        prompt_parts: List[str] = [
+            self._wrap_prompt_section("Current System State", self._serialize_state_text(state)),
+            self._wrap_prompt_section("Observation object", observation_object or "{}"),
+        ]
+        if context.strip() and not observation_object and not self._is_internal_planner_context(context):
             prompt_parts.append(self._wrap_prompt_section("Additional Context", context))
-
-        prompt_parts.append(
-            self._wrap_prompt_section(
-                "Current System State",
-                self._serialize_state_text(state),
-            )
-        )
-        prompt_parts.append(
-            self._wrap_prompt_section(
-                "User Request",
-                self._format_query(query),
-            )
-        )
+        prompt_parts.append(self._wrap_prompt_section("User Request", self._format_query(query)))
         return self._base_prompt, "\n\n".join(part for part in prompt_parts if part), query
 
     def _allow_ask_user_for_skills(self, skills: List[Any]) -> bool:
@@ -640,7 +617,10 @@ class ExperimentPlanAgent:
             ready_content = extract_task_ready(answer_content)
             if ready_content:
                 ready_payload = self._parse_json_object(ready_content) or {}
-                if str(ready_payload.get("Status") or "").strip().upper() == "OK":
+                ready_status = ready_payload.get("Status", ready_payload.get("status", ""))
+                if str(ready_status or "").strip().upper() == "OK":
+                    state_status = "final_plan"
+            if not state_status and extract_task_steps(answer_content).strip():
                     state_status = "final_plan"
             if not state_status:
                 state_status = "ask_user" if state_question else "error"
@@ -944,6 +924,8 @@ class ExperimentPlanAgent:
         planner_context = "" if compact_skill_guidance else context
         selected_skills_prompt = "" if compact_skill_guidance else format_selected_skills_for_prompt(selected_skills)
         active_template_prompt = "" if compact_skill_guidance else format_active_templates_for_prompt(selected_skills)
+        include_output_policy = bool(self._emit_skill_routing or selected_skills or allow_ask_user_override is not None)
+        include_additional_context = bool(context.strip() and (self._emit_skill_routing or selected_skills or allow_ask_user_override is not None))
         base_prompt, prompt, _ = self.build_prompt(
             query,
             state,
@@ -954,6 +936,8 @@ class ExperimentPlanAgent:
             active_template_prompt=active_template_prompt,
             allow_ask_user=allow_ask_user,
             compact_skill_guidance=compact_skill_guidance,
+            include_output_policy=include_output_policy,
+            include_additional_context=include_additional_context,
         )
         answer_content, usage_dict = self._chat_completion(
             system_prompt=base_prompt,
@@ -976,6 +960,7 @@ class ExperimentPlanAgent:
                     "skill_reason": skill_reason,
                     "active_templates": active_templates,
                     "allow_ask_user": allow_ask_user,
+                    "system_prompt": base_prompt,
                     "prompt": prompt,
                     "raw_response": answer_content,
                     "usage": usage_dict or {},

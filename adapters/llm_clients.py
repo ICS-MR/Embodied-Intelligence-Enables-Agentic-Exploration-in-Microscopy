@@ -7,6 +7,7 @@ from openai import APIConnectionError, OpenAI, RateLimitError
 
 
 logger = logging.getLogger(__name__)
+MAX_COMPLETION_TOKENS = 5120
 
 
 @dataclass
@@ -28,6 +29,7 @@ def create_chat_completion(
     model: str,
     messages: list[dict[str, Any]],
     temperature: float = 0.0,
+    seed: Optional[int] = None,
     stop: Optional[list[str]] = None,
     stream: bool = False,
     max_tokens: Optional[int] = None,
@@ -35,6 +37,7 @@ def create_chat_completion(
     retry_interval: float = 3.0,
     **extra_kwargs: Any,
 ) -> Any:
+    normalized_max_tokens = _normalize_max_tokens(max_tokens)
     if not stream and "qwen" in model.lower():
         extra_body = dict(extra_kwargs.get("extra_body") or {})
         extra_body.setdefault("enable_thinking", False)
@@ -44,20 +47,67 @@ def create_chat_completion(
     while True:
         attempt += 1
         try:
-            return client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                stop=stop,
-                stream=stream,
-                max_tokens=max_tokens,
-                **extra_kwargs,
+            logger.info(
+                "Sending model request: model=%s stream=%s max_tokens=%s attempt=%s/%s",
+                model,
+                stream,
+                normalized_max_tokens,
+                attempt,
+                retries,
             )
+            request_kwargs = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "stop": stop,
+                "stream": stream,
+                "max_tokens": normalized_max_tokens,
+                **extra_kwargs,
+            }
+            if seed is not None:
+                request_kwargs["seed"] = seed
+            return client.chat.completions.create(**request_kwargs)
         except (RateLimitError, APIConnectionError) as exc:
+            if _is_invalid_parameter_error(exc):
+                logger.error(
+                    "Model request rejected due to invalid parameters: model=%s max_tokens=%s error=%s",
+                    model,
+                    normalized_max_tokens,
+                    exc,
+                )
+                raise
             if attempt >= retries:
                 raise
             logger.warning("Model request failed (%s/%s): %s", attempt, retries, exc)
             time.sleep(retry_interval)
+
+
+def _normalize_max_tokens(max_tokens: Optional[int]) -> Optional[int]:
+    if max_tokens is None:
+        return None
+
+    normalized = int(max_tokens)
+    if normalized < 1:
+        logger.warning("Invalid max_tokens=%s; using 1 instead.", max_tokens)
+        return 1
+    if normalized > MAX_COMPLETION_TOKENS:
+        logger.warning(
+            "max_tokens=%s exceeds provider limit; clamping to %s.",
+            max_tokens,
+            MAX_COMPLETION_TOKENS,
+        )
+        return MAX_COMPLETION_TOKENS
+    return normalized
+
+
+def _is_invalid_parameter_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "invalidparameter" in message
+        or "invalid_parameter" in message
+        or "invalid_request_error" in message
+        or "max_tokens should be" in message
+    )
 
 
 def stream_chat_completion_text(
