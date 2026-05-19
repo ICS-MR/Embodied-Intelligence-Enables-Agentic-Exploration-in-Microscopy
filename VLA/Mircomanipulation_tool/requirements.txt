@@ -1,0 +1,27 @@
+# Python 3.8 is recommended; this file is based on the local `micro` conda environment.
+# For CUDA 12.1 PyTorch wheels.
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch==2.4.1+cu121
+torchvision==0.19.1+cu121
+
+numpy>=1.23,<1.25
+h5py>=3.11,<3.12
+opencv-python>=4.10,<4.11
+Pillow>=10.2,<11
+matplotlib>=3.7,<3.8
+
+einops==0.8.1
+tqdm==4.67.1
+PyYAML==6.0.2
+IPython>=8.12,<9
+
+pyserial==3.5
+pynput==1.7.6
+
+pymmcore==11.1.1.71.2
+pymmcore-plus==0.11.1
+mmpycorex==0.3.16
+
+# Daheng camera SDK (`gxipy`) is vendor-provided and usually installed from the
+# camera SDK package, not from PyPI. Install it separately before using camera.py.
