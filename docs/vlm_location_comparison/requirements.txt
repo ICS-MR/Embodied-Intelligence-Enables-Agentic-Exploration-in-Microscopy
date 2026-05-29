@@ -1,0 +1,9 @@
+numpy
+opencv-python
+Pillow
+requests
+matplotlib
+tqdm
+pycocotools
+mmdet
+mmengine
