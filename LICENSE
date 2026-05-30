@@ -1,0 +1,24 @@
+EIMS Licensing
+==============
+
+EIMS is distributed as a work that incorporates:
+
+- Fiji, which is licensed under the GNU General Public License version 3 (GPLv3);
+- Micro-Manager, which is licensed under the BSD License.
+
+In accordance with the GPLv3 requirements for combined works, the entire EIMS
+distribution is licensed under the GNU General Public License version 3 (GPLv3).
+
+The original code specifically developed for EIMS (excluding the unmodified Fiji
+and Micro-Manager components) is made available under the BSD 3-Clause License,
+subject to the overriding Copyleft terms of GPLv3 for the combined work.
+
+All obligations of the GPLv3 (including access to corresponding source code) and
+the BSD License for the respective dependencies are intended to be observed for
+this distribution.
+
+The BSD 3-Clause License text for the original EIMS code is provided in
+`LICENSE.BSD-3-Clause`.
+
+For the full text of GPLv3, see:
+https://www.gnu.org/licenses/gpl-3.0.txt

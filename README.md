@@ -342,13 +342,18 @@ automation. Use simulation mode for new workflows before running on hardware.
 
 ## Licensing Notes
 
-This project calls public APIs of external tools such as Fiji/ImageJ and Micro-Manager.
+EIMS is distributed as a combined work that incorporates Fiji/ImageJ and
+Micro-Manager.
 
-- Fiji is distributed under GPL-related licensing, with ImageJ2 components under BSD-style
-  licenses. Individual plugins may have their own licenses.
+- The overall EIMS distribution is licensed under GPLv3. See [LICENSE](LICENSE).
+- The original code specifically developed for EIMS is also made available under
+  the BSD 3-Clause License. See [LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause).
+- Fiji is distributed under GPL-related licensing, with ImageJ2 components under
+  BSD-style licenses. Individual plugins may have their own licenses.
 - Micro-Manager is an open-source project under a BSD-style license.
 
-Check upstream licenses for external distribution or commercial deployment.
+For external redistribution or commercial deployment, review both the project
+licenses above and the upstream licenses of bundled or integrated dependencies.
 
 ## Contributions
 
