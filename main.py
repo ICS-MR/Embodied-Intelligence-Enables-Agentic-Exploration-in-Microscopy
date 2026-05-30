@@ -213,7 +213,7 @@ def show_cli_interaction_artifact(artifact: dict) -> None:
 
 def print_cli_skill_routing_summary(runtime_context, plan: TaskPlan, *, prefers_zh: bool) -> None:
     task_manager = getattr(runtime_context, "task_manager", None)
-    if task_manager is None or not getattr(task_manager, "_emit_skill_routing", False):
+    if task_manager is None or not getattr(task_manager, "_skill_enabled", False):
         return
 
     selected_skills = [str(item).strip() for item in getattr(plan, "selected_skills", []) if str(item).strip()]

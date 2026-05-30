@@ -7,12 +7,11 @@
   },
   "model": {
     "Simulation_mode": true,
+    "clarify_enabled": false,
     "checker_enabled": true,
-    "emit_skill_routing": false,
-    "openai_api_key": "",
+    "skill_mode": "disabled",
     "base_url": "https://api.openai.com/v1",
     "model_name": "gpt-4.1",
-    "vlm_api_key": "",
     "vlm_base_url": "https://api.openai.com/v1",
     "vlm_model_name": "gpt-4.1"
   },

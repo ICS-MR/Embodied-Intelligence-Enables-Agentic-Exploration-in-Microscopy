@@ -58,6 +58,8 @@ SAFE_IMPORT_MODULES = {
     "itertools",
     "json",
     "math",
+    "matplotlib.patches",
+    "matplotlib.pyplot",
     "statistics",
     "time",
 }
@@ -90,16 +92,42 @@ FORBIDDEN_ROOT_NAMES = {
 
         
         
-def _parse_json_response(content: str) -> Optional[List[Dict]]:
+def _strip_json_fence(content: str) -> str:
     content = (content or "").strip()
+    if content.startswith("```"):
+        fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
+        if fence_match:
+            content = fence_match.group(1).strip()
+    return content
+
+
+def _parse_json_object_response(content: str) -> Optional[Dict[str, Any]]:
+    content = _strip_json_fence(content)
     if not content:
         return None
     try:
-        if content.startswith("```"):
-            fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
-            if fence_match:
-                content = fence_match.group(1).strip()
+        payload = json.loads(content)
+        return payload if isinstance(payload, dict) else None
+    except json.JSONDecodeError as e:
+        object_match = re.search(r"\{[\s\S]*\}", content)
+        if object_match:
+            try:
+                payload = json.loads(object_match.group(0))
+                return payload if isinstance(payload, dict) else None
+            except json.JSONDecodeError:
+                pass
+        logger.warning("JSON object parsing failed: %s\nContent:\n%s", e, content)
+        return None
+    except Exception as e:
+        logger.error("Unexpected error during JSON object parsing: %s", e)
+        return None
 
+
+def _parse_json_response(content: str) -> Optional[List[Dict]]:
+    content = _strip_json_fence(content)
+    if not content:
+        return None
+    try:
         payload = json.loads(content)
         return payload if isinstance(payload, list) else None
     except json.JSONDecodeError as e:

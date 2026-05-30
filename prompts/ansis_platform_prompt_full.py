@@ -15,7 +15,7 @@ def analysis_platform_find_target_positions(image_meta, target_type, description
         target_type (str): Detection target name. Must be one of [{targets_literal}]
         description (str): Detection result description information
     Returns:
-        List[Tuple[float, float, float, float]]: List of target area bounding boxes
+    List[Tuple[float, float, float, float]]: List of target area bounding boxes in pixel coordinates (center_x_px, center_y_px, width_px, height_px). 
     \"\"\"
 """
 
@@ -136,7 +136,7 @@ def merge_channels( image_metas, colors, outpath):
 
     Parameters:
         image_metas (List[ImageWithMetadata]): List of single-channel images and their metadata
-        colors (List[str]): Color list corresponding to each channel
+        colors (List[str]): Color list corresponding to each channel. Supported values: "Red", "Green", "Blue", "Brightfield", "Cyan", "Magenta", and "Yellow".
         outpath (str): Output file name
     Returns:
         ImageWithMetadata: Encapsulated object of merged RGB image and its metadata
@@ -281,10 +281,10 @@ fiji_shutdown()
 # Example Input
 # Saved documents:
  {'cell_fluorescence.ome.tif': {'filename': 'cell_fluorescence.ome.tif', 'description': 'channel_names: [(0, 0, 255), (255, 0, 0), (0, 255, 0)], pixel_size: 0.1624, magnification: 40', 'created_by': 'microscope', 'file_type': 'ome-tiff'}}
-Image Import: Import the acquired 4x magnified image of the tumor section (OME-TIFF format).
-Target Detection: Detect suspected tumor areas in the imported 4x magnified image and save the detection results (including bounding boxes of suspected tumor areas) as a JSON file.
+Image Import: Import the acquired 4x magnified image of the 2Dcell section (OME-TIFF format).
+Target Detection: Detect suspected 2Dcell areas in the imported 4x magnified image and save the detection results (including bounding boxes of suspected 2Dcell areas) as a JSON file.
 # Example Output
-say("[ERROR] The saved document 'cell_fluorescence.ome.tif' has a magnification of 40x, but the task requires a 4x magnified image of the tumor section. Please provide the 4x magnified tumor section image (OME-TIFF format) to proceed.")
+say("[ERROR] The saved document 'cell_fluorescence.ome.tif' has a magnification of 40x, but the task requires a 4x magnified image of the 2Dcell section. Please provide the 4x magnified 2Dcell section image (OME-TIFF format) to proceed.")
 
 # Example Input
 # Saved documents:
@@ -310,6 +310,7 @@ say("[ACTION] Saving extended depth of field image to: " + output_file)
 save_image(extended_depth_image, output_file, "Extended depth of field image generated via maximum intensity Z-projection")
 fiji_shutdown()
 
+
 # Example Input
 # Saved documents:
 {
@@ -320,13 +321,13 @@ fiji_shutdown()
     "file_type": "ome-tiff"
   }
 }
-Image Import: Import the acquired 4× magnified brightfield image of the 3 cm × 3 cm area (OME-TIFF format); \nTarget Detection: Detect suspected tumor areas in the imported brightfield image and save the detection results (including bounding boxes of suspected tumor locations) as a JSON file
+Image Import: Import the acquired 4× magnified brightfield image of the 3 cm × 3 cm area (OME-TIFF format); \nTarget Detection: Detect suspected 2Dcell areas in the imported brightfield image and save the detection results (including bounding boxes of suspected 2Dcell locations) as a JSON file
 fiji_initialize()
 input_file = "brightfield_3cm.ome.tif"
 say("[ACTION] Loading 4× magnified brightfield image of 3cm×3cm area: " + input_file)
 image = load_image(input_file)
-say("[ACTION] Detecting suspected tumor areas in the brightfield image")
-detection_result = analysis_platform_find_target_positions(image, "tumor", "Suspected tumor areas detected in 4× brightfield image of 3cm×3cm area")
+say("[ACTION] Detecting suspected 2Dcell areas in the brightfield image")
+detection_result = analysis_platform_find_target_positions(image, "2Dcell", "Suspected 2Dcell areas detected in 4× brightfield image of 3cm×3cm area")
 say("[ACTION] Detection results saved as JSON file")
 fiji_shutdown()
 

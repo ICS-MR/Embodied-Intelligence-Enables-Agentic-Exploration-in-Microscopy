@@ -411,9 +411,9 @@ class RuntimeManager:
         if outline:
             self._send_message("robot_say", outline)
 
-    def _emit_skill_routing_summary(self, plan: Any, *, prefers_zh: bool) -> None:
+    def _emit_skill_summary(self, plan: Any, *, prefers_zh: bool) -> None:
         task_manager = getattr(self.runtime_context, "task_manager", None)
-        if task_manager is None or not getattr(task_manager, "_emit_skill_routing", False):
+        if task_manager is None or not getattr(task_manager, "_skill_enabled", False):
             return
 
         selected_skills = [str(item).strip() for item in getattr(plan, "selected_skills", []) if str(item).strip()]
@@ -797,7 +797,7 @@ class RuntimeManager:
                 # MJPEG preview and SSE updates can continue while the model is thinking.
                 plan = await asyncio.to_thread(self.orchestrator.plan, request)
                 self.app_state.task.current_task_id = plan.task_id
-                self._emit_skill_routing_summary(plan, prefers_zh=prefers_zh)
+                self._emit_skill_summary(plan, prefers_zh=prefers_zh)
 
                 if plan.ready and plan.steps:
                     await self._stream_scopebot_message(

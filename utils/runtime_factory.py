@@ -18,6 +18,7 @@ from adapters.tool_registry import ToolRegistry
 from agent.experiment_checker import ExperimentCheckAgent
 from agent.experiment_executor import ExperimentExecuteAgent
 from agent.experiment_planner import ExperimentPlanAgent
+from bootstrap.config import load_runtime_settings
 from core_tool.tool_utils import SayCapture
 from services.task_orchestrator import TaskOrchestrator
 from tool.base import BaseTool, _slugify_tool_name
@@ -135,6 +136,7 @@ def load_runtime_config() -> Dict[str, Any]:
         "agent": agent_config,
         "system": system_config,
         "task": task_config,
+        "settings": load_runtime_settings(),
     }
 
 
@@ -605,12 +607,17 @@ def _build_runtime_context_from_manifest(
         tool_registry=tool_registry,
     )
 
+    runtime_settings = runtime.get("settings")
+    clarify_enabled = bool(getattr(agent_module, "clarify_enabled", False))
+    if runtime_settings is not None and hasattr(runtime_settings, "model"):
+        clarify_enabled = bool(getattr(runtime_settings.model, "clarify_enabled", clarify_enabled))
+
     task_manager = ExperimentPlanAgent(
         "Task_manager",
         shared_lmps["Task_manger"],
         llm_client,
         history_manager,
-        clarify_tag=bool(getattr(agent_module, "clarify_enabled", False)),
+        clarify_tag=clarify_enabled,
     )
     checker = ExperimentCheckAgent(
         shared_lmps["checker"],

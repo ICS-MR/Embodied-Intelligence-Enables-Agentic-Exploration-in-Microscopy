@@ -97,6 +97,13 @@ Configuration is intentionally layered:
 Environment variable overrides are applied when the runtime loads settings, but they are not
 written back into `config/runtime_config.json` when settings are saved.
 
+The intended split is:
+
+- `config/runtime_config.json`: model selection and endpoint settings such as `base_url`, `model_name`, `vlm_base_url`, and `vlm_model_name`
+- `.env`: secrets and a small set of runtime-only overrides such as `EIMS_OPENAI_API_KEY`, `EIMS_VLM_API_KEY`, and optional `EIMS_SKILL_MODE`
+
+To avoid ambiguous precedence, `.env` no longer overrides `base_url`, `model_name`, `vlm_base_url`, or `vlm_model_name`.
+
 `config/runtime_config.json` is ignored by git. Use
 `config/runtime_config.example.json` as the template for a new machine.
 
@@ -104,11 +111,8 @@ Important environment variables:
 
 ```dotenv
 EIMS_OPENAI_API_KEY=your-api-key
-EIMS_BASE_URL=https://api.openai.com/v1
-EIMS_MODEL_NAME=gpt-4.1
 EIMS_VLM_API_KEY=your-vlm-api-key
-EIMS_VLM_BASE_URL=https://api.openai.com/v1
-EIMS_VLM_MODEL_NAME=gpt-4.1
+EIMS_SKILL_MODE=disabled
 EIMS_SIMULATION_MODE=true
 EIMS_CHECKER_ENABLED=true
 ```
