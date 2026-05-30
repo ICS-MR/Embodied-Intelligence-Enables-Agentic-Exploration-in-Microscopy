@@ -105,20 +105,29 @@ class TaskOrchestrator:
         self._rewrite_plan_for_confirmation = rewrite_plan_for_confirmation
         self._stream_plan_for_confirmation = stream_plan_for_confirmation
         self._stream_task_execution_summary = stream_task_execution_summary
-        task_manager_cfg = getattr(self.runtime_context.task_manager, "_cfg", {}) or {}
-        self._skill_resolver = SkillResolver(
-            client=self.runtime_context.llm_client,
-            model_name=self.runtime_context.runtime["agent"].model_name,
-            seed=getattr(self.runtime_context.runtime["agent"], "llm_seed", None),
-            history_manager=self.runtime_context.history_manager,
-            skill_dirs=task_manager_cfg.get("skill_dirs"),
-            skill_max_files=task_manager_cfg.get("skill_max_files", 20),
-            skill_max_chars_per_file=task_manager_cfg.get("skill_max_chars_per_file", 2000),
-            skill_max_selected=task_manager_cfg.get("skill_max_selected", 2),
-            skill_route_max_tokens=task_manager_cfg.get("skill_route_max_tokens", 512),
-            skill_route_temperature=task_manager_cfg.get("skill_route_temperature", 0),
-            resolution_max_tokens=task_manager_cfg.get("max_tokens", 4096),
-        )
+        agent_module = self.runtime_context.runtime["agent"]
+        raw_skill_mode = str(getattr(agent_module, "skill_mode", "") or "").strip().lower()
+        self._skill_mode = raw_skill_mode if raw_skill_mode in {"enabled", "disabled"} else "disabled"
+        self._skill_enabled = self._skill_mode == "enabled"
+        if hasattr(agent_module, "build_skill_resolver_config"):
+            skill_resolver_cfg = agent_module.build_skill_resolver_config()
+        else:
+            skill_resolver_cfg = {}
+        self._skill_resolver = None
+        if self._skill_enabled:
+            self._skill_resolver = SkillResolver(
+                client=self.runtime_context.llm_client,
+                model_name=agent_module.model_name,
+                seed=getattr(agent_module, "llm_seed", None),
+                history_manager=self.runtime_context.history_manager,
+                skill_dirs=skill_resolver_cfg.get("skill_dirs"),
+                skill_max_files=skill_resolver_cfg.get("skill_max_files", 20),
+                skill_max_chars_per_file=skill_resolver_cfg.get("skill_max_chars_per_file", 2000),
+                skill_max_selected=skill_resolver_cfg.get("skill_max_selected", 2),
+                skill_route_max_tokens=skill_resolver_cfg.get("skill_route_max_tokens", 512),
+                skill_route_temperature=skill_resolver_cfg.get("skill_route_temperature", 0),
+                resolution_max_tokens=skill_resolver_cfg.get("resolution_max_tokens", 4096),
+            )
 
 
     def _capture_microscope_state(self) -> Dict[str, Any]:
@@ -135,7 +144,7 @@ class TaskOrchestrator:
 
     def _resolved_planner_context(self) -> str:
         return (
-            "The user request below was produced by the skill resolver as a complete task instruction. "
+            "The user request below was produced by an upstream resolver as a complete task instruction. "
             "Treat it as authoritative, and do not ask again for workflow parameters that have already been resolved."
         )
 
@@ -167,9 +176,7 @@ class TaskOrchestrator:
         planner_query = request.user_command
         skill_routing_raw_response = ""
         merged_tokens: Optional[Dict[str, int]] = None
-        emit_skill_routing = bool(getattr(self.runtime_context.runtime["agent"], "emit_skill_routing", False))
-
-        if emit_skill_routing:
+        if self._skill_enabled and self._skill_resolver is not None:
             resolution_result = self._skill_resolver.resolve(
                 SkillResolutionRequest(
                     user_request=request.user_command,
@@ -198,14 +205,10 @@ class TaskOrchestrator:
                 )
             if resolution_result.status == "ready_for_planner":
                 planner_query = resolution_result.resolved_task_instruction or request.user_command
-                planner_result = self.runtime_context.task_manager.plan_with_selected_skills(
+                planner_result = self.runtime_context.task_manager(
                     planner_query,
                     microscope_state,
                     self._resolved_planner_context(),
-                    selected_skill_names=list(resolution_result.selected_skills),
-                    skill_reason=resolution_result.reason,
-                    active_templates=list(resolution_result.active_templates),
-                    allow_ask_user_override=False,
                 )
                 merged_tokens = self._merge_usage(merged_tokens, planner_result.tokens)
             else:
@@ -233,10 +236,6 @@ class TaskOrchestrator:
                 request.planner_context,
             )
         task_manager = self.runtime_context.task_manager
-        if not skill_routing_raw_response:
-            skill_routing_raw_response = str(
-                getattr(task_manager, "_last_skill_routing_raw_response", "") or ""
-            )
         task_id = str(uuid.uuid4())
         tokens = self._merge_usage(merged_tokens, planner_result.tokens)
 
@@ -246,9 +245,6 @@ class TaskOrchestrator:
                 session_id=request.session_id,
                 user_command=planner_query,
                 status="final_plan",
-                selected_skills=list(planner_result.selected_skills),
-                skill_reason=planner_result.skill_reason,
-                active_templates=list(planner_result.active_templates),
                 planner_raw_response=planner_result.raw_response,
                 skill_routing_raw_response=skill_routing_raw_response,
                 steps=planner_result.steps,
@@ -258,20 +254,31 @@ class TaskOrchestrator:
             )
 
         if planner_result.status == "ask_user":
+            clarify_enabled = bool(getattr(task_manager, "_clarify_enabled", False))
+            if clarify_enabled:
+                return TaskPlan(
+                    task_id=task_id,
+                    session_id=request.session_id,
+                    user_command=request.user_command,
+                    status="ask_user",
+                    question=planner_result.question,
+                    planner_raw_response=planner_result.raw_response,
+                    skill_routing_raw_response=skill_routing_raw_response,
+                    ready=False,
+                    tokens=tokens,
+                    error=planner_result.error,
+                )
             return TaskPlan(
                 task_id=task_id,
                 session_id=request.session_id,
                 user_command=request.user_command,
-                status="ask_user",
-                question=planner_result.question,
-                selected_skills=list(planner_result.selected_skills),
-                skill_reason=planner_result.skill_reason,
-                active_templates=list(planner_result.active_templates),
+                status="error",
+                question="",
                 planner_raw_response=planner_result.raw_response,
                 skill_routing_raw_response=skill_routing_raw_response,
                 ready=False,
                 tokens=tokens,
-                error=planner_result.error,
+                error=planner_result.error or "Planner returned disallowed status 'ask_user' while Clarify is disabled.",
             )
 
         return TaskPlan(
@@ -280,9 +287,6 @@ class TaskOrchestrator:
             user_command=request.user_command,
             status=planner_result.status or "error",
             question=planner_result.question,
-            selected_skills=list(planner_result.selected_skills),
-            skill_reason=planner_result.skill_reason,
-            active_templates=list(planner_result.active_templates),
             planner_raw_response=planner_result.raw_response,
             skill_routing_raw_response=skill_routing_raw_response,
             ready=False,

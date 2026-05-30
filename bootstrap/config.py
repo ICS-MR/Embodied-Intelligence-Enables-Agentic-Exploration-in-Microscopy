@@ -32,30 +32,6 @@ DEFAULT_DICHROIC_COLORS: Dict[str, Tuple[int, int, int]] = {
 }
 
 DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
-    "tumor": {
-        "target_class_id": 0,
-        "target_class_name": "tumor",
-        "score_thr": 0.2,
-        "output_filename": "tumor_locations_list.json",
-        "model_config": "",
-        "model_checkpoint": "",
-    },
-    "lesion": {
-        "target_class_id": 0,
-        "target_class_name": "lesion",
-        "score_thr": 0.2,
-        "output_filename": "lesion_locations_list.json",
-        "model_config": "",
-        "model_checkpoint": "",
-    },
-    "bacteria": {
-        "target_class_id": 0,
-        "target_class_name": "bacteria",
-        "score_thr": 0.2,
-        "output_filename": "bacteria_locations_list.json",
-        "model_config": "",
-        "model_checkpoint": "",
-    },
     "2Dcell": {
         "target_class_id": 0,
         "target_class_name": "2Dcell",
@@ -122,16 +98,16 @@ class ModelConfig:
     Simulation_mode: bool = True
     clarify_enabled: bool = False
     checker_enabled: bool = False
-    emit_skill_routing: bool = False
+    skill_mode: str = "disabled"
     llm_seed: int | None = 42
     openai_api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
-    model_name: str = "claude-sonnet-4-6"
+    model_name: str = "gpt-4.1"
     vlm_api_key: str = ""
     vlm_base_url: str = "https://api.openai.com/v1"
-    vlm_model_name: str = "claude-sonnet-4-6"
+    vlm_model_name: str = "gpt-4.1"
     CROSS_ENCODER_MODEL_PATH: str = r"model\bge-m3"
-    task_similarity_threshold: float = 0.17
+    task_similarity_threshold: float = 0.029
 
 @dataclass
 class RuntimeSettings:
@@ -242,11 +218,8 @@ def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str
     model_env_map = {
         "llm_seed": ("EIMS_LLM_SEED",),
         "openai_api_key": ("EIMS_OPENAI_API_KEY", "OPENAI_API_KEY"),
-        "base_url": ("EIMS_BASE_URL",),
-        "model_name": ("EIMS_MODEL_NAME",),
+        "skill_mode": ("EIMS_SKILL_MODE",),
         "vlm_api_key": ("EIMS_VLM_API_KEY", "VLM_API_KEY"),
-        "vlm_base_url": ("EIMS_VLM_BASE_URL",),
-        "vlm_model_name": ("EIMS_VLM_MODEL_NAME",),
     }
     for field_name, env_names in model_env_map.items():
         for env_name in env_names:
@@ -350,7 +323,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
         "Simulation_mode": settings.model.Simulation_mode,
         "clarify_enabled": settings.model.clarify_enabled,
         "checker_enabled": settings.model.checker_enabled,
-        "emit_skill_routing": settings.model.emit_skill_routing,
+        "skill_mode": settings.model.skill_mode,
         "base_url": settings.model.base_url,
         "model_name": settings.model.model_name,
         "vlm_base_url": settings.model.vlm_base_url,

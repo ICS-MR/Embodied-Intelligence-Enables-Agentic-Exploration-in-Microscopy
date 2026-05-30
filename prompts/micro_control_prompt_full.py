@@ -1,6 +1,7 @@
 prompt_olympus = '''
 import cv2 as cv
 import numpy as np
+import plt
 import time
 # Prohibit importing other Python libraries.
 
@@ -222,10 +223,10 @@ def create_96_wells_positions() -> List[Tuple[float, float]] :
     """
 
 def create_24_wells_positions() -> List[Tuple[float, float]] :
-    """Generates positions for each well in a 96-well plate.
+    """Generates positions for each well in a 24-well plate.
 
     Returns:
-        positions: Positions (micrometer) of each well in the 96-well plate
+        positions: Positions (micrometer) of each well in the 24-well plate
     """
 
 def detect_targets_in_image(
@@ -258,7 +259,7 @@ def detect_targets_in_image(
     
 def say(message: str):
     print(f"robot says: {message}")
-    Outputs a log message with `[ACTION]`, `[INFO]`, or `[ERROR]` prefix. Ensures consistent logging format.
+    """Outputs a log message with `[ACTION]`, `[INFO]`, or `[ERROR]` prefix."""
 # Note
 - Improve image quality by automatically focusing and adjusting brightness before capturing images.
 - Organoid imaging generally requires Z-axis stacking to see each layer structure clearly
@@ -288,8 +289,6 @@ Adjust imaging parameters according to imaging mode:
 - 24-well plate -> 17000micrometer
 - 96-well plate -> 6500micrometer
 ## Recommended Z-stack Sampling Step for Formal 3D Acquisition Only:
-- Use the following step sizes only when configuring a final 3D Z-stack acquisition with `set_z_stack(...)`.
-- Do not treat these values as autofocus step sizes, focus-search step sizes, or generic Z-probing step sizes.
 - '1-UPLFLN4XPH' → 7.5 micrometer
 - '2-SOB' → 3 micrometer
 - '3-LUCPLFLN20XRC' → 1.5 micrometer
@@ -303,8 +302,8 @@ Code Generation Rules
 - Logs actions with `say()` before each major operation.
 
 # Example Input
-Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
-# Saved documents:
+Current environment: xy_position: (25000, 25000), z_position: 2500, exposure_time: 10.0, objective: 4x, dichroic: 1-NONE, brightness: 50
+Saved documents:
  {'2025-07-01T22:39:15.325969_X25000.00Y25000.00Z2500.01_DICH1-NONE_OBJ1-UPLFLN4XPH_BRIGHT43_H50000W50000.tif': {'filename': '2025-07-01T22:39:15.325969_X25000.00Y25000.00Z2500.01_DICH1-NONE_OBJ1-UPLFLN4XPH_BRIGHT43_H50000W50000.tif', 'description': 'Panoramic overview image at 4x in brightfield', 'created_by': 'microscope', 'file_type': 'image'},
  'tumor_locations_list.json': {'filename': 'tumor_locations_list.json', 'description': 'Detected tumor regions in 4x brightfield overview', 'created_by': 'analysis_platform', 'file_type': 'json'}}
 Target Position Loading: Load the target position bounding boxes of suspected tumor areas from the JSON file.
@@ -317,7 +316,7 @@ say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of 
 
     
 # Example Input
-Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
+Current environment: xy_position: (25000, 25000), z_position: 2500, exposure_time: 10.0, objective: 4x, dichroic: 1-NONE, brightness: 50
 Get the current device status
 # Example Output
 say("[INFO] Retrieving current device state")
@@ -335,7 +334,7 @@ say(f"[INFO] Current channel: {current_channel}")
 say(f"[INFO] Current brightness: {current_brightness}")
 
 # Example Input
-Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
+Current environment: xy_position: (25000, 25000), z_position: 2500, exposure_time: 10.0, objective: 4x, dichroic: 1-NONE, brightness: 50
 Automatic Image Acquisition Parameter Setting: Set the filter set to brightfield, set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with the size requirement to cover the 3 cm × 3 cm tumor section; do not set Z-axis stack parameters or time parameters
 Automatic Image Acquisition: Perform automatic image acquisition using the configured parameters
 # Example Output
@@ -361,7 +360,7 @@ run_acquisition()
 say("[INFO] Automated image acquisition task completed")
 
 # Example Input
-Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
+Current environment: xy_position: (25000, 25000), z_position: 2500, exposure_time: 10.0, objective: 4x, dichroic: 1-NONE, brightness: 50
 Parameter Setting: Set the currently used objective lens to 4x and the filter set to brightfield mode
 # Example Output
 say("[INFO] Starting to set objective lens and filter parameters")
@@ -390,7 +389,7 @@ wells_positions = create_24_wells_positions()
 
 
 # Example Input
-Current environment:xy_position:(25000, 25000),_z_position:2500, _exposure_time:10.0,_objective:4x,_dichroic:1-NONE,_brightness:50
+Current environment: xy_position: (25000, 25000), z_position: 2500, exposure_time: 10.0, objective: 4x, dichroic: 1-NONE, brightness: 50
 Parameter Setting: Set the currently used objective lens to 4×, set the filter set to brightfield mode, and adjust the halogen lamp brightness to a level suitable for brightfield imaging
 Auxiliary Operation: Perform automatic focusing on the current field of view
 Image Automatic Acquisition Parameter Setting: Configure the filter set required for automatic acquisition to brightfield, with the corresponding exposure parameter set to the camera's current exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters or time parameters
@@ -490,7 +489,7 @@ if current_channel != target_channel:
     say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
 else:
     say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-target_exposure = 10.0  # Low exposure for brightfield as recommended
+target_exposure = get_exposure()
 set_exposure(target_exposure)
 say(f"[INFO] Camera exposure time set to {target_exposure} ms for brightfield imaging")
 say("[INFO] Retrieving 96-well plate positions")
@@ -500,52 +499,46 @@ first_well_x, first_well_y = wells_positions[0]
 say(f"[ACTION] Moving to first well position: X={first_well_x} μm, Y={first_well_y} μm")
 set_x_y_position(first_well_x, first_well_y)
 say("[INFO] Performing auxiliary operations for optimal imaging")
-# Auto-adjust halogen lamp brightness
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
 say(f"[INFO] Auto-brightness adjustment completed, halogen lamp brightness set to {optimal_brightness}")
-# Perform autofocus on representative well
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Auto-focus completed, Z position set to optimal value: {optimal_z} μm")
-
 say("[INFO] Determining recommended Z-stack parameters for organoid 3D imaging")
 z_max, z_min = z_stack_range()
-# Get appropriate Z-step based on 10x objective
-z_step = 3.0  # 3μm step for 10x objective (label '2-SOB')
+z_step = 3.0
 say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
-
 say("[INFO] Configuring time series parameters for 24-hour imaging")
-num_frames = 24  # 24 hours with 1-hour interval
-interval_sec = 3600  # 1 hour in seconds
+num_frames = 24
+interval_sec = 3600
 set_time_series(num_frames=num_frames, interval_sec=interval_sec)
 say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 1-hour intervals")
-
 say("[INFO] Configuring XY acquisition positions for all 96 wells")
+well_size_um = 6500
+for i, (x, y) in enumerate(wells_positions, start=1):
+    add_acquisition_position(name=f"well_{i:02d}", x=x, y=y, width=well_size_um, height=well_size_um)
 say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 96 wells")
-
 say("[INFO] Configuring acquisition channel parameters")
 add_channels(channel=target_channel, exposure=target_exposure)
 say(f"[INFO] Channel configured: brightfield (channel {target_channel}) with exposure {target_exposure} ms")
-
 say("[INFO] Initiating automated image acquisition with configured parameters")
 run_acquisition()
 say("[INFO] Automated image acquisition for 96-well plate organoids completed successfully")
 
 # Example Input
-# Current environment:xy_position:(2500, 2500),_z_position:4900, _exposure_time:10,_objective:1-UPLFLN4XPH,_dichroic:1-NONE,_brightness:70
-#Parameter Setting: Set the filter set to brightfield mode, configure the camera exposure time to a low value suitable for brightfield imaging, adjust the objective lens to a suitable magnification for organoid observation (e.g., 10×), and enable automatic halogen lamp brightness adjustment; 
-#Auxiliary Operation: Perform automatic focusing on the current field of view containing organoids to ensure initial focusing accuracy; 
-#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain an appropriate Z-axis stack range suitable for 3D imaging of organoids; 
-#Image Automatic Acquisition Parameter Setting: Configure the filter set for automatic acquisition to brightfield mode and set the corresponding exposure parameters; configure the XY position parameter to the current position of the field of view containing organoids, with size requirements matching the current field of view size; configure the Z-axis stack parameter to the recommended range; do not configure time parameters; 
-#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield Z-stack images of organoids; 
-#Parameter Setting: Set the filter set to the green fluorescence channel, configure the camera exposure time to meet the requirements of this fluorescent channel imaging, and set the halogen lamp brightness to 0; 
-#Image Automatic Acquisition Parameter Setting: Configure the filter set for automatic acquisition to the first fluorescent channel and set the corresponding exposure parameters; configure the XY position parameter to the current position; configure the Z-axis stack parameter to the previously recommended range; do not configure time parameters; 
-#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture Z-stack images of the first fluorescent channel; 
- # Generate pure runnable Python code without markdown and function blocks
- # Example Output
- say("[INFO] Starting parameter setup for organoid imaging")
+Current environment: xy_position: (2500, 2500), z_position: 4900, exposure_time: 10, objective: 4x, dichroic: 1-NONE, brightness: 70
+Parameter Setting: Set the filter set to brightfield mode, configure the camera exposure time to a low value suitable for brightfield imaging, adjust the objective lens to a suitable magnification for organoid observation (e.g., 10×), and enable automatic halogen lamp brightness adjustment;
+Auxiliary Operation: Perform automatic focusing on the current field of view containing organoids to ensure initial focusing accuracy;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain an appropriate Z-axis stack range suitable for 3D imaging of organoids;
+Image Automatic Acquisition Parameter Setting: Configure the filter set for automatic acquisition to brightfield mode and set the corresponding exposure parameters; configure the XY position parameter to the current position of the field of view containing organoids, with size requirements matching the current field of view size; configure the Z-axis stack parameter to the recommended range; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield Z-stack images of organoids;
+Parameter Setting: Set the filter set to the green fluorescence channel, configure the camera exposure time to meet the requirements of this fluorescent channel imaging, and set the halogen lamp brightness to 0;
+Image Automatic Acquisition Parameter Setting: Configure the filter set for automatic acquisition to the first fluorescent channel and set the corresponding exposure parameters; configure the XY position parameter to the current position; configure the Z-axis stack parameter to the previously recommended range; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture Z-stack images of the first fluorescent channel;
+# Example Output
+say("[INFO] Starting parameter setup for organoid imaging")
 target_channel_bright = '1-NONE'
 current_channel = get_channel()
 if current_channel != target_channel_bright:
@@ -601,60 +594,4 @@ say(f"[INFO] Z-stack parameters set: range {z_min} to {z_max} μm with step {z_s
 say("[INFO] Starting green fluorescence Z-stack image acquisition")
 run_acquisition()
 
-# Example Input
-# Parameter Setting: Set the currently used objective lens to 20x, set the filter set to brightfield mode, configure low exposure parameters, and enable automatic halogen lamp brightness adjustment
-# Auxiliary operation: Checks if the organoid (target type) is centered, and calculates the target XY coordinates (μm) to move to if not
-# Position Control: Move the stage to the calculated XY coordinates (μm) to center the organoid
-# Auxiliary operation: Perform autofocus on the centered organoid to achieve clear imaging
-# Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and the exposure parameter to the current configured low exposure value; set the XY position parameter to the current centered position, with size requirements matching the current field of view; do not configure Z-axis stack parameters or time parameters
-# Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters
-# Generate pure runnable Python code without markdown and function blocks
-# Example Output
-say("[INFO] Starting parameter setup for 20x brightfield organoid imaging")
-target_objective = '3-LUCPLFLN20XRC'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 20x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 20x (label: {target_objective}), no change needed")
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-target_exposure = 10.0
-set_exposure(target_exposure)
-say(f"[INFO] Camera exposure time set to low value: {target_exposure} ms for brightfield imaging")
-say("[INFO] Checking if organoid is centered and calculating target position if needed")
-is_centered, target_x_um, target_y_um = check_and_calc_target_position(detect_object="organoids")
-if is_centered:
-    say("[INFO] Organoid is already centered, no stage movement required")
-else:
-    say(f"[ACTION] Moving stage to center organoid: X={target_x_um} μm, Y={target_y_um} μm")
-    set_x_y_position(target_x_um, target_y_um)
-    say("[INFO] Stage moved to center the organoid")
-say("[INFO] Re-adjusting halogen lamp brightness for focusing")
-optimal_brightness_focus = perform_autobrightness()
-set_brightness(optimal_brightness_focus)
-say(f"[INFO] Halogen lamp brightness adjusted to {optimal_brightness_focus} for clear focusing")
-say("[INFO] Performing autofocus")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
-say("[INFO] Configuring brightfield image acquisition parameters")
-current_x, current_y = get_x_y_position()
-add_acquisition_position(
-    name="centered_organoid_20x_brightfield",
-    x=current_x,
-    y=current_y,
-    width=None,
-    height=None
-)
-add_channels(channel=target_channel, exposure=target_exposure)
-say("[INFO] Starting automatic image acquisition for centered organoid")
-run_acquisition()
-say("[INFO] Automatic image acquisition for centered organoid completed successfully")
 '''.strip()

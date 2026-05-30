@@ -1,7 +1,6 @@
 import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from openai import OpenAI
@@ -20,54 +19,18 @@ from agent.utils import (
 )
 from config.agent_config import cross_encoder_model_path, task_similarity_threshold
 from utils.cli_logging import get_cli_logger
-from utils.planning_skills import (
-    build_active_template_metadata,
-    build_skill_catalog,
-    extract_active_planning_templates,
-    find_skills_by_name,
-    format_active_templates_for_prompt,
-    format_selected_skills_for_prompt,
-    format_skill_catalog_for_prompt,
-    load_planning_skills,
-)
 
 
 logger = get_cli_logger("PLANNER")
 
 
 @dataclass
-class SkillRoutingResult:
-    need_skill: bool = False
-    selected_skill_names: List[str] = field(default_factory=list)
-    reason: str = ""
-    active_templates: List[Dict[str, Any]] = field(default_factory=list)
-    raw_response: str = ""
-    usage: Optional[Dict[str, int]] = None
-
-
-@dataclass
 class PlannerResult:
     status: str
     question: str = ""
-    selected_skills: List[str] = field(default_factory=list)
-    skill_reason: str = ""
-    active_templates: List[Dict[str, Any]] = field(default_factory=list)
     steps: List[Dict[str, Any]] = field(default_factory=list)
     ready: bool = False
     tokens: Optional[Dict[str, int]] = None
-    error: Optional[str] = None
-    raw_response: str = ""
-
-
-@dataclass
-class SkillResolutionResult:
-    status: str
-    question: str = ""
-    resolved_query: str = ""
-    selected_skills: List[str] = field(default_factory=list)
-    skill_reason: str = ""
-    active_templates: List[Dict[str, Any]] = field(default_factory=list)
-    usage: Optional[Dict[str, int]] = None
     error: Optional[str] = None
     raw_response: str = ""
 
@@ -124,18 +87,6 @@ class ExperimentPlanAgent:
         self._name = name
         self._cfg = cfg or {}
         self._base_prompt = self._cfg.get("prompt_text", "")
-        self._skill_dirs = self._cfg.get("skill_dirs", [str(Path("user_skills") / "planning")])
-        self._skill_top_k = int(self._cfg.get("skill_top_k", 3))
-        self._skill_max_files = int(self._cfg.get("skill_max_files", 20))
-        self._skill_max_chars_per_file = int(self._cfg.get("skill_max_chars_per_file", 2000))
-        self._skill_max_selected = int(self._cfg.get("skill_max_selected", 2))
-        self._skill_route_max_tokens = int(self._cfg.get("skill_route_max_tokens", 512))
-        self._skill_route_temperature = float(self._cfg.get("skill_route_temperature", 0))
-        self._emit_skill_routing = bool(self._cfg.get("emit_skill_routing", True))
-        self._last_selected_skills: List[str] = []
-        self._last_skill_reason = ""
-        self._last_active_templates: List[Dict[str, Any]] = []
-        self._last_skill_routing_raw_response = ""
         self._last_planner_raw_response = ""
         self._historyManager = historymanager
         self.code_history = []
@@ -145,6 +96,7 @@ class ExperimentPlanAgent:
         self._client = client
         self.clarify = None
         self._clarify_enabled = bool(clarify_tag)
+        self._clarify_method = "clarify"
         if self._clarify_enabled:
             try:
                 self.clarify = Clarify(
@@ -153,9 +105,14 @@ class ExperimentPlanAgent:
                     self._cfg.get("engine"),
                     cross_encoder_model_path,
                     task_similarity_threshold,
+                    historymanager=self._historyManager,
                 )
             except Exception as e:
                 raise RuntimeError(f"Clarify initialization failed: {e}") from e
+
+    def set_clarify_method(self, method: str) -> None:
+        normalized = str(method or "").strip().lower()
+        self._clarify_method = normalized if normalized in {"clarify", "clarify_llm"} else "clarify"
 
     def clear_history(self):
         self.code_history = []
@@ -208,7 +165,7 @@ class ExperimentPlanAgent:
                         history_items.append(item)
                 else:
                     history_items.append(item)
-            prompt_parts.append(f"Historical tasks:\n{json.dumps(history_items, indent=2)}")
+            prompt_parts.append(self._wrap_prompt_section("Historical Tasks", json.dumps(history_items, indent=2)))
 
         if state is not None:
             try:
@@ -258,7 +215,7 @@ class ExperimentPlanAgent:
 
     def _is_internal_planner_context(self, context: str) -> bool:
         normalized = str(context or "").strip()
-        return normalized.startswith("The user request below was produced by the skill resolver")
+        return normalized.startswith("The user request below was produced by an upstream resolver")
 
     def _chat_completion(
         self,
@@ -320,280 +277,41 @@ class ExperimentPlanAgent:
             except json.JSONDecodeError:
                 return None
 
-    def _load_all_skills(self):
-        return load_planning_skills(
-            skill_dirs=self._skill_dirs,
-            max_files=self._skill_max_files,
-            max_chars_per_file=self._skill_max_chars_per_file,
-        )
-
-    def route_skills(self, query: str, state: Any, context: str = "") -> SkillRoutingResult:
-        all_skills = self._load_all_skills()
-        if not all_skills:
-            self._last_skill_routing_raw_response = ""
-            return SkillRoutingResult()
-
-        catalog = build_skill_catalog(all_skills)
-        prompt_parts = self._collect_prompt_parts(state, context)
-        prompt_parts.append(format_skill_catalog_for_prompt(catalog))
-        prompt_parts.append(
-            "Decide whether any planning skill is needed before generating a plan. "
-            "Only select skills that are clearly relevant. Select at most "
-            f"{self._skill_max_selected} skills."
-        )
-        prompt_parts.append(
-            "Return JSON only in the form "
-            '{"need_skill": true, "selected_skills": ["Skill Name"], "reason": "short reason"}'
-        )
-        prompt_parts.append(f"User request:\n{query}")
-        prompt = "\n\n".join(part for part in prompt_parts if part)
-        system_prompt = (
-            "You are a planning skill router. Decide whether extra user-provided planning skills are needed. "
-            "Use only the provided skill catalog. Return valid JSON only."
-        )
-
-        raw_response, usage = self._chat_completion(
-            system_prompt=system_prompt,
-            prompt=prompt,
-            temperature=self._skill_route_temperature,
-            max_tokens=self._skill_route_max_tokens,
-            stop_tokens=[],
-            allow_clarify=False,
-        )
-        payload = self._parse_json_object(raw_response) or {}
-        selected_skills = find_skills_by_name(
-            all_skills,
-            payload.get("selected_skills") or [],
-            max_selected=self._skill_max_selected,
-        )
-        selected_skill_names = [skill.name for skill in selected_skills]
-        need_skill = bool(payload.get("need_skill")) and bool(selected_skill_names)
-        reason = str(payload.get("reason") or "").strip()
-        active_templates = build_active_template_metadata(selected_skills if need_skill else [])
-
-        if self._historyManager:
-            self._historyManager.record_interaction(
-                agent_name=self._name,
-                event_type="planning_skill_routing",
-                message="Planner routed planning skills for the current request.",
-                payload={
-                    "query": query,
-                    "context": context,
-                    "catalog_size": len(catalog),
-                    "selected_skills": selected_skill_names,
-                    "need_skill": need_skill,
-                    "reason": reason,
-                    "active_templates": active_templates,
-                    "raw_response": raw_response,
-                    "usage": usage or {},
-                },
-            )
-
-        return SkillRoutingResult(
-            need_skill=need_skill,
-            selected_skill_names=selected_skill_names,
-            reason=reason,
-            active_templates=active_templates,
-            raw_response=raw_response,
-            usage=usage,
-        )
-
     def build_prompt(
         self,
         query: str,
         state: Any,
         context: str = "",
-        selected_skills_prompt: str = "",
-        selected_skill_names: Optional[List[str]] = None,
-        skill_reason: str = "",
-        active_template_prompt: str = "",
-        allow_ask_user: bool = False,
-        compact_skill_guidance: bool = False,
-        include_output_policy: bool = True,
-        include_additional_context: bool = True,
     ) -> Tuple[str, str, str]:
-        del (
-            selected_skills_prompt,
-            selected_skill_names,
-            skill_reason,
-            active_template_prompt,
-            allow_ask_user,
-            compact_skill_guidance,
-            include_output_policy,
-            include_additional_context,
-        )
-
         observation_object = self._extract_observation_object(context) or self._extract_imaging_target(query)
-        prompt_parts: List[str] = [
-            self._wrap_prompt_section("Current System State", self._serialize_state_text(state)),
-            self._wrap_prompt_section("Observation object", observation_object or "{}"),
-        ]
-        if context.strip() and not observation_object and not self._is_internal_planner_context(context):
-            prompt_parts.append(self._wrap_prompt_section("Additional Context", context))
+        prompt_parts: List[str] = []
+        if self._cfg.get("maintain_session") and self.code_history:
+            max_hist = self._cfg.get("max_history", 10)
+            history_items: List[Any] = []
+            for item in self.code_history[-max_hist:]:
+                if isinstance(item, str):
+                    try:
+                        history_items.append(json.loads(item))
+                    except json.JSONDecodeError:
+                        history_items.append(item)
+                else:
+                    history_items.append(item)
+            prompt_parts.append(self._wrap_prompt_section("Historical Tasks", json.dumps(history_items, indent=2)))
+        prompt_parts.extend(
+            [
+                self._wrap_prompt_section("Current System State", self._serialize_state_text(state)),
+                self._wrap_prompt_section("Observation object", observation_object or "{}"),
+            ]
+        )
         prompt_parts.append(self._wrap_prompt_section("User Request", self._format_query(query)))
         return self._base_prompt, "\n\n".join(part for part in prompt_parts if part), query
-
-    def _allow_ask_user_for_skills(self, skills: List[Any]) -> bool:
-        for skill in extract_active_planning_templates(skills):
-            if skill.output_strategy == "single_question_then_plan":
-                return True
-        return False
 
     def _build_resolved_planner_context(self) -> str:
         return (
             "The user request below has already been rewritten into a consolidated workflow specification "
-            "by the skill-resolution stage. Treat the resolved workflow parameters in that request as "
+            "by an upstream resolver. Treat the resolved workflow parameters in that request as "
             "authoritative and do not ask again for parameters that are already resolved there unless a "
             "genuine new blocking ambiguity remains."
-        )
-
-    def resolve_selected_skill_workflow(
-        self,
-        query: str,
-        state: Any,
-        context: str = "",
-        selected_skill_names: Optional[List[str]] = None,
-        skill_reason: str = "",
-        active_templates: Optional[List[Dict[str, Any]]] = None,
-    ) -> SkillResolutionResult:
-        selected_skill_names = selected_skill_names or []
-        all_skills = self._load_all_skills()
-        selected_skills = find_skills_by_name(
-            all_skills,
-            selected_skill_names,
-            max_selected=self._skill_max_selected,
-        )
-        active_templates = active_templates or build_active_template_metadata(selected_skills)
-        active_planning_templates = extract_active_planning_templates(selected_skills)
-        if not active_planning_templates:
-            return SkillResolutionResult(
-                status="ready_for_planner",
-                resolved_query=query,
-                selected_skills=[skill.name for skill in selected_skills],
-                skill_reason=skill_reason,
-                active_templates=active_templates,
-            )
-
-        if not any(skill.output_strategy == "single_question_then_plan" for skill in active_planning_templates):
-            return SkillResolutionResult(
-                status="ready_for_planner",
-                resolved_query=query,
-                selected_skills=[skill.name for skill in selected_skills],
-                skill_reason=skill_reason,
-                active_templates=active_templates,
-            )
-
-        selected_skills_prompt = format_selected_skills_for_prompt(selected_skills)
-        active_template_prompt = format_active_templates_for_prompt(selected_skills)
-        guidance_parts: List[str] = []
-        if selected_skill_names:
-            guidance_parts.append("Selected skills for this round: " + ", ".join(selected_skill_names))
-            if skill_reason:
-                guidance_parts.append(f"Selection reason: {skill_reason}")
-        if compact_skill_guidance:
-            guidance_parts.append(
-                "The skill resolver has already produced a complete authoritative task instruction for the downstream planner. "
-                "Use the selected skill names only as lightweight provenance and do not reinterpret or restate the full skill workflow guidance here."
-            )
-        elif selected_skills_prompt:
-            guidance_parts.append(selected_skills_prompt)
-        elif active_template_prompt:
-            guidance_parts.append(active_template_prompt)
-
-        prompt_parts = [
-            self._wrap_prompt_section("Skill Resolution Guidance", "\n\n".join(part for part in guidance_parts if part)),
-            self._wrap_prompt_section(
-                "Skill Resolution Task",
-                (
-                    "You are the skill-resolution stage that runs before the final planner.\n"
-                    "Your job is to decide whether the selected planning template still needs one blocking clarification "
-                    "question, or whether the workflow parameters are now sufficient to rewrite the request into a "
-                    "complete consolidated workflow specification for the planner.\n"
-                    "If critical workflow parameters are still missing, return exactly one consolidated clarification "
-                    "question.\n"
-                    "If the workflow parameters are sufficient, rewrite the request into a complete consolidated "
-                    "workflow specification that the planner can execute directly. The specification must preserve the "
-                    "user's intent, resolved parameters, execution constraints, and channel/detection rules from the skill.\n"
-                    "Do not output task steps. Do not output planner state tags.\n"
-                    "Return valid JSON only in one of these forms:\n"
-                    "{\"status\":\"ask_user\",\"question\":\"...\",\"reason\":\"...\"}\n"
-                    "{\"status\":\"ready_for_planner\",\"resolved_query\":\"...\",\"reason\":\"...\"}"
-                ),
-            ),
-        ]
-        if context.strip():
-            prompt_parts.append(self._wrap_prompt_section("Resolved Clarifications", context))
-        prompt_parts.append(self._wrap_prompt_section("Current System State", self._serialize_state_text(state)))
-        prompt_parts.append(self._wrap_prompt_section("User Request", self._format_query(query)))
-        prompt = "\n\n".join(part for part in prompt_parts if part)
-        system_prompt = (
-            "You are a workflow skill resolver. Decide whether one blocking clarification is still required, "
-            "or rewrite the request into a consolidated workflow specification for the downstream planner. "
-            "Return valid JSON only."
-        )
-
-        raw_response, usage = self._chat_completion(
-            system_prompt=system_prompt,
-            prompt=prompt,
-            temperature=0,
-            max_tokens=self._skill_route_max_tokens * 4,
-            stop_tokens=[],
-            allow_clarify=False,
-        )
-        payload = self._parse_json_object(raw_response) or {}
-        status = str(payload.get("status") or "").strip().lower()
-        question = str(payload.get("question") or "").strip()
-        resolved_query = str(payload.get("resolved_query") or "").strip()
-        reason = str(payload.get("reason") or "").strip() or skill_reason
-
-        if self._historyManager:
-            self._historyManager.record_interaction(
-                agent_name=self._name,
-                event_type="planning_skill_resolution",
-                message="Skill resolution completed before planner execution.",
-                payload={
-                    "query": query,
-                    "context": context,
-                    "selected_skills": [skill.name for skill in selected_skills],
-                    "skill_reason": skill_reason,
-                    "active_templates": active_templates,
-                    "prompt": prompt,
-                    "raw_response": raw_response,
-                    "resolution_status": status or "error",
-                    "question": question,
-                    "resolved_query": resolved_query,
-                    "usage": usage or {},
-                },
-            )
-
-        if status == "ask_user" and question:
-            return SkillResolutionResult(
-                status="ask_user",
-                question=question,
-                selected_skills=[skill.name for skill in selected_skills],
-                skill_reason=reason,
-                active_templates=active_templates,
-                usage=usage,
-                raw_response=raw_response,
-            )
-        if status == "ready_for_planner" and resolved_query:
-            return SkillResolutionResult(
-                status="ready_for_planner",
-                resolved_query=resolved_query,
-                selected_skills=[skill.name for skill in selected_skills],
-                skill_reason=reason,
-                active_templates=active_templates,
-                usage=usage,
-                raw_response=raw_response,
-            )
-        return SkillResolutionResult(
-            status="error",
-            selected_skills=[skill.name for skill in selected_skills],
-            skill_reason=reason,
-            active_templates=active_templates,
-            usage=usage,
-            error="Skill resolution did not return a valid clarification question or resolved workflow specification.",
-            raw_response=raw_response,
         )
 
     def _parse_planner_result(
@@ -602,12 +320,8 @@ class ExperimentPlanAgent:
         query: str,
         answer_content: str,
         usage_dict: Optional[Dict[str, int]],
-        selected_skill_names: List[str],
-        skill_reason: str,
-        active_templates: Optional[List[Dict[str, Any]]] = None,
         allow_ask_user: bool = False,
     ) -> PlannerResult:
-        active_templates = active_templates or []
         planner_state = self._parse_json_object(extract_planner_state(answer_content)) or {}
         state_status = str(planner_state.get("status") or "").strip().lower()
         state_question = str(planner_state.get("question") or "").strip()
@@ -634,17 +348,12 @@ class ExperimentPlanAgent:
                         message="Planner attempted ask_user without an active planning template allowing it.",
                         payload={
                             "query": query,
-                            "selected_skills": selected_skill_names,
-                            "active_templates": active_templates,
                             "raw_response": answer_content,
                             "usage": usage_dict or {},
                         },
                     )
                 return PlannerResult(
                     status="error",
-                    selected_skills=selected_skill_names,
-                    skill_reason=state_reason or skill_reason,
-                    active_templates=active_templates,
                     ready=False,
                     tokens=usage_dict,
                     error="Planner returned ask_user without an active planning template that allows clarification.",
@@ -659,18 +368,13 @@ class ExperimentPlanAgent:
                     payload={
                         "query": query,
                         "question": question,
-                        "selected_skills": selected_skill_names,
-                        "reason": state_reason or skill_reason,
-                        "active_templates": active_templates,
+                        "reason": state_reason,
                         "usage": usage_dict or {},
                     },
                 )
             return PlannerResult(
                 status="ask_user",
                 question=question,
-                selected_skills=selected_skill_names,
-                skill_reason=state_reason or skill_reason,
-                active_templates=active_templates,
                 ready=False,
                 tokens=usage_dict,
                 raw_response=answer_content,
@@ -685,9 +389,7 @@ class ExperimentPlanAgent:
                     message="Planner reported that the request is unsupported by current system capabilities.",
                     payload={
                         "query": query,
-                        "selected_skills": selected_skill_names,
                         "reason": unsupported_reason,
-                        "active_templates": active_templates,
                         "raw_response": answer_content,
                         "usage": usage_dict or {},
                     },
@@ -695,9 +397,6 @@ class ExperimentPlanAgent:
             return PlannerResult(
                 status="unsupported",
                 question="",
-                selected_skills=selected_skill_names,
-                skill_reason=unsupported_reason,
-                active_templates=active_templates,
                 ready=False,
                 tokens=usage_dict,
                 error=unsupported_reason,
@@ -717,18 +416,13 @@ class ExperimentPlanAgent:
                         message=missing_steps_error,
                         payload={
                             "query": query,
-                            "selected_skills": selected_skill_names,
-                            "reason": state_reason or skill_reason,
-                            "active_templates": active_templates,
+                            "reason": state_reason,
                             "raw_response": answer_content,
                             "usage": usage_dict or {},
                         },
                     )
                 return PlannerResult(
                     status="error",
-                    selected_skills=selected_skill_names,
-                    skill_reason=state_reason or skill_reason,
-                    active_templates=active_templates,
                     ready=False,
                     tokens=usage_dict,
                     error=missing_steps_error,
@@ -745,18 +439,13 @@ class ExperimentPlanAgent:
                         payload={
                             "query": query,
                             "tasks": tasks,
-                            "selected_skills": selected_skill_names,
-                            "reason": state_reason or skill_reason,
-                            "active_templates": active_templates,
+                            "reason": state_reason,
                             "raw_response": answer_content,
                             "usage": usage_dict or {},
                         },
                     )
                 return PlannerResult(
                     status="final_plan",
-                    selected_skills=selected_skill_names,
-                    skill_reason=state_reason or skill_reason,
-                    active_templates=active_templates,
                     steps=tasks,
                     ready=True,
                     tokens=usage_dict,
@@ -772,9 +461,7 @@ class ExperimentPlanAgent:
                     message=invalid_steps_error,
                     payload={
                         "query": query,
-                        "selected_skills": selected_skill_names,
-                        "reason": state_reason or skill_reason,
-                        "active_templates": active_templates,
+                        "reason": state_reason,
                         "raw_response": answer_content,
                         "task_steps_content": steps_content,
                         "usage": usage_dict or {},
@@ -782,9 +469,6 @@ class ExperimentPlanAgent:
                 )
             return PlannerResult(
                 status="error",
-                selected_skills=selected_skill_names,
-                skill_reason=state_reason or skill_reason,
-                active_templates=active_templates,
                 ready=False,
                 tokens=usage_dict,
                 error=invalid_steps_error,
@@ -798,18 +482,13 @@ class ExperimentPlanAgent:
                 message="Planner did not produce a valid planning state.",
                 payload={
                     "query": query,
-                    "selected_skills": selected_skill_names,
-                    "reason": state_reason or skill_reason,
-                    "active_templates": active_templates,
+                    "reason": state_reason,
                     "raw_response": answer_content,
                     "usage": usage_dict or {},
                 },
             )
         return PlannerResult(
             status="error",
-            selected_skills=selected_skill_names,
-            skill_reason=state_reason or skill_reason,
-            active_templates=active_templates,
             ready=False,
             tokens=usage_dict,
             error="Planner did not return a valid state or executable steps.",
@@ -833,38 +512,49 @@ class ExperimentPlanAgent:
             query,
             state,
             context,
-            selected_skill_names=[],
-            skill_reason="",
-            allow_ask_user=False,
         )
         del base_prompt
 
+        method_name = self._clarify_method if self._clarify_method in {"clarify", "clarify_llm"} else "clarify"
         try:
-            decision = self.clarify.generate_planning_decision(prompt)
+            decision = self.clarify.generate_planning_decision(
+                prompt,
+                force_llm_consistency_analysis=(method_name == "clarify_llm"),
+            )
         except Exception as exc:
             return PlannerResult(
                 status="error",
                 ready=False,
-                error=f"Clarify planning failed: {type(exc).__name__}: {exc}",
+                error=f"{method_name} planning failed: {type(exc).__name__}: {exc}",
             )
 
         answer_content = decision.raw_response
         if decision.status == "final_plan" and not answer_content:
-            answer_content = self.clarify.generate_code_solutions(prompt)
+            answer_content = self.clarify.generate_code_solutions(
+                prompt,
+                force_llm_consistency_analysis=(method_name == "clarify_llm"),
+            )
         elif decision.status == "ask_user" and not answer_content:
-            answer_content = self.clarify.generate_code_solutions(prompt)
+            answer_content = self.clarify.generate_code_solutions(
+                prompt,
+                force_llm_consistency_analysis=(method_name == "clarify_llm"),
+            )
 
         if self._historyManager:
             self._historyManager.record_interaction(
                 agent_name=self._name,
-                event_type="clarify_planning_response",
-                message="Clarify acted as the primary planner for the current request.",
+                event_type=f"{method_name}_planning_response",
+                message=f"{method_name} acted as the primary planner for the current request.",
                 payload={
+                    "method": method_name,
                     "query": query,
                     "context": context,
                     "status": decision.status,
                     "question": decision.question,
                     "reason": decision.reason,
+                    "candidate_solutions": decision.candidate_solutions,
+                    "consistency_result": decision.consistency_result,
+                    "violation_result": decision.violation_result,
                     "raw_response": answer_content,
                     "error": decision.error,
                 },
@@ -873,11 +563,8 @@ class ExperimentPlanAgent:
         if decision.status == "error":
             return PlannerResult(
                 status="error",
-                selected_skills=[],
-                skill_reason=decision.reason,
-                active_templates=[],
                 ready=False,
-                error=decision.error or "Clarify planning failed.",
+                error=decision.error or f"{method_name} planning failed.",
                 raw_response=answer_content,
             )
 
@@ -885,59 +572,21 @@ class ExperimentPlanAgent:
             query=query,
             answer_content=answer_content,
             usage_dict=None,
-            selected_skill_names=[],
-            skill_reason=decision.reason,
-            active_templates=[],
             allow_ask_user=True,
         )
 
-    def plan_with_selected_skills(
+    def plan(
         self,
         query: str,
         state: Any,
         context: str = "",
-        selected_skill_names: Optional[List[str]] = None,
-        skill_reason: str = "",
-        active_templates: Optional[List[Dict[str, Any]]] = None,
-        allow_ask_user_override: Optional[bool] = None,
+        *,
+        allow_ask_user: bool = False,
     ) -> PlannerResult:
-        selected_skill_names = selected_skill_names or []
-        all_skills = self._load_all_skills()
-        selected_skills = find_skills_by_name(
-            all_skills,
-            selected_skill_names,
-            max_selected=self._skill_max_selected,
-        )
-        active_templates = active_templates or build_active_template_metadata(selected_skills)
-        allow_ask_user = (
-            allow_ask_user_override
-            if allow_ask_user_override is not None
-            else self._allow_ask_user_for_skills(selected_skills)
-        )
-        compact_skill_guidance = bool(
-            selected_skills
-            and allow_ask_user_override is False
-            and "produced by the skill resolver as a complete task instruction" in context
-        )
-        planner_selected_skill_names = [] if compact_skill_guidance else [skill.name for skill in selected_skills]
-        planner_skill_reason = "" if compact_skill_guidance else skill_reason
-        planner_context = "" if compact_skill_guidance else context
-        selected_skills_prompt = "" if compact_skill_guidance else format_selected_skills_for_prompt(selected_skills)
-        active_template_prompt = "" if compact_skill_guidance else format_active_templates_for_prompt(selected_skills)
-        include_output_policy = bool(self._emit_skill_routing or selected_skills or allow_ask_user_override is not None)
-        include_additional_context = bool(context.strip() and (self._emit_skill_routing or selected_skills or allow_ask_user_override is not None))
         base_prompt, prompt, _ = self.build_prompt(
             query,
             state,
-            planner_context,
-            selected_skills_prompt=selected_skills_prompt,
-            selected_skill_names=planner_selected_skill_names,
-            skill_reason=planner_skill_reason,
-            active_template_prompt=active_template_prompt,
-            allow_ask_user=allow_ask_user,
-            compact_skill_guidance=compact_skill_guidance,
-            include_output_policy=include_output_policy,
-            include_additional_context=include_additional_context,
+            context,
         )
         answer_content, usage_dict = self._chat_completion(
             system_prompt=base_prompt,
@@ -956,9 +605,6 @@ class ExperimentPlanAgent:
                 payload={
                     "query": query,
                     "context": context,
-                    "selected_skills": [skill.name for skill in selected_skills],
-                    "skill_reason": skill_reason,
-                    "active_templates": active_templates,
                     "allow_ask_user": allow_ask_user,
                     "system_prompt": base_prompt,
                     "prompt": prompt,
@@ -971,35 +617,16 @@ class ExperimentPlanAgent:
             query=query,
             answer_content=answer_content,
             usage_dict=usage_dict,
-            selected_skill_names=[skill.name for skill in selected_skills],
-            skill_reason=skill_reason,
-            active_templates=active_templates,
             allow_ask_user=allow_ask_user,
         )
 
     def __call__(self, query: str, state: Any, context: str = "") -> PlannerResult:
         if self._clarify_enabled:
             planner_result = self.plan_with_clarify(query, state, context)
-            self._last_selected_skills = []
-            self._last_skill_reason = planner_result.skill_reason
-            self._last_active_templates = []
-            self._last_skill_routing_raw_response = ""
             self._last_planner_raw_response = planner_result.raw_response
             return planner_result
 
-        planner_result = self.plan_with_selected_skills(
-            query,
-            state,
-            context,
-            selected_skill_names=[],
-            skill_reason="",
-            active_templates=[],
-            allow_ask_user_override=False if self._emit_skill_routing else None,
-        )
-        self._last_selected_skills = list(planner_result.selected_skills)
-        self._last_skill_reason = planner_result.skill_reason
-        self._last_active_templates = list(planner_result.active_templates)
-        self._last_skill_routing_raw_response = ""
+        planner_result = self.plan(query, state, context)
         self._last_planner_raw_response = planner_result.raw_response
         return planner_result
 
