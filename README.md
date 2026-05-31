@@ -188,14 +188,24 @@ If you already have Micro-Manager installed, set `MM_DIR` in
 
 ### Configure Fiji
 
-Install Fiji manually from <https://imagej.net/software/fiji/>, then let the helper
-detect it, update `FIJI_PATH`, and validate the Java/pyimagej stack:
+Run the Fiji setup helper:
 
 ```bash
 uv run python system_config_wizard.py --setup-fiji
 uv run python system_config_wizard.py --check-java
 uv run python system_config_wizard.py --check-fiji
 ```
+
+`--setup-fiji` first tries to reuse an existing local Fiji installation. If no valid
+Fiji install is detected, it automatically downloads Fiji to the default EIMS runtime
+location, updates `FIJI_PATH`, and then validates the Java/pyimagej stack.
+
+When reusing an existing install, the helper first checks the configured `FIJI_PATH`
+and then searches common local locations such as the default EIMS Fiji directory,
+`LOCALAPPDATA`, `Program Files`, `Downloads`, and `Desktop`.
+
+If you prefer to manage Fiji manually, you can still download it from
+<https://imagej.net/software/fiji/> and point EIMS at that install directly.
 
 To point at a specific Fiji install:
 
@@ -208,10 +218,34 @@ Fiji-backed processing requires a Java/JDK visible in the same terminal. The hel
 does not install Java; it reports whether `java -version`, JPype, Maven/scyjava, and
 pyimagej initialization are ready.
 
+### Configure Local Models
+
+Some local capabilities expect model assets under the `model/` directory. In
+particular, the default semantic similarity model path is `model/bge-m3`.
+
+Download the required `bge-m3` model assets with:
+
+```bash
+uv run python scripts/setup_models.py
+```
+
+The script downloads the model from:
+
+```text
+https://huggingface.co/BAAI/bge-m3
+```
+
+If the download helper dependency is missing, install it first and rerun the setup:
+
+```bash
+uv add huggingface_hub
+uv run python scripts/setup_models.py
+```
+
 ### Run the Web Runtime
 
 ```bash
-uvicorn app:app --reload
+uv run uvicorn app:app --reload
 ```
 
 The first browser open may be slower than usual while the backend finishes startup and
@@ -226,13 +260,13 @@ http://127.0.0.1:8000
 For a lighter mock UI flow:
 
 ```bash
-uvicorn app_mock:app --reload
+uv run uvicorn app_mock:app --reload
 ```
 
 ### Run the CLI Runtime
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ### Hardware-Free Notebook
@@ -240,6 +274,12 @@ python main.py
 ```text
 Hardware-Free-Demo.ipynb
 ```
+
+This notebook is primarily a hardware-free conceptual demo built around an earlier
+EIMS runtime/configuration flow. Use it as a reference example rather than the
+authoritative setup guide. For current configuration and execution steps, follow this
+README, `.env.example`, `config/runtime_config.example.json`, and
+`system_config_wizard.py`.
 
 ## Runtime History
 

@@ -4,9 +4,11 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.request import urlopen
 
 from bootstrap.config import ROOT_DIR, RUNTIME_CONFIG_PATH, load_system_config, save_runtime_settings
 
@@ -37,6 +39,7 @@ FILTER_COLOR_HINTS: Tuple[Tuple[Tuple[str, ...], Tuple[int, int, int]], ...] = (
 DEFAULT_MMCORE_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Micro-Manager"
 DEFAULT_FIJI_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Fiji"
 FIJI_MANUAL_DOWNLOAD_URL = "https://imagej.net/software/fiji/"
+FIJI_DOWNLOAD_BASE_URL = "https://downloads.imagej.net/fiji/latest"
 
 
 @dataclass
@@ -477,6 +480,129 @@ def discover_fiji_roots() -> List[Path]:
     return roots
 
 
+def _fiji_download_filename() -> str:
+    system = sys.platform.lower()
+    machine = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower() or os.environ.get("PROCESSOR_IDENTIFIER", "").lower()
+    is_arm64 = "arm64" in machine or "aarch64" in machine
+    if system.startswith("win"):
+        return "fiji-latest-win-arm64-jdk.zip" if is_arm64 else "fiji-latest-win64-jdk.zip"
+    if system == "darwin":
+        return "fiji-latest-macos-arm64-jdk.zip" if is_arm64 else "fiji-latest-macos64-jdk.zip"
+    if system.startswith("linux"):
+        return "fiji-latest-linux-arm64-jdk.zip" if is_arm64 else "fiji-latest-linux64-jdk.zip"
+    raise RuntimeError(
+        f"Automatic Fiji download is not configured for platform '{sys.platform}'. "
+        f"Please download Fiji manually from {FIJI_MANUAL_DOWNLOAD_URL}"
+    )
+
+
+def _normalize_fiji_download_dest(dest: Path) -> Path:
+    candidate = dest.expanduser()
+    if candidate.suffix.lower() == ".exe":
+        return candidate.parent.resolve()
+    if candidate.name.lower() == "fiji.app":
+        return candidate.parent.resolve()
+    return candidate.resolve()
+
+
+def _download_file_with_progress(url: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with urlopen(url) as response, destination.open("wb") as output:
+        total_size = int(response.headers.get("Content-Length", "0") or 0)
+        downloaded = 0
+        next_report_bytes = 0
+        chunk_size = 1024 * 1024
+        while True:
+            chunk = response.read(chunk_size)
+            if not chunk:
+                break
+            output.write(chunk)
+            downloaded += len(chunk)
+            if total_size > 0:
+                progress = downloaded / total_size
+                if downloaded >= next_report_bytes or downloaded == total_size:
+                    print(f"Downloaded {downloaded / (1024 * 1024):.1f} / {total_size / (1024 * 1024):.1f} MB ({progress:.0%})")
+                    next_report_bytes = downloaded + (25 * 1024 * 1024)
+            elif downloaded >= next_report_bytes:
+                print(f"Downloaded {downloaded / (1024 * 1024):.1f} MB ...")
+                next_report_bytes = downloaded + (25 * 1024 * 1024)
+
+
+def _safe_remove_tree(path: Path, expected_parent: Path) -> None:
+    resolved_path = path.resolve()
+    resolved_parent = expected_parent.resolve()
+    if resolved_parent not in resolved_path.parents:
+        raise RuntimeError(f"Refusing to remove unexpected path outside install destination: {resolved_path}")
+    shutil.rmtree(resolved_path)
+
+
+def install_fiji(dest: Path, *, update_runtime_config: bool) -> Path:
+    target_dest = _normalize_fiji_download_dest(dest)
+    target_dest.mkdir(parents=True, exist_ok=True)
+
+    archive_name = _fiji_download_filename()
+    archive_url = f"{FIJI_DOWNLOAD_BASE_URL}/{archive_name}"
+    archive_path = target_dest / archive_name
+    extract_root = target_dest / "_fiji_extract_tmp"
+
+    if extract_root.exists():
+        _safe_remove_tree(extract_root, target_dest)
+    extract_root.mkdir(parents=True, exist_ok=True)
+
+    print(f"Downloading Fiji from {archive_url}")
+    print(f"Destination: {target_dest}")
+    try:
+        _download_file_with_progress(archive_url, archive_path)
+    except Exception as exc:
+        raise RuntimeError(
+            "Automatic Fiji download failed.\n"
+            f"- URL: {archive_url}\n"
+            f"- Destination: {archive_path}\n"
+            f"- You can retry later or download manually from {FIJI_MANUAL_DOWNLOAD_URL}"
+        ) from exc
+
+    print("Extracting Fiji archive ...")
+    try:
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            archive.extractall(extract_root)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to extract Fiji archive: {archive_path}") from exc
+    finally:
+        if archive_path.exists():
+            archive_path.unlink()
+
+    extracted_candidates = [extract_root]
+    extracted_candidates.extend(path for path in extract_root.iterdir() if path.is_dir())
+
+    extracted_root: Optional[Path] = None
+    for candidate in extracted_candidates:
+        try:
+            extracted_root = resolve_fiji_root(candidate)
+            break
+        except FileNotFoundError:
+            continue
+
+    if extracted_root is None:
+        raise RuntimeError(
+            f"Downloaded Fiji archive did not contain a recognizable Fiji installation under {extract_root}"
+        )
+
+    final_root = target_dest / extracted_root.name
+    if final_root.exists():
+        if is_fiji_root(final_root):
+            print(f"Replacing existing Fiji install under {final_root}")
+        _safe_remove_tree(final_root, target_dest)
+    shutil.move(str(extracted_root), str(final_root))
+    if extract_root.exists():
+        _safe_remove_tree(extract_root, target_dest)
+
+    print(f"Installed Fiji to {final_root}")
+    if update_runtime_config:
+        save_runtime_settings(system_updates={"FIJI_PATH": str(final_root)})
+        print(f"Updated FIJI_PATH in {RUNTIME_CONFIG_PATH}")
+    return final_root
+
+
 def resolve_fiji_executable(fiji_root: Path) -> Path:
     candidates = [
         fiji_root / "ImageJ-win64.exe",
@@ -628,8 +754,14 @@ def setup_fiji(
     update_runtime_config: bool,
     interactive: bool,
 ) -> Path:
-    print("Setting up Fiji from an existing installation. Java will be checked but not installed or modified.")
-    fiji_root = detect_fiji(fiji_dir, update_runtime_config=update_runtime_config)
+    print("Setting up Fiji. EIMS will first try to reuse an existing Fiji installation.")
+    try:
+        fiji_root = detect_fiji(fiji_dir, update_runtime_config=update_runtime_config)
+    except FileNotFoundError:
+        download_dest = fiji_dir or DEFAULT_FIJI_DEST
+        print("No existing Fiji installation was detected.")
+        print("Falling back to automatic download of Fiji with bundled JDK ...")
+        fiji_root = install_fiji(download_dest, update_runtime_config=update_runtime_config)
 
     print("\nJava reminder:")
     print("Fiji image-processing runtime uses pyimagej, which requires a working Java/JDK environment.")
@@ -761,7 +893,7 @@ def main() -> None:
     parser.add_argument(
         "--setup-fiji",
         action="store_true",
-        help="Detect an existing Fiji install, update FIJI_PATH, and check Java/pyimagej.",
+        help="Reuse an existing Fiji install when found; otherwise auto-download Fiji, update FIJI_PATH, and check Java/pyimagej.",
     )
     parser.add_argument(
         "--detect-fiji",
