@@ -326,7 +326,7 @@ def build_transfer_readme(package_name: str) -> str:
         "## What Is Included",
         "",
         "- Core project source code, prompts, frontend assets, docs, tests, and runtime startup scripts",
-        "- User planning skills under `user_skills/`, model configuration files under `configs/`, and lightweight evaluation/demo resources",
+        "- User planning skills under `user_skills/`, detector model configuration files under `detector_configs/`, and lightweight evaluation/demo resources",
         "- Packaged PSF resources under `PSF/` for supported deconvolution workflows",
         "- Tool onboarding scripts such as `create_tool.py` and the `tool_generation.py` compatibility wrapper",
         "- The hardware-free walkthrough notebook `Hardware-Free-Demo.ipynb`",

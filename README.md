@@ -128,7 +128,7 @@ define its own model paths and confidence threshold:
       "target_class_name": "organoid",
       "score_thr": 0.2,
       "output_filename": "organoid_locations_list.json",
-      "model_config": "configs/organoid.py",
+      "model_config": "detector_configs/organoid.py",
       "model_checkpoint": "weights/organoid.pth"
     }
   }
@@ -158,7 +158,7 @@ Useful validation commands:
 ```bash
 uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
 uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine.__version__, mmdet.__version__)"
-uv run python -c "import cellpose; print(cellpose.__version__)"
+uv run python -c "import importlib.metadata; print(importlib.metadata.version('cellpose'))"
 ```
 
 ### Configure Micro-Manager
@@ -213,6 +213,9 @@ pyimagej initialization are ready.
 ```bash
 uvicorn app:app --reload
 ```
+
+The first browser open may be slower than usual while the backend finishes startup and
+loads configuration. Please wait a moment and avoid repeated refreshes or duplicate clicks.
 
 Open:
 

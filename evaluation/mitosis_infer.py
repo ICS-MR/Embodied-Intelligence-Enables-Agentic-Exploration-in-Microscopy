@@ -24,7 +24,7 @@ except Exception:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run mitosis model inference on a COCO-style test subset.")
-    parser.add_argument("--config", default="configs/mitosis_rtmdet.py", help="Path to the MMDetection config file.")
+    parser.add_argument("--config", default="detector_configs/mitosis_rtmdet.py", help="Path to the MMDetection config file.")
     parser.add_argument("--checkpoint", default="weights/mitosis_best.pth", help="Path to the trained checkpoint.")
     parser.add_argument(
         "--images-dir",
