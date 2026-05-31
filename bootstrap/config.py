@@ -45,7 +45,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
         "target_class_name": "organoid",
         "score_thr": 0.2,
         "output_filename": "organoid_locations_list.json",
-        "model_config": "configs/organoid.py",
+        "model_config": "detector_configs/organoid.py",
         "model_checkpoint": "weights/organoid.pth",
     },
 }
