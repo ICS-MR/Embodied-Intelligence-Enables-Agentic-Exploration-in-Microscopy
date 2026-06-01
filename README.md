@@ -200,6 +200,12 @@ uv run python system_config_wizard.py --check-fiji
 Fiji install is detected, it automatically downloads Fiji to the default EIMS runtime
 location, updates `FIJI_PATH`, and then validates the Java/pyimagej stack.
 
+On Windows, the default automatic download location is typically:
+
+```text
+C:\Users\<YourUserName>\AppData\Local\EIMS\Fiji
+```
+
 When reusing an existing install, the helper first checks the configured `FIJI_PATH`
 and then searches common local locations such as the default EIMS Fiji directory,
 `LOCALAPPDATA`, `Program Files`, `Downloads`, and `Desktop`.
@@ -228,6 +234,10 @@ Download the required `bge-m3` model assets with:
 ```bash
 uv run python scripts/setup_models.py
 ```
+
+The setup helper downloads only the files required by the current EIMS semantic
+similarity path and skips optional ONNX/OpenVINO artifacts to reduce download size and
+timeout risk.
 
 The script downloads the model from:
 
