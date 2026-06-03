@@ -1,0 +1,134 @@
+﻿# Experiment Record
+## 1. User Input
+
+```text
+Imaging target: 2D section; simultaneously capture images of multiple fluorescent labels (stained with TMRM, Hoechst, and Calcein), and merge the different channels.
+```
+
+## 2. Biological Samples Used
+
+2D section
+
+## 3. Expected Results
+
+Simultaneous imaging acquisition of TMRM, Hoechst, and Calcein multi-fluorescence labeling in two-dimensional slice samples should be completed, obtaining the corresponding red, blue, and green channel images, respectively. The acquired channels are expected to be split and merged according to Red, Blue, Green color mapping to generate a merged image containing the three fluorescence signals.
+
+## 4. Execution Result
+
+Execution result: In the current field of view, a 2D slice was configured, and three-channel fluorescence images of DAPI/Hoechst, FITC/Calcein, TRITC/TMRM were acquired. The acquired multi-channel OME-TIFF was split and output with red, green, blue pseudo-color merging.
+Failure analysis: None.
+
+Overall assessment: Successful
+
+
+
+## Original Execution Record
+
+### Task Decomposition Input
+
+```text
+Imaging target: 2D section; simultaneously capture images of multiple fluorescent labels (stained with TMRM, Hoechst, and Calcein), and merge the different channels.
+```
+
+### Planning Output
+
+```text
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to DAPI (for Hoechst), FITC (for Calcein), and TRITC (for TMRM) fluorescence modes, and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the DAPI, FITC, and TRITC fluorescent channels of the 2D section'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired multi-channel fluorescent images containing DAPI (Hoechst), FITC (Calcein), and TRITC (TMRM) channels; \n#Image Merging: Merge the imported DAPI, FITC, and TRITC multi-channel images into an RGB composite image'}]
+```
+
+### Module: Microscope Operation Platform
+
+#### Current Environment
+
+```text
+Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
+```
+
+#### Execution Instructions
+
+```text
+Parameter Setting: Set the filter set to DAPI fluorescence mode;
+Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to DAPI (for Hoechst), FITC (for Calcein), and TRITC (for TMRM) fluorescence modes, and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the DAPI, FITC, and TRITC fluorescent channels of the 2D section.
+```
+
+#### Execute Code
+
+```python
+say("[INFO] Starting parameter setup for DAPI fluorescence mode")
+target_channel_dapi = '2-U-FUNA'
+current_channel = get_channel()
+if current_channel != target_channel_dapi:
+    set_channel(target_channel_dapi)
+    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel_dapi})")
+else:
+    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
+
+say("[INFO] Performing auxiliary operations for optimal fluorescence imaging")
+target_exposure_dapi = 100.0
+set_exposure(target_exposure_dapi)
+say(f"[INFO] Camera exposure time configured to {target_exposure_dapi} ms for DAPI fluorescence")
+
+set_brightness(0)
+say("[INFO] Light source brightness set to 0 for fluorescence imaging")
+
+say("[INFO] Performing autofocus on current field of view")
+optimal_z = perform_autofocus()
+set_z_position(optimal_z)
+say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+
+say("[INFO] Configuring multi-channel fluorescence acquisition parameters")
+current_x, current_y = get_x_y_position()
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
+
+add_acquisition_position(name="multi_fluorescence_2D", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position configured for current field of view")
+
+target_exposure_dapi = 100.0
+target_exposure_fitc = 100.0
+target_exposure_tritc = 100.0
+
+add_channels(channel='2-U-FUNA', exposure=target_exposure_dapi)
+say(f"[INFO] DAPI channel configured (channel: 2-U-FUNA, exposure: {target_exposure_dapi} ms)")
+
+add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
+say(f"[INFO] FITC channel configured (channel: 3-U-FBNA, exposure: {target_exposure_fitc} ms)")
+
+add_channels(channel='4-U-FGNA', exposure=target_exposure_tritc)
+say(f"[INFO] TRITC channel configured (channel: 4-U-FGNA, exposure: {target_exposure_tritc} ms)")
+
+say("[INFO] Starting multi-channel fluorescence image acquisition")
+run_acquisition()
+say("[INFO] Multi-channel fluorescence acquisition completed - DAPI, FITC, and TRITC channels captured")
+```
+
+### Module: Image Analysis Platform
+
+#### Execution Instructions
+
+```text
+Image Import: Import the acquired multi-channel fluorescent images containing DAPI (Hoechst), FITC (Calcein), and TRITC (TMRM) channels;
+Image Merging: Merge the imported DAPI, FITC, and TRITC multi-channel images into an RGB composite image.
+```
+
+#### Execute Code
+
+```python
+fiji_initialize()
+input_file = "multi_fluorescence_2D.ome.tif"
+say("[ACTION] Loading multi-channel fluorescent image with DAPI, FITC, and TRITC channels: " + input_file)
+multi_channel_image = load_image(input_file)
+say("[ACTION] Splitting multi-channel image into individual channels")
+single_channels = split_channels(multi_channel_image)
+channel_colors = ["blue", "green", "red"]
+output_file = "merged_DAPI_FITC_TRITC_rgb.tif"
+say("[ACTION] Merging DAPI (blue), FITC (green), and TRITC (red) channels into RGB composite image: " + output_file)
+merged_image = merge_channels(single_channels, colors=channel_colors, outpath=output_file)
+say("[ACTION] Saving merged RGB composite image")
+save_image(merged_image, output_file, "RGB composite image of DAPI (blue), FITC (green), and TRITC (red) channels")
+fiji_shutdown()
+```
+
+
+
