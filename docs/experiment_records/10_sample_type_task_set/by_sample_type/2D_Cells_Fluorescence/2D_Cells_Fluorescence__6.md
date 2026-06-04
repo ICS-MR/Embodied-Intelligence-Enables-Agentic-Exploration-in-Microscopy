@@ -2,12 +2,18 @@
 ## 1. User Input
 
 ```text
-Observation target: cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment.
+[input 1] Observation target: cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration.
+[input 2] The total monitoring duration should be 4 hours.
+[input 3] Just the captured fluorescence time-lapse images; no quantitative intensity analysis is specified.
+[input 4] Use the 20× objective, not the current 4× objective.
 ```
 
 ## 2. Biosample
 
-cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment.
+cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration.
+[input 2] The total monitoring duration should be 4 hours.
+[input 3] Just the captured fluorescence time-lapse images; no quantitative intensity analysis is specified.
+[input 4] Use the 20× objective, not the current 4× objective.
 
 ## 3. Method
 
@@ -30,40 +36,48 @@ Overall assessment: Successful
 
 ## 7. Clarification Q&A
 
-None.
+Q1: How long should the total monitoring duration be for capturing fluorescence changes after drug administration?
+A1: The total monitoring duration should be 4 hours.
+
+Q2: Do you need quantitative analysis of fluorescence intensity changes over time, or just the captured time-lapse images?
+A2: Just the captured fluorescence time-lapse images; no quantitative intensity analysis is specified.
+
+Q3: Which objective magnification should be used for this fluorescence time-lapse imaging of cells - the current 4x objective or a different magnification like 10x, 20x, 40x, or 60x?
+A3: Use the 20× objective, not the current 4× objective.
 
 ## 8. Cleaned Raw Execution Record
 
 ```text
 ## task
-Observation target: cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment.
+Observation target: cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration.
 
 ## planner
 candidate answer 1:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
+
 <Task steps>
 [
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
+        "command": "Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to FITC fluorescence mode"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure the time parameter to capture one image every 5 minutes for a total duration of 2 hours"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC fluorescence imaging of the cytoskeleton in the current field of view"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to record fluorescence signal changes in cells every 5 minutes"
     }
 ]
 </Task steps>
@@ -77,22 +91,22 @@ candidate answer 2:
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
+        "command": "Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to FITC fluorescence mode"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure the time parameter to a total duration of 2 hours with an acquisition interval of 5 minutes"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture cytoskeleton fluorescence imaging in the current field of view"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence signal changes in cells every 5 minutes for 2 hours"
     }
 ]
 </Task steps>
@@ -111,20 +125,232 @@ candidate answer 3:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure the time parameter for a total duration of 24 hours with an acquisition interval of 5 minutes"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence signal changes in cells every 5 minutes for 24 hours"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the time-series fluorescence images captured during the 24-hour monitoring period"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Image Analysis Platform",
+        "command": "Fluorescence analysis: Perform fluorescence signal analysis on the imported time-series images to quantify changes in fluorescence intensity over time after drug administration"
+    }
+]
+</Task steps>
+
+question:
+How long should the total monitoring duration be for capturing fluorescence changes after drug administration?
+
+answer:
+The total monitoring duration should be 4 hours.
+
+candidate answer 1:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure the time parameter to a total duration of 4 hours with an acquisition interval of 5 minutes"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence changes in cells every 5 minutes for 4 hours"
+    }
+]
+</Task steps>
+
+candidate answer 2:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameters for a total duration of 4 hours with an acquisition interval of 5 minutes"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence changes in cells every 5 minutes for 4 hours after drug administration"
+    }
+]
+</Task steps>
+
+candidate answer 3:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameters to capture one image every 5 minutes for a total duration of 4 hours"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to monitor fluorescence signal changes in cells after drug administration"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the time-series fluorescence images captured during the 4-hour monitoring period"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Image Analysis Platform",
+        "command": "Fluorescence analysis: Analyze fluorescence signal intensity changes over time in the imported time-series images to quantify cellular response to drug administration"
+    }
+]
+</Task steps>
+
+question:
+Do you need quantitative analysis of fluorescence intensity changes over time, or just the captured time-lapse images?
+
+answer:
+Just the captured fluorescence time-lapse images; no quantitative intensity analysis is specified.
+
+candidate answer 1:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
         "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure the time parameter to a total duration of 4 hours with an acquisition interval of 5 minutes"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC fluorescence imaging of the cytoskeleton in the current field of view"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence images every 5 minutes for 4 hours"
     }
 ]
 </Task steps>
+
+candidate answer 2:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameters for a total duration of 4 hours with an acquisition interval of 5 minutes"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence images of cells every 5 minutes for 4 hours to monitor fluorescence signal changes after drug administration"
+    }
+]
+</Task steps>
+
+candidate answer 3:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameter to a total duration of 4 hours with an acquisition interval of 5 minutes"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence changes in cells every 5 minutes for 4 hours after drug administration"
+    }
+]
+</Task steps>
+
+question:
+Which objective magnification should be used for this fluorescence time-lapse imaging of cells - the current 4x objective or a different magnification like 10x, 20x, 40x, or 60x?
+
+answer:
+Use the 20× objective, not the current 4× objective.
 
 plan:
 <Planner State>
@@ -140,24 +366,24 @@ plan:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameters for a total duration of 4 hours with an acquisition interval of 5 minutes"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC fluorescence imaging of the cytoskeleton in the current field of view"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence time-lapse images of cells every 5 minutes for 4 hours"
     }
 ]
 </Task steps>
 
 ## executor
 executor step 1:
-module: ## Event 7: Microscope Operation Platform
+module: ## Event 24: Microscope Operation Platform
 command:
 [Context]
 # Saved documents:
@@ -166,11 +392,11 @@ command:
 
 [Query]
 #Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode; 
-#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; 
-#Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; 
-#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC fluorescence imaging of the cytoskeleton in the current field of view.
+#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing cells; 
+#Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; configure time parameters for a total duration of 4 hours with an acquisition interval of 5 minutes; 
+#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture fluorescence time-lapse images of cells every 5 minutes for 4 hours.
 generated code:
-say("[INFO] Starting parameter setup for 20x FITC fluorescence imaging")
+say("[INFO] Starting parameter setup for 20x FITC fluorescence time-lapse imaging")
 target_objective = '3-LUCPLFLN20XRC'
 current_objective = get_objective()
 if current_objective != target_objective:
@@ -187,7 +413,7 @@ if current_channel != target_channel:
 else:
     say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel}), no change needed")
 
-say("[INFO] Performing auxiliary operations for optimal FITC fluorescence imaging")
+say("[INFO] Performing auxiliary operations for optimal fluorescence imaging")
 target_exposure = 150.0
 set_exposure(target_exposure)
 say(f"[INFO] Camera exposure time automatically configured to {target_exposure} ms for FITC fluorescence")
@@ -197,18 +423,27 @@ say("[INFO] Light source brightness set to 0 for fluorescence imaging")
 
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+say(f"[INFO] Autofocus completed on current field of view, Z position: {optimal_z} μm")
 
-say("[INFO] Configuring FITC fluorescence acquisition parameters")
+say("[INFO] Configuring time-lapse acquisition parameters")
 current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-add_acquisition_position(name="FITC_cytoskeleton", x=current_x, y=current_y, width=None, height=None)
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Acquisition parameters configured: position ({current_x}, {current_y}) μm, channel {target_channel}, exposure {current_exposure} ms")
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 
-say("[INFO] Starting FITC fluorescence image acquisition for cytoskeleton imaging")
+add_acquisition_position(name="FITC_timelapse", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position configured for current field of view")
+
+current_exposure = get_exposure()
+add_channels(channel=target_channel, exposure=current_exposure)
+say(f"[INFO] FITC fluorescence channel configured with exposure {current_exposure} ms")
+
+num_frames = 48
+interval_sec = 300
+set_time_series(num_frames=num_frames, interval_sec=interval_sec)
+say(f"[INFO] Time series configured: {num_frames} frames over 4 hours with 5-minute intervals")
+
+say("[INFO] Starting FITC fluorescence time-lapse image acquisition")
 run_acquisition()
-say("[INFO] FITC fluorescence cytoskeleton imaging acquisition completed")
+say("[INFO] FITC fluorescence time-lapse acquisition completed successfully")
 ```
 
 

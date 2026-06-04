@@ -2,20 +2,20 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
+Imaging target: 3D cells; use a 4× objective to acquire the number distribution of cells in a 2×2 mm area, which requires scanning along the Z-axis.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+3D cells
 
 ## 3. Expected Results
 
-The expected outcome is to implement the imaging workflow for 2D sections: after brightness adjustment and focusing, acquire a global image using a 4× objective, and detect the positions and areas of 2D cells based on that image. Then, move to the area of the largest 2D cell, redo brightness adjustment and focusing under a 20× objective, and acquire the final image.
+Expected to complete acquisition of a complete Z-stack of 3D cells within a 2×2 mm area using a 4× objective, and based on the stitched or full acquisition data of that area, perform depth-of-field extension, projection, 3D segmentation, or appropriate slice selection. Subsequently, Cellpose should be used to perform cell segmentation and counting on the processed, analyzable images, outputting the cell count distribution covering the entire 2×2 mm region and the corresponding CSV results.
 
 ## 4. Execution Results
 
-Execution Result: The workflow completed 4× brightfield global area acquisition, detected 2D cell regions and saved their positions, selected the largest region by detection bounding box area and moved to its center, then automatically re-adjusted brightness, focused, and captured images at 20×.
+Execution result: The workflow used a 4× objective under brightfield to perform automated stitching acquisition with Z-stack on the current 2×2 mm 3D cells region, and after maximum intensity projection of the acquired Z-stack, performed segmentation with Cellpose and saved the statistics CSV.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
+Imaging target: 3D cells; use a 4× objective to acquire the number distribution of cells in a 2×2 mm area, which requires scanning along the Z-axis.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirement covering a global view area; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the global image'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired 4x magnified global image; \n#Target Detection: Detect 2Dcell regions in the imported 4x magnified image and save the detection results as a JSON file'}, {'subtask_index': 3, 'module': 'Microscope Operation Platform', 'command': 'Target Position Loading: Load the target position bounding boxes of detected 2D cells from the JSON file; \n#Position Control: Move to the position with the largest 2D cell area from the loaded target positions; \n#Parameter Setting: Set the currently used objective lens to 20x; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 20x magnified image of the largest 2D cell area'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to brightfield mode; \n#Auxiliary Operation: Firstly, Adjust the light source brightness to an appropriate level; Secondly, Perform auto-focus on the current field of view; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure value; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm area; configure the Z-axis stack parameter to the recommended range for 3D cell imaging; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 2×2 mm area with Z-axis scanning'}, {'subtask_index': 2, 'module': 'Cell Segmentation Platform', 'command': 'Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for 3D cell segmentation'}, {'subtask_index': 3, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired Z-stack images of the 2×2 mm area containing 3D cells; \n#Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single merged image with all focal planes in focus'}, {'subtask_index': 4, 'module': 'Cell Segmentation Platform', 'command': 'Image Reading: Read the extended depth of field processed image data; \n#Segmentation Inference: Execute cell segmentation inference on the processed image to output a dictionary containing segmentation masks, flow fields, and cell feature style vectors; \n#Masks Analysis: Analyze the segmented cell masks to obtain the number distribution of cells in the 2×2 mm area; \n#Analysis Saving: Save the analysis results of cell number distribution; \n#Resource Release: Release model resources and clean up the environment'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,16 +47,17 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirement covering a global view area; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the global image.
+Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to brightfield mode;
+Auxiliary Operation: Firstly, Adjust the light source brightness to an appropriate level; Secondly, Perform auto-focus on the current field of view;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine an appropriate Z-stack range for 3D imaging;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure value; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm area; configure the Z-axis stack parameter to the recommended range for 3D cell imaging; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 2×2 mm area with Z-axis scanning.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for global view imaging")
+say("[INFO] Starting parameter setup for 3D cell imaging")
 target_objective = '1-UPLFLN4XPH'
 current_objective = get_objective()
 if current_objective != target_objective:
@@ -73,33 +74,101 @@ if current_channel != target_channel:
 else:
     say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
 
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
+say("[INFO] Performing automatic brightness adjustment")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
+say(f"[INFO] Light source brightness automatically adjusted to optimal value: {optimal_brightness}")
 
 say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
+say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Configuring global view image acquisition parameters")
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D cell imaging")
+z_max, z_min = z_stack_range()
+z_step = 7.5
+say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
+set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
+
+say("[INFO] Configuring automatic acquisition parameters for 2×2 mm area")
 current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
+width = 2000
+height = 2000
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Current exposure time: {current_exposure} ms")
+say(f"[INFO] Acquisition area set to {width} μm × {height} μm (2×2 mm)")
 
-global_width = 50000
-global_height = 50000
-add_acquisition_position(name="global_view", x=current_x, y=current_y, width=global_width, height=global_height)
-say(f"[INFO] Acquisition position configured for global view: {global_width} μm × {global_height} μm")
-
+add_acquisition_position(name="3D_cells_2x2mm", x=current_x, y=current_y, width=width, height=height)
 add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Channel configured: brightfield (channel {target_channel}) with exposure {current_exposure} ms")
+say(f"[INFO] Acquisition parameters configured: brightfield channel with exposure {current_exposure} ms")
 
-say("[INFO] Starting automated global view image acquisition")
+say("[INFO] Starting automatic image acquisition with Z-stack scanning")
 run_acquisition()
-say("[INFO] Global view image acquisition completed successfully")
+say("[INFO] 2×2 mm area Z-stack acquisition completed successfully")
+```
+
+### Module: Cell Segmentation Platform
+
+#### Execution Instructions
+
+```text
+Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for 3D cell segmentation.
+```
+
+#### Execute Code
+
+```python
+say("[ACTION] Initializing Cellpose model for 3D cell segmentation with GPU acceleration")
+cellpose_initialize(gpu=True, model_type="cpsam")
+
+say("[ACTION] Reading 3D cell image from context")
+image_path = '3D_cells_2x2mm.ome.tif'
+image = cellpose_read(image_path)
+say("[INFO] Image loaded with shape: {}".format(image.shape))
+
+say("[ACTION] Extracting 2D slice from 3D data for segmentation")
+# Extract middle Z slice from TCZYX format (T=0, C=0, middle Z)
+z_middle = image.shape[2] // 2
+image_2d = image[0, 0, z_middle, :, :]
+say("[INFO] Using Z slice {} for segmentation".format(z_middle))
+
+say("[ACTION] Running cell segmentation on 3D cell data")
+masks = segment(
+    image=image_2d,
+    channels=[0, 0],
+    diameter=None,
+    flow_threshold=0.4,
+    cellprob_threshold=0.0,
+    min_size=15,
+    denoise=True
+)
+say("[INFO] Segmentation completed. Detected {} cells".format(np.max(masks)))
+
+say("[ACTION] Saving cell segmentation masks")
+mask_filename = "3d_cell_segmentation_1.tif"
+save_masks(
+    masks=masks,
+    filename=mask_filename,
+    description="Cell segmentation masks from 3D_cells_2x2mm image (middle Z slice)"
+)
+say("[INFO] Masks saved as: {}".format(mask_filename))
+
+say("[ACTION] Analyzing cell area distribution")
+px_size = 1.62
+analysis_df = analyze_masks(
+    masks=masks,
+    px_size=px_size,
+    unit="μm2",
+    bins=20,
+    plot=False
+)
+
+say("[ACTION] Saving cell area analysis results")
+analysis_filename = "3d_cell_analysis_1.csv"
+save_csv(df=analysis_df, filename=analysis_filename)
+say("[INFO] Analysis results saved as: {}".format(analysis_filename))
+
+say("[INFO] 3D cell segmentation workflow completed successfully")
 ```
 
 ### Module: Image Analysis Platform
@@ -107,104 +176,88 @@ say("[INFO] Global view image acquisition completed successfully")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired 4x magnified global image;
-Target Detection: Detect 2Dcell regions in the imported 4x magnified image and save the detection results as a JSON file.
+Image Import: Import the acquired Z-stack images of the 2×2 mm area containing 3D cells;
+Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single merged image with all focal planes in focus.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "global_view.ome.tif"
-say("[ACTION] Loading 4x magnified global image: " + input_file)
+input_file = "3D_cells_2x2mm.ome.tif"
+say("[ACTION] Loading Z-stack images of 2×2 mm area containing 3D cells: " + input_file)
 image = load_image(input_file)
-say("[ACTION] Detecting 2Dcell regions in the global image")
-detection_result = analysis_platform_find_target_positions(image, "2Dcell", "2Dcell regions detected in 4x magnified global view image")
-say("[ACTION] Detection results saved as JSON file")
+say("[ACTION] Performing extended depth of field processing via maximum intensity Z-projection")
+extended_depth_image = z_projection(image, method="max")
+output_file = "extended_depth_3D_cells_2x2mm.ome.tif"
+say("[ACTION] Saving extended depth of field image to: " + output_file)
+save_image(extended_depth_image, output_file, "Extended depth of field image of 3D cells in 2×2 mm area generated via maximum intensity Z-projection")
 fiji_shutdown()
 ```
 
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
+### Module: Cell Segmentation Platform
 
 #### Execution Instructions
 
 ```text
-Target Position Loading: Load the target position bounding boxes of detected 2D cells from the JSON file;
-Position Control: Move to the position with the largest 2D cell area from the loaded target positions;
-Parameter Setting: Set the currently used objective lens to 20x;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 20x magnified image of the largest 2D cell area.
+Image Reading: Read the extended depth of field processed image data;
+Segmentation Inference: Execute cell segmentation inference on the processed image to output a dictionary containing segmentation masks, flow fields, and cell feature style vectors;
+Masks Analysis: Analyze the segmented cell masks to obtain the number distribution of cells in the 2×2 mm area;
+Analysis Saving: Save the analysis results of cell number distribution;
+Resource Release: Release model resources and clean up the environment.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting to load target bounding boxes of detected 2D cells from JSON file")
-target_filename = "2Dcell_locations_list.json"
-say(f"[ACTION] Loading target locations from file {target_filename}")
-target_bounding_boxes = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of detected 2D cells")
+say("[ACTION] Initializing Cellpose model for cell segmentation")
+cellpose_initialize(gpu=True, model_type="cpsam")
 
-say("[INFO] Finding the position with the largest 2D cell area")
-largest_area = 0
-largest_position = None
-for bbox in target_bounding_boxes:
-    center_x, center_y, width, height = bbox
-    area = width * height
-    if area > largest_area:
-        largest_area = area
-        largest_position = (center_x, center_y)
+say("[ACTION] Reading extended depth of field processed image")
+image_path = 'extended_depth_3D_cells_2x2mm.ome.tif'
+image = cellpose_read(image_path)
+say("[INFO] Image loaded with shape: {}".format(image.shape))
 
-if largest_position is None:
-    say("[ERROR] No valid positions found in the target locations")
-else:
-    target_x, target_y = largest_position
-    say(f"[INFO] Largest 2D cell area found at position: ({target_x}, {target_y}) with area {largest_area}")
-    say(f"[ACTION] Moving to position with largest 2D cell area: X={target_x} μm, Y={target_y} μm")
-    set_x_y_position(target_x, target_y)
+say("[ACTION] Extracting 2D image from TCZYX dimensions")
+image_2d = image[0, 0, 0, :, :]
 
-say("[INFO] Setting objective lens to 20x magnification")
-target_objective = '3-LUCPLFLN20XRC'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 20x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 20x (label: {target_objective}), no change needed")
+say("[ACTION] Running cell segmentation on extended depth image")
+masks = segment(
+    image=image_2d,
+    channels=[0, 0],
+    diameter=None,
+    flow_threshold=0.4,
+    cellprob_threshold=0.0,
+    min_size=15,
+    denoise=True
+)
+say("[INFO] Segmentation completed. Detected {} cells in 2x2mm area".format(np.max(masks)))
 
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
+say("[ACTION] Saving cell segmentation masks")
+mask_filename = "extended_depth_segmentation_1.tif"
+save_masks(
+    masks=masks,
+    filename=mask_filename,
+    description="Cell segmentation masks from extended depth of field 3D cells image"
+)
+say("[INFO] Masks saved as: {}".format(mask_filename))
 
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
+say("[ACTION] Analyzing cell distribution in 2x2mm area")
+px_size = 1.62
+analysis_df = analyze_masks(
+    masks=masks,
+    px_size=px_size,
+    unit="μm2",
+    bins=20,
+    plot=False
+)
 
-say("[INFO] Configuring automatic image acquisition parameters")
-current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-say(f"[INFO] Current position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Current exposure time: {current_exposure} ms")
+say("[ACTION] Saving cell distribution analysis results")
+analysis_filename = "extended_depth_analysis_1.csv"
+save_csv(df=analysis_df, filename=analysis_filename)
+say("[INFO] Analysis results saved as: {}".format(analysis_filename))
 
-add_acquisition_position(name="largest_2Dcell_20x", x=current_x, y=current_y, width=None, height=None)
-say("[INFO] Acquisition position parameters added for current field of view")
-
-target_channel = '1-NONE'
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for 20x magnified largest 2D cell area")
-run_acquisition()
-say("[INFO] 20x magnified image acquisition of largest 2D cell area completed successfully")
+say("[INFO] Cell segmentation workflow completed successfully for 2x2mm extended depth image")
 ```
 
 

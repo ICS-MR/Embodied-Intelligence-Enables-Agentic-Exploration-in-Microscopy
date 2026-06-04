@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
+Imaging target: 2D section; adjust the brightness to the optimal level, capture an image, then set the brightness to half of that optimal level.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; use a low-magnification objective to complete a full
 
 ## 3. Expected Results
 
-A low-magnification objective should be used to perform a full-range imaging scan of the entire 2D slice, covering the complete slice area and acquiring image data suitable for global positioning. It is expected to achieve automatic detection and recording of 2D cells within the slice, and to output a list of all detected positions or an equivalent result file.
+The expected outcome is to complete optimal brightness imaging of the 2D slice under the current channel, exposure, and position. First adjust the brightness to the optimal or predetermined level and capture an image. After capture, read the current brightness value, and set the brightness to half of that value as the task end state.
 
 ## 4. Execution Result
 
-Execution result: The process used 4x low-magnification bright field to configure a large-area automatic stitching scan of 50000×50000 μm for the entire current region, and called the 2D cell detection function on the generated full scan image to save the detection position results.
+Execution result: The execution process first automatically optimized the brightness of the brightfield halogen lamp, acquired a brightfield image at the current position with the current exposure, and then set the brightness to half of the optimized brightness.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
+Imaging target: 2D section; adjust the brightness to the optimal level, capture an image, then set the brightness to half of that optimal level.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire section area; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to complete a full scan of the entire section'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired full scan image of the entire section; \n#Target Detection: Detect 2D cells in the imported full scan image and save the detection results as a JSON file containing all detected cell locations'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to optimal level; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters; \n#Parameter Setting: Set the halogen lamp brightness to half of the optimal brightness level'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,83 +47,38 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire section area; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to complete a full scan of the entire section.
+Auxiliary operation: Automatically adjust the halogen lamp brightness to optimal level;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters;
+Parameter Setting: Set the halogen lamp brightness to half of the optimal brightness level.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for section scanning")
-target_objective = '1-UPLFLN4XPH'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
-
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
+say("[INFO] Starting auxiliary operation: automatic brightness adjustment")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
+say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal level: {optimal_brightness}")
 
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
-
-say("[INFO] Configuring automatic acquisition parameters for entire section scanning")
+say("[INFO] Configuring brightfield image acquisition parameters")
 current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
-say(f"[INFO] Current position: X={current_x} μm, Y={current_y} μm")
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 say(f"[INFO] Current exposure time: {current_exposure} ms")
 
-section_width = 50000
-section_height = 50000
-say(f"[INFO] Section area size set to {section_width} μm × {section_height} μm to cover entire section")
+add_acquisition_position(name="brightfield_current", x=current_x, y=current_y, width=None, height=None)
+add_channels(channel='1-NONE', exposure=current_exposure)
+say("[INFO] Brightfield acquisition parameters configured")
 
-add_acquisition_position(name="entire_section", x=current_x, y=current_y, width=section_width, height=section_height)
-say("[INFO] Acquisition position configured for entire section coverage")
-
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for full section scan")
+say("[INFO] Starting automatic image acquisition")
 run_acquisition()
-say("[INFO] Full section scanning acquisition completed successfully")
-```
+say("[INFO] Automatic image acquisition completed")
 
-### Module: Image Analysis Platform
-
-#### Execution Instructions
-
-```text
-Image Import: Import the acquired full scan image of the entire section;
-Target Detection: Detect 2D cells in the imported full scan image and save the detection results as a JSON file containing all detected cell locations.
-```
-
-#### Execute Code
-
-```python
-fiji_initialize()
-input_file = "entire_section.ome.tif"
-say("[ACTION] Loading full scan image of the entire section: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Detecting 2D cells in the full scan image")
-detection_result = analysis_platform_find_2Dcell_position(image, "2D cells detected in full scan image of entire section")
-say("[ACTION] Detection results saved as JSON file containing all detected cell locations")
-fiji_shutdown()
+say("[INFO] Setting halogen lamp brightness to half of optimal level")
+half_brightness = int(optimal_brightness / 2)
+set_brightness(half_brightness)
+say(f"[INFO] Halogen lamp brightness set to {half_brightness} (half of optimal level {optimal_brightness})")
 ```
 
 

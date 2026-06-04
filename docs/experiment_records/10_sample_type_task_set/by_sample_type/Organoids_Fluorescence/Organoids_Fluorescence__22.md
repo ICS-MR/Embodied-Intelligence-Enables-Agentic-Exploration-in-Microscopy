@@ -1,8 +1,9 @@
-﻿# Experiment Record
+# Experiment Record 41
+
 ## 1. User Input
 
 ```text
-Imaging target: Organoids; perform blue and green fluorescence imaging of organoids in a 96-well plate every 1 hour.
+Imaging target: Organoids; acquire brightfield and images of different fluorescent signals, and overlay the fluorescent signals with transmitted light.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +12,11 @@ Organoids
 
 ## 3. Expected Results
 
-Expected to achieve whole-plate imaging of organoids in a 96-well plate according to well coordinates, with repeated acquisition of blue and green fluorescence channels at 1-hour intervals over the set total duration, and to obtain corresponding Z-stack image sequences for each well. Ultimately, this will form a fluorescence microscopic imaging dataset of organoids that can be tracked by well, time point, channel, and Z-level.
+Bright-field/transmitted light and multiple fluorescence channel imaging of the organoid sample should be completed, including Z-stack acquisition covering the organoid thickness range. After projection, each fluorescence signal should be overlaid with the bright-field channel (Gray/Grey/brightfield) using merge_channels(). The output should reflect the organoid structure and the spatial correspondence of different fluorescence signals against the transmitted light background.
 
 ## 4. Execution Results
 
-Execution results: The workflow generated 96-well plate positions, configured DAPI blue and FITC green fluorescence channels, a 24-frame time series with hourly intervals, and set up Z-stack for the organoids before performing automated acquisition for all well positions.
+Execution Results: The process completed multi-channel Z-stack acquisition of the current field of view of the organoid for brightfield, DAPI, FITC, and TRITC channels, performed Z-projection on each channel, and then merged them to generate a composite fluorescence and transmitted light overlay image.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +28,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: Organoids; perform blue and green fluorescence imaging of organoids in a 96-well plate every 1 hour.
+Imaging target: Organoids; acquire brightfield and images of different fluorescent signals, and overlay the fluorescent signals with transmitted light.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0.; \n#Auxiliary Operation: Obtain the position information of 96-well plates; \n#Position Control: Move to the position of the first well in the 96-well plate; \n#Auxiliary Operation: Perform autofocus on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D organoid imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to include DAPI fluorescence and FITC fluorescence channels, and set their corresponding exposure parameters; configure the XY position parameters to sequentially cover all wells in the 96-well plate, with size requirements matching each well; set Z-axis stack parameters to the recommended range for 3D organoid imaging; configure time parameters for acquisition every 1 hour; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture blue (DAPI) and green (FITC) fluorescence images of organoids in each well of the 96-well plate every 1 hour'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to brightfield mode; \n#Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets for brightfield, DAPI, FITC, and TRITC channels with their corresponding exposure parameters; set the XY position parameter to the current position of the field of view containing organoids, with size requirements matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield and fluorescent channel images of organoids'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield and fluorescent channel images of organoids; \n#Extended Depth of Field: Perform extended depth of field processing on the Z-stack brightfield images to generate a single merged brightfield image; \n#Extended Depth of Field: Perform extended depth of field processing on the Z-stack fluorescent channel images to generate single merged images for each fluorescent channel; \n#Image Merging: Merge the extended depth of field processed brightfield image with the fluorescent channel images to create overlay images showing fluorescent signals superimposed on transmitted light'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,45 +48,29 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the filter set to FITC fluorescence mode;
-Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0.;
-Auxiliary Operation: Obtain the position information of 96-well plates;
-Position Control: Move to the position of the first well in the 96-well plate;
-Auxiliary Operation: Perform autofocus on the current field of view containing organoids;
-Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D organoid imaging;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to include DAPI fluorescence and FITC fluorescence channels, and set their corresponding exposure parameters; configure the XY position parameters to sequentially cover all wells in the 96-well plate, with size requirements matching each well; set Z-axis stack parameters to the recommended range for 3D organoid imaging; configure time parameters for acquisition every 1 hour;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture blue (DAPI) and green (FITC) fluorescence images of organoids in each well of the 96-well plate every 1 hour.
+Parameter Setting: Set the filter set to brightfield mode;
+Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus on the current field of view containing organoids;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging;
+Image Automatic Acquisition Parameter Setting: Configure the filter sets for brightfield, DAPI, FITC, and TRITC channels with their corresponding exposure parameters; set the XY position parameter to the current position of the field of view containing organoids, with size requirements matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield and fluorescent channel images of organoids.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for FITC fluorescence mode")
-target_channel_fitc = '3-U-FBNA'
+say("[INFO] Starting parameter setup for multi-channel organoid imaging")
+target_channel_bright = '1-NONE'
 current_channel = get_channel()
-if current_channel != target_channel_fitc:
-    set_channel(target_channel_fitc)
-    say(f"[INFO] Filter set to FITC fluorescence mode (channel: {target_channel_fitc})")
+if current_channel != target_channel_bright:
+    set_channel(target_channel_bright)
+    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel_bright})")
 else:
-    say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel_fitc}), no change needed")
+    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel_bright}), no change needed")
 
-say("[INFO] Automatically configuring camera exposure time for FITC fluorescence")
-target_exposure_fitc = 200.0
-set_exposure(target_exposure_fitc)
-say(f"[INFO] Camera exposure time set to {target_exposure_fitc} ms for FITC fluorescence")
-
-say("[INFO] Setting light source brightness to 0 for fluorescence imaging")
-set_brightness(0)
-say("[INFO] Halogen lamp brightness set to 0")
-
-say("[INFO] Obtaining 96-well plate position information")
-wells_positions = create_96_wells_positions()
-say(f"[INFO] Generated {len(wells_positions)} positions for 96-well plate")
-
-say("[INFO] Moving to first well position")
-first_well_x, first_well_y = wells_positions[0]
-set_x_y_position(first_well_x, first_well_y)
-say(f"[ACTION] Moved to first well position: X={first_well_x} μm, Y={first_well_y} μm")
+say("[INFO] Performing automatic brightness adjustment for brightfield")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
 
 say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
@@ -95,35 +80,69 @@ say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
 z_max, z_min = z_stack_range()
 z_step = 1.5
-say(f"[INFO] Recommended Z-stack range for organoids: {z_min} to {z_max} μm with step {z_step} μm")
+say(f"[INFO] Recommended Z-stack range: {z_min} to {z_max} μm with step {z_step} μm for 20x objective")
 
-say("[INFO] Configuring automatic acquisition parameters for all 96 wells")
-well_size_um = 6500
-for i, (x, y) in enumerate(wells_positions, start=1):
-    add_acquisition_position(name=f"well_{i:02d}", x=x, y=y, width=well_size_um, height=well_size_um)
-say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 96 wells")
+say("[INFO] Configuring multi-channel acquisition parameters")
+current_x, current_y = get_x_y_position()
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 
-say("[INFO] Configuring DAPI and FITC fluorescence channels")
-target_exposure_dapi = 150.0
-add_channels(channel='2-U-FUNA', exposure=target_exposure_dapi)
-say(f"[INFO] DAPI channel configured: channel 2-U-FUNA with exposure {target_exposure_dapi} ms")
-add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
-say(f"[INFO] FITC channel configured: channel 3-U-FBNA with exposure {target_exposure_fitc} ms")
+add_acquisition_position(name="organoid_multichannel", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position configured for current field of view")
 
-say("[INFO] Setting Z-stack parameters for 3D organoid imaging")
+add_channels(channel='1-NONE', exposure=100.0)
+say("[INFO] Brightfield channel configured: exposure 100.0 ms")
+
+add_channels(channel='2-U-FUNA', exposure=300.0)
+say("[INFO] DAPI (blue) channel configured: exposure 300.0 ms")
+
+add_channels(channel='3-U-FBNA', exposure=250.0)
+say("[INFO] FITC (green) channel configured: exposure 250.0 ms")
+
+add_channels(channel='4-U-FGNA', exposure=200.0)
+say("[INFO] TRITC (red) channel configured: exposure 200.0 ms")
+
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
-say(f"[INFO] Z-stack parameters set: range {z_min} to {z_max} μm with step {z_step} μm")
+say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring time series parameters for hourly acquisition")
-num_frames = 24
-interval_sec = 3600
-set_time_series(num_frames=num_frames, interval_sec=interval_sec)
-say(f"[INFO] Time series configured: {num_frames} frames with 1-hour intervals")
-
-say("[INFO] Initiating automated image acquisition for 96-well plate organoids")
-run_acquisition()
-say("[INFO] Automated image acquisition completed successfully - captured DAPI and FITC fluorescence images of organoids in all 96 wells with hourly time-lapse and Z-stack imaging")
+say("[INFO] Starting multi-channel Z-stack image acquisition for organoids")
+acquisition_results = run_acquisition()
+say(f"[INFO] Multi-channel organoid imaging completed successfully, acquired {len(acquisition_results)} datasets")
 ```
 
+### Module: Image Analysis Platform
 
+#### Execution Instructions
 
+```text
+Image Import: Import the acquired brightfield and fluorescent channel images of organoids;
+Extended Depth of Field: Perform extended depth of field processing on the Z-stack brightfield images to generate a single merged brightfield image;
+Extended Depth of Field: Perform extended depth of field processing on the Z-stack fluorescent channel images to generate single merged images for each fluorescent channel;
+Image Merging: Merge the extended depth of field processed brightfield image with the fluorescent channel images to create overlay images showing fluorescent signals superimposed on transmitted light.
+```
+
+#### Execute Code
+
+```python
+fiji_initialize()
+input_file = "organoid_multichannel.ome.tif"
+say("[ACTION] Loading multi-channel organoid image: " + input_file)
+multi_channel_image = load_image(input_file)
+say("[ACTION] Splitting multi-channel image into individual channels")
+single_channels = split_channels(multi_channel_image)
+say("[ACTION] Performing extended depth of field processing on brightfield channel (channel 0)")
+brightfield_extended = z_projection(single_channels[0], method="max")
+say("[ACTION] Performing extended depth of field processing on blue fluorescent channel (channel 1)")
+blue_extended = z_projection(single_channels[1], method="max")
+say("[ACTION] Performing extended depth of field processing on green fluorescent channel (channel 2)")
+green_extended = z_projection(single_channels[2], method="max")
+say("[ACTION] Performing extended depth of field processing on red fluorescent channel (channel 3)")
+red_extended = z_projection(single_channels[3], method="max")
+say("[ACTION] Merging extended depth of field channels into overlay image")
+extended_channels = [brightfield_extended, blue_extended, green_extended, red_extended]
+channel_colors = ["Brightfield", "Blue", "Green", "Red"]
+output_file = "organoid_overlay_extended.tif"
+merged_overlay = merge_channels(extended_channels, colors=channel_colors, outpath=output_file)
+say("[ACTION] Saving overlay image with fluorescent signals superimposed on brightfield to: " + output_file)
+save_image(merged_overlay, output_file, "Extended depth of field overlay image with fluorescent channels superimposed on brightfield")
+fiji_shutdown()
+```
