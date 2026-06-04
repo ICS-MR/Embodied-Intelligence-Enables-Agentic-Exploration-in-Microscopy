@@ -2,16 +2,16 @@
 ## 1. User Input
 
 ```text
-[input 1] Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate.
-[input 2] None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.
-[input 3] Neither; use the 20× objective.
+[input 1] Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.
+[input 2] Use the 20× objective.
+[input 3] Use brightfield (transmitted light) imaging, not fluorescence.
 ```
 
 ## 2. Biosample
 
-organoids. Use a high-magnification objective to image organoids in a 96-well plate.
-[input 2] None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.
-[input 3] Neither; use the 20× objective.
+organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.
+[input 2] Use the 20× objective.
+[input 3] Use brightfield (transmitted light) imaging, not fluorescence.
 
 ## 3. Method
 
@@ -27,31 +27,30 @@ The method should complete the user's microscopy task and, when ambiguity or mis
 
 ## 6. Execution Result
 
-Execution result: Executed automatically. See the cleaned raw execution record below for details.
+Execution result: The workflow completed 20× brightfield imaging at the current XY position, performed automatic brightness adjustment and autofocus, and produced a processed structural image for the organoid in the current field of view.
 
-Overall assessment: Successful
+Overall assessment: Success
 
 
 ## 7. Clarification Q&A
 
-Q1: Which specific fluorescence channel should be used for imaging the organoids: DAPI, FITC, or TRITC?
-A1: None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.
+Q1: What magnification level do you prefer for high-magnification organoid imaging - 20× or 60×?
+A1: Use the 20× objective.
 
-Q2: Which high-magnification objective should be used for imaging the organoids: 40x or 60x?
-A2: Neither; use the 20× objective.
+Q2: Do you want to image the organoids using brightfield (transmitted light) or fluorescence imaging?
+A2: Use brightfield (transmitted light) imaging, not fluorescence.
 
 ## 8. Cleaned Raw Execution Record
 
 ```text
 ## task
-Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate.
+Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.
 
 ## planner
 candidate answer 1:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
-
 <Task steps>
 [
     {
@@ -62,37 +61,32 @@ candidate answer 1:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of the 96-well plate"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the position of the first well in the 96-well plate"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform autofocus on the current field of view containing organoids"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the organoid in the current field of view"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine the appropriate Z-stack range for 3D organoid imaging"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
-    },
-    {
-        "subtask_index": 8,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single clear structural image by merging sharp parts from different focal planes"
     }
 ]
 </Task steps>
@@ -111,37 +105,37 @@ candidate answer 2:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of 96-well plates"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the position of the first well"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic focusing on the current field of view containing organoids"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3D Z-stack of the organoid"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine the Z-axis stack range for 3D organoid imaging"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack fluorescence images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure XY position parameters to sequentially cover all wells in the 96-well plate with size requirements matching each well; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack images, generating a single clear structural image by merging sharp parts from different focal planes"
     },
     {
         "subtask_index": 8,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Image Processing: Apply denoising and contrast adjustment operations to optimize the merged image and enhance the clarity of organoid structural features"
     }
 ]
 </Task steps>
@@ -150,7 +144,6 @@ candidate answer 3:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
-
 <Task steps>
 [
     {
@@ -161,87 +154,98 @@ candidate answer 3:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of 96-well plate coordinates"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine the appropriate Z-stack range for 3D organoid imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the position of the first well in the 96-well plate"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform autofocus on the current field of view containing organoids"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture high-magnification Z-stack images of the organoid"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D organoid imaging"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack fluorescence images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameters to sequentially cover all wells in the 96-well plate with size requirements matching each well's field of view; configure Z-axis stack parameters using the recommended range for 3D organoid imaging; do not configure time parameters"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the imported Z-stack images, generating a single clear image by merging sharp parts from different focal planes"
     },
     {
         "subtask_index": 8,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture high-magnification FITC fluorescence images of organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Image Processing: Apply denoising and contrast enhancement to the extended depth of field image to optimize image quality and obtain a clear structural image of the organoid"
     }
 ]
 </Task steps>
 
 question:
-Which specific fluorescence channel should be used for imaging the organoids: DAPI, FITC, or TRITC?
+What magnification level do you prefer for high-magnification organoid imaging - 20× or 60×?
 
 answer:
-None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.
+Use the 20× objective.
 
 candidate answer 1:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
+
 <Task steps>
 [
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 40×; Set the filter set to brightfield mode"
+        "command": "Parameter Setting: Set the currently used objective lens to 20×"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of the 96-well plate"
+        "command": "Parameter Setting: Set the filter set to brightfield mode"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the position of the first well in the 96-well plate"
+        "command": "Auxiliary Operation: Perform automatic brightness adjustment"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view containing organoids"
+        "command": "Auxiliary operation: Perform autofocus via images"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine appropriate Z-stack range for 3D imaging"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range"
     },
     {
         "subtask_index": 6,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well's field of view; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position with size requirement matching the current field of view; configure Z-axis stack parameters using the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 7,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack images of the organoid"
+    },
+    {
+        "subtask_index": 9,
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single clear structural image by merging sharp parts from different focal planes"
     }
 ]
 </Task steps>
@@ -255,37 +259,42 @@ candidate answer 2:
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 40×; Set the filter set to Brightfield"
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of 96-well plates"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Set the XY coordinate position to the first well of the 96-well plate"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine appropriate Z-stack range for 3D imaging"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the organoid in the current field of view"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for brightfield and set the corresponding exposure parameter to the current camera exposure time; configure XY position parameters to cover all wells in the 96-well plate, with size requirements matching the field of view for each well; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack fluorescence images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the imported Z-stack images to generate a single clear structural image by merging sharp parts from different focal planes"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Image Analysis Platform",
+        "command": "Image Processing: Apply denoising and contrast adjustment to optimize the merged image and obtain a clear structural image of the organoid"
     }
 ]
 </Task steps>
@@ -294,52 +303,56 @@ candidate answer 3:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
-
 <Task steps>
 [
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 60×; Set the filter set to brightfield mode"
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to FITC fluorescence mode"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of the 96-well plate"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Set the XY coordinate position to the first well of the 96-well plate"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D imaging"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3D Z-stack images of the organoid under FITC fluorescence"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameters to cover all wells of the 96-well plate sequentially, with size requirements matching each well's field of view; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired 3D Z-stack fluorescence images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the imported Z-stack images to generate a single clear structural image by merging sharp parts from different focal planes"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Image Analysis Platform",
+        "command": "Image Processing: Apply deconvolution and denoising operations to the extended depth of field image to further optimize image quality and obtain clearer organoid structural details"
     }
 ]
 </Task steps>
 
 question:
-Which high-magnification objective should be used for imaging the organoids: 40x or 60x?
+Do you want to image the organoids using brightfield (transmitted light) or fluorescence imaging?
 
 answer:
-Neither; use the 20× objective.
+Use brightfield (transmitted light) imaging, not fluorescence.
 
 plan:
 <Planner State>
@@ -355,39 +368,39 @@ plan:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Obtain the position information of the 96-well plate"
+        "command": "Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus on the current field of view containing organoids"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the position of the first well in the 96-well plate"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine an appropriate Z-stack range for 3D organoid imaging"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 5,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine appropriate Z-axis stack range for 3D organoid imaging"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the organoid in the current field of view"
     },
     {
         "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure XY position parameters to cover all wells in the 96-well plate with size requirements matching each well's field of view; configure Z-axis stack parameters using the recommended range for 3D organoid imaging; do not configure time parameters"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired Z-stack brightfield images of the organoid"
     },
     {
         "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate"
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single clear image by merging sharp parts from different focal planes"
     }
 ]
 </Task steps>
 
 ## executor
 executor step 1:
-module: ## Event 17: Microscope Operation Platform
+module: ## Event 20: Microscope Operation Platform
 command:
 [Context]
 # Saved documents:
@@ -396,14 +409,12 @@ command:
 
 [Query]
 #Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to brightfield mode; 
-#Auxiliary Operation: Obtain the position information of the 96-well plate; 
-#Position Control: Move to the position of the first well in the 96-well plate; 
-#Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view; 
-#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine appropriate Z-axis stack range for 3D organoid imaging; 
-#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure XY position parameters to cover all wells in the 96-well plate with size requirements matching each well's field of view; configure Z-axis stack parameters using the recommended range for 3D organoid imaging; do not configure time parameters; 
-#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate.
+#Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus on the current field of view containing organoids; 
+#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine an appropriate Z-stack range for 3D organoid imaging; 
+#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters; 
+#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the organoid in the current field of view.
 generated code:
-say("[INFO] Starting parameter setup for 96-well plate organoid imaging")
+say("[INFO] Starting parameter setup for 20x organoid imaging")
 target_objective = '3-LUCPLFLN20XRC'
 current_objective = get_objective()
 if current_objective != target_objective:
@@ -420,45 +431,54 @@ if current_channel != target_channel:
 else:
     say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
 
-say("[ACTION] Generating positions for each well in 96-well plate")
-wells_positions = create_96_wells_positions()
-say(f"[INFO] Generated {len(wells_positions)} positions for 96-well plate")
-
-first_well_x, first_well_y = wells_positions[0]
-say(f"[ACTION] Moving to first well position: X={first_well_x} μm, Y={first_well_y} μm")
-set_x_y_position(first_well_x, first_well_y)
-
-say("[INFO] Performing automatic brightness adjustment for brightfield")
+say("[INFO] Performing automatic brightness adjustment")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
 say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
 
-say("[INFO] Performing autofocus on current field of view")
+say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Analyzing current field of view to determine Z-stack range for organoid imaging")
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
 z_max, z_min = z_stack_range()
 z_step = 1.5
 say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring automatic acquisition parameters for all 96 wells")
-well_size_um = 6500
-for i, (x, y) in enumerate(wells_positions, start=1):
-    add_acquisition_position(name=f"well_{i:02d}", x=x, y=y, width=well_size_um, height=well_size_um)
-say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 96 wells")
-
+say("[INFO] Configuring brightfield Z-stack acquisition parameters")
+current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
+add_acquisition_position(name="organoid_brightfield_20x", x=current_x, y=current_y, width=None, height=None)
 add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Channel configured: brightfield (channel {target_channel}) with exposure {current_exposure} ms")
-
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
-say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
+say(f"[INFO] Acquisition parameters configured: position ({current_x}, {current_y}) μm, exposure {current_exposure} ms")
 
-say("[INFO] Initiating automated image acquisition for 96-well plate organoids")
+say("[INFO] Starting automatic image acquisition for organoid 3D imaging")
 run_acquisition()
-say("[INFO] Automated brightfield Z-stack acquisition for all 96 wells completed successfully")
+say("[INFO] Organoid brightfield Z-stack acquisition completed successfully")
+
+executor step 2:
+module: ## Event 22: Image Analysis Platform
+command:
+[Context]
+# Saved documents:
+ {'organoid_brightfield_20x.ome.tif': {'filename': 'organoid_brightfield_20x.ome.tif', 'description': 'channel_names: [(128, 128, 128)], pixel_size: 0.32, objective_label: 3-LUCPLFLN20XRC, magnification: 20, frames: 1', 'created_by': 'microscope', 'file_type': 'ome-tiff'}}
+
+[Query]
+#Image Import: Import the acquired Z-stack brightfield images of the organoid; 
+#Extended Depth of Field: Perform extended depth of field processing on the Z-stack images to generate a single clear image by merging sharp parts from different focal planes.
+generated code:
+fiji_initialize()
+input_file = "organoid_brightfield_20x.ome.tif"
+say("[ACTION] Loading Z-stack brightfield images of organoid: " + input_file)
+image = load_image(input_file)
+say("[ACTION] Performing extended depth of field processing via maximum intensity Z-projection")
+extended_depth_image = z_projection(image, method="max")
+output_file = "extended_depth_organoid_brightfield.ome.tif"
+say("[ACTION] Saving extended depth of field image to: " + output_file)
+save_image(extended_depth_image, output_file, "Extended depth of field brightfield image of organoid generated via maximum intensity Z-projection")
+fiji_shutdown()
 ```
 
 

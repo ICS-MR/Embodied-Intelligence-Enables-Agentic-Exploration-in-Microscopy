@@ -2,10 +2,7 @@
 ## 1. User Input
 
 ```text
-[input 1] Imaging target: 2D section; switch to the 4× objective
-[input 2] scan a 5×1 mm region to detect 2D cell areas
-[input 3] move to the first detected region
-[input 4] switch to the 20× objective, and acquire an image of a 3×3 mm field of view.
+Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
 ```
 
 ## 2. Biological Samples Used
@@ -14,15 +11,14 @@
 
 ## 3. Expected Results
 
-Expected to achieve a low-to-high magnification imaging workflow for 2D slice samples: first scan a 5×1 mm area under a 4× objective and complete 2D cell region detection, then locate and move to the first detected cell region, and acquire a high-magnification image covering a 3×3 mm field of view under a 20× objective.
+A low-magnification objective should be used to perform a full-range imaging scan of the entire 2D slice, covering the complete slice area and acquiring image data suitable for global positioning. It is expected to achieve automatic detection and recording of 2D cells within the slice, and to output a list of all detected positions or an equivalent result file.
 
-## 4. Execution Results
+## 4. Execution Result
 
-Execution Results: The process switched to 4× brightfield and acquired a 5×1 mm area for 2D cell detection, loaded the detection JSON, moved to the first detection area, then switched to 20× and acquired a 3×3 mm brightfield image.
+Execution result: The process used 4x low-magnification bright field to configure a large-area automatic stitching scan of 50000×50000 μm for the entire current region, and called the 2D cell detection function on the generated full scan image to save the detection position results.
 Failure analysis: None.
 
 Overall assessment: Successful
-
 
 
 
@@ -31,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; switch to the 4× objective
+Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4×'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire section area; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to complete a full scan of the entire section'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired full scan image of the entire section; \n#Target Detection: Detect 2D cells in the imported full scan image and save the detection results as a JSON file containing all detected cell locations'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -51,55 +47,24 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 4×.
+Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode;
+Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire section area; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to complete a full scan of the entire section.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting to set objective lens to 4x")
+say("[INFO] Starting parameter setup for section scanning")
 target_objective = '1-UPLFLN4XPH'
 current_objective = get_objective()
 if current_objective != target_objective:
     set_objective(target_objective)
-    say(f"[ACTION] Objective lens switched from {current_objective} to 4x (label: {target_objective})")
+    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
 else:
     say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
-```
 
-### Task Decomposition Input
-
-```text
-scan a 5×1 mm region to detect 2D cell areas
-```
-
-### Planning Output
-
-```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time of 100; configure the XY position parameter to the current position, with size requirement covering the 5×1 mm region; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 5×1 mm region'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image of the 5×1 mm region; \n#Target Detection: Detect 2Dcell regions in the imported brightfield image and save the detection results as a JSON file'}]
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:80
-```
-
-#### Execution Instructions
-
-```text
-Parameter Setting: Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time of 100; configure the XY position parameter to the current position, with size requirement covering the 5×1 mm region; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 5×1 mm region.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting parameter setup for brightfield imaging")
 target_channel = '1-NONE'
 current_channel = get_channel()
 if current_channel != target_channel:
@@ -116,25 +81,27 @@ say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {o
 say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
 
-say("[INFO] Configuring automatic acquisition parameters for 5×1 mm region")
+say("[INFO] Configuring automatic acquisition parameters for entire section scanning")
 current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
-width = 5000  # 5 mm converted to micrometers
-height = 1000  # 1 mm converted to micrometers
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Acquisition size set to {width} μm × {height} μm (5×1 mm region)")
+say(f"[INFO] Current position: X={current_x} μm, Y={current_y} μm")
+say(f"[INFO] Current exposure time: {current_exposure} ms")
 
-add_acquisition_position(name="brightfield_5x1mm", x=current_x, y=current_y, width=width, height=height)
-say("[INFO] Acquisition position parameters configured")
+section_width = 50000
+section_height = 50000
+say(f"[INFO] Section area size set to {section_width} μm × {section_height} μm to cover entire section")
+
+add_acquisition_position(name="entire_section", x=current_x, y=current_y, width=section_width, height=section_height)
+say("[INFO] Acquisition position configured for entire section coverage")
 
 add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Brightfield channel configured with exposure time: {current_exposure} ms")
+say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
 
-say("[INFO] Starting automatic image acquisition for 5×1 mm region scan")
+say("[INFO] Starting automatic image acquisition for full section scan")
 run_acquisition()
-say("[INFO] Automatic image acquisition completed for 5×1 mm region")
+say("[INFO] Full section scanning acquisition completed successfully")
 ```
 
 ### Module: Image Analysis Platform
@@ -142,138 +109,21 @@ say("[INFO] Automatic image acquisition completed for 5×1 mm region")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired brightfield image of the 5×1 mm region;
-Target Detection: Detect 2Dcell regions in the imported brightfield image and save the detection results as a JSON file.
+Image Import: Import the acquired full scan image of the entire section;
+Target Detection: Detect 2D cells in the imported full scan image and save the detection results as a JSON file containing all detected cell locations.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "brightfield_5x1mm.ome.tif"
-say("[ACTION] Loading brightfield image of 5×1 mm region: " + input_file)
+input_file = "entire_section.ome.tif"
+say("[ACTION] Loading full scan image of the entire section: " + input_file)
 image = load_image(input_file)
-say("[ACTION] Detecting 2Dcell regions in the brightfield image")
-detection_result = analysis_platform_find_target_positions(image, "2Dcell", "2Dcell regions detected in brightfield image of 5×1 mm region")
-say("[ACTION] Detection results saved as JSON file")
+say("[ACTION] Detecting 2D cells in the full scan image")
+detection_result = analysis_platform_find_2Dcell_position(image, "2D cells detected in full scan image of entire section")
+say("[ACTION] Detection results saved as JSON file containing all detected cell locations")
 fiji_shutdown()
-```
-
-### Task Decomposition Input
-
-```text
-move to the first detected region
-```
-
-### Planning Output
-
-```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Target Position Loading: Load the target position bounding boxes from the JSON file containing the detected 2D cell regions; \n#Position Control: Move the stage to the XY coordinates of the first detected 2D cell region'}]
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Target Position Loading: Load the target position bounding boxes from the JSON file containing the detected 2D cell regions;
-Position Control: Move the stage to the XY coordinates of the first detected 2D cell region.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting to load target bounding boxes of detected 2D cell regions from JSON file")
-target_filename = "2Dcell_locations_list.json"
-say(f"[ACTION] Loading target locations from file {target_filename}")
-target_bounding_boxes = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of detected 2D cell regions")
-
-say("[INFO] Extracting coordinates of first detected 2D cell region")
-first_cell_bbox = target_bounding_boxes[0]
-center_x, center_y, width, height = first_cell_bbox
-say(f"[INFO] First cell region - Center: ({center_x}, {center_y}), Size: {width}×{height}")
-
-say(f"[ACTION] Moving stage to first detected 2D cell region at coordinates ({center_x}, {center_y})")
-set_x_y_position(center_x, center_y)
-say(f"[INFO] Stage successfully moved to first 2D cell region position: X={center_x} μm, Y={center_y} μm")
-```
-
-### Task Decomposition Input
-
-```text
-switch to the 20× objective, and acquire an image of a 3×3 mm field of view.
-```
-
-### Planning Output
-
-```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 20×; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3×3 mm field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3×3 mm field of view'}]
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(54000.0, 33400.0), z_position:4155.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Parameter Setting: Set the currently used objective lens to 20×;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3×3 mm field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3×3 mm field of view.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting parameter setup for 20x objective imaging")
-target_objective = '3-LUCPLFLN20XRC'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 20x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 20x (label: {target_objective}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
-
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
-
-say("[INFO] Configuring automatic acquisition parameters for 3×3 mm field of view")
-current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-width = 3000
-height = 3000
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Field of view size set to {width} μm × {height} μm")
-
-add_acquisition_position(name="brightfield_3x3mm", x=current_x, y=current_y, width=width, height=height)
-say("[INFO] Acquisition position parameters added")
-
-target_channel = '1-NONE'
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for 3×3 mm field of view")
-run_acquisition()
-say("[INFO] Automatic image acquisition completed successfully")
 ```
 
 

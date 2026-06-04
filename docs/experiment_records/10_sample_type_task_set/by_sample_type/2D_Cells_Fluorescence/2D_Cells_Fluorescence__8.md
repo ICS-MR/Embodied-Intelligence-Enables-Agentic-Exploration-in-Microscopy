@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
+Imaging target: 2D section; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; use a 4× objective to automatically count and locat
 
 ## 3. Expected Results
 
-Automatic instance segmentation, counting, and in-image localization of DAPI-stained nuclei using Cellpose nuclei should be completed for FISH two-dimensional slices imaged with a 4× objective under DAPI blue fluorescence. Expected outputs include segmentation masks suitable for locating nuclear regions, and a CSV file recording the number and position/distribution information of the nuclei.
+The blue fluorescence acquisition of cells within the two-dimensional slice field of view is expected, followed by the generation of a clear image using sharpening algorithms such as denoising, contrast adjustment, or Richardson–Lucy deconvolution. The processed blue fluorescence image should be saved as the task output for subsequent acceptance review.
 
-## 4. Execution Result
+## 4. Execution Results
 
-Execution result: The workflow switched to the 4× objective and DAPI/blue fluorescence channel, completed exposure setting, fluorescence autofocus, DAPI image acquisition of the current field of view, and after segmenting cell nuclei with Cellpose, saved the mask, analysis CSV, and target position JSON.
+Execution result: The process completed single-plane acquisition of DAPI/blue fluorescence for the cell in the current field of view, and performed denoising and automatic contrast enhancement on the acquired image before saving it as a clarified image.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
+Imaging target: 2D section; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI fluorescence images of the fluorescence in situ hybridization slice'}, {'subtask_index': 2, 'module': 'Cell Segmentation Platform', 'command': 'Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for cell nucleus segmentation; \n#Image Reading: Read the DAPI fluorescence image data captured by the microscope operation platform; \n#Segmentation Inference: Execute cell segmentation inference on the DAPI fluorescence image to output a dictionary containing segmentation masks of cell nuclei, flow fields, and cell feature style vectors; \n#Result Saving: Save the segmentation results containing cell nucleus masks to a file; \n#Masks Analysis: Analyze the segmented cell nucleus masks to obtain the count and location information of DAPI-labeled cell nuclei; \n#Analysis Saving: Save the analysis results of cell nucleus count and location information; \n#Resource Release: Release model resources and clean up the environment'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI fluorescence images of cells in the current field of view'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired DAPI fluorescence image of the cells; \n#Image Processing: Apply denoising and contrast adjustment operations to generate a clear DAPI fluorescence image'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,36 +47,28 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to DAPI fluorescence mode;
+Parameter Setting: Set the filter set to DAPI fluorescence mode;
 Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view;
 Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI fluorescence images of the fluorescence in situ hybridization slice.
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI fluorescence images of cells in the current field of view.
 ```
 
 #### Execute Code
 
 ```python
 say("[INFO] Starting parameter setup for DAPI fluorescence imaging")
-target_objective = '1-UPLFLN4XPH'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
-
-target_channel = '2-U-FUNA'
+target_channel_dapi = '2-U-FUNA'
 current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel})")
+if current_channel != target_channel_dapi:
+    set_channel(target_channel_dapi)
+    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel_dapi})")
 else:
-    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel}), no change needed")
+    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
 
-say("[INFO] Performing auxiliary operations for optimal DAPI imaging")
-target_exposure = 100.0
-set_exposure(target_exposure)
-say(f"[INFO] Camera exposure time configured to {target_exposure} ms for DAPI fluorescence")
+say("[INFO] Performing auxiliary operations for DAPI fluorescence imaging")
+target_exposure_dapi = 100.0
+set_exposure(target_exposure_dapi)
+say(f"[INFO] Camera exposure time automatically configured to {target_exposure_dapi} ms for DAPI fluorescence")
 
 set_brightness(0)
 say("[INFO] Light source brightness set to 0 for fluorescence imaging")
@@ -89,94 +81,40 @@ say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 say("[INFO] Configuring DAPI fluorescence acquisition parameters")
 current_x, current_y = get_x_y_position()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-add_acquisition_position(name="DAPI_fluorescence", x=current_x, y=current_y, width=None, height=None)
+add_acquisition_position(name="dapi_fluorescence", x=current_x, y=current_y, width=None, height=None)
 current_exposure = get_exposure()
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] DAPI acquisition parameters configured: channel {target_channel}, exposure {current_exposure} ms")
+add_channels(channel=target_channel_dapi, exposure=current_exposure)
+say(f"[INFO] DAPI acquisition parameters configured: channel {target_channel_dapi}, exposure {current_exposure} ms")
 
 say("[INFO] Starting DAPI fluorescence image acquisition")
 run_acquisition()
-say("[INFO] DAPI fluorescence image acquisition of FISH slice completed successfully")
+say("[INFO] DAPI fluorescence image acquisition completed")
 ```
 
-### Module: Cell Segmentation Platform
+### Module: Image Analysis Platform
 
 #### Execution Instructions
 
 ```text
-Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for cell nucleus segmentation;
-Image Reading: Read the DAPI fluorescence image data captured by the microscope operation platform;
-Segmentation Inference: Execute cell segmentation inference on the DAPI fluorescence image to output a dictionary containing segmentation masks of cell nuclei, flow fields, and cell feature style vectors;
-Result Saving: Save the segmentation results containing cell nucleus masks to a file;
-Masks Analysis: Analyze the segmented cell nucleus masks to obtain the count and location information of DAPI-labeled cell nuclei;
-Analysis Saving: Save the analysis results of cell nucleus count and location information;
-Resource Release: Release model resources and clean up the environment.
+Image Import: Import the acquired DAPI fluorescence image of the cells;
+Image Processing: Apply denoising and contrast adjustment operations to generate a clear DAPI fluorescence image.
 ```
 
 #### Execute Code
 
 ```python
-say("[ACTION] Initializing Cellpose model for nucleus segmentation with GPU acceleration")
-cellpose_initialize(gpu=True, model_type="cpsam")
-
-say("[ACTION] Reading DAPI fluorescence image from context")
-image_path = 'DAPI_fluorescence.ome.tif'
-image = cellpose_read(image_path)
-say("[INFO] Image loaded with shape: {}".format(image.shape))
-
-say("[ACTION] Extracting 2D image from TCZYX dimensions")
-image_2d = image[0, 0, 0, :, :]
-say("[INFO] 2D image extracted with shape: {}".format(image_2d.shape))
-
-say("[ACTION] Running nucleus segmentation on DAPI fluorescence image")
-masks = segment(
-    image=image_2d,
-    channels=[0, 0],
-    diameter=None,
-    flow_threshold=0.4,
-    cellprob_threshold=0.0,
-    min_size=15,
-    denoise=True
-)
-say("[INFO] Segmentation completed. Detected {} nuclei".format(np.max(masks)))
-
-say("[ACTION] Saving nucleus segmentation masks")
-mask_filename = "nucleus_segmentation_1.tif"
-save_masks(
-    masks=masks,
-    filename=mask_filename,
-    description="DAPI nucleus segmentation masks from fluorescence microscopy"
-)
-say("[INFO] Masks saved as: {}".format(mask_filename))
-
-say("[ACTION] Analyzing nucleus count and location information")
-px_size = 1.62
-analysis_df = analyze_masks(
-    masks=masks,
-    px_size=px_size,
-    unit="μm2",
-    bins=20,
-    plot=False
-)
-say("[INFO] Analysis completed. Total nuclei count: {}".format(len(analysis_df[analysis_df['cell_id'] > 0])))
-
-say("[ACTION] Saving nucleus analysis results")
-analysis_filename = "nucleus_analysis_1.csv"
-save_csv(df=analysis_df, filename=analysis_filename)
-say("[INFO] Analysis results saved as: {}".format(analysis_filename))
-
-say("[ACTION] Saving target locations for microscope reacquisition")
-target_filename = "nucleus_targets_1.json"
-save_target_locations(
-    masks=masks,
-    source_image_path=image_path,
-    filename=target_filename,
-    description="DAPI nucleus target locations for reacquisition",
-    min_area_px=15
-)
-say("[INFO] Target locations saved as: {}".format(target_filename))
-
-say("[INFO] Workflow completed successfully. Resources released.")
+fiji_initialize()
+input_file = "dapi_fluorescence.ome.tif"
+say("[ACTION] Loading DAPI fluorescence image: " + input_file)
+image = load_image(input_file)
+say("[ACTION] Performing noise reduction with Gaussian filtering")
+denoised_image = denoise(image, method="Gaussian", radius=1.0)
+say("[ACTION] Applying automatic contrast enhancement")
+processed_image = adjust_contrast(denoised_image, saturated=0.35)
+output_file = "processed_dapi_fluorescence.ome.tif"
+say("[ACTION] Saving processed DAPI fluorescence image to: " + output_file)
+save_image(processed_image, output_file, "DAPI fluorescence image processed with Gaussian denoising and automatic contrast adjustment")
+fiji_shutdown()
 ```
 
 
