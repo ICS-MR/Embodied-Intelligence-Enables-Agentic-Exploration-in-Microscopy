@@ -153,6 +153,13 @@ uv venv --python 3.10
 uv sync
 ```
 
+If `uv sync` fails while fetching `mmcv` from OpenMMLab, install `mmcv` separately without changing other dependencies:
+
+```bash
+uv sync --frozen --no-install-package mmcv
+uv pip install --no-deps mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html
+```
+
 Useful validation commands:
 
 ```bash
