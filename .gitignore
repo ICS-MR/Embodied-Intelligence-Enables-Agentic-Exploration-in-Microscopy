@@ -24,6 +24,9 @@ history/
 .micro-manager/
 scripts/*
 !scripts/setup_models.py
+!scripts/install_mmcv_with_fallback.ps1
+!scripts/download_vla_act_assets.ps1
+!scripts/package_vla_act_assets.ps1
 model/*
 !model/Download link.txt
 !model/README.md

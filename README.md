@@ -191,6 +191,50 @@ uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine
 uv run python -c "import importlib.metadata; print(importlib.metadata.version('cellpose'))"
 ```
 
+### Restore VLA ACT Assets
+
+The large `docs/VLA/ACT_for_microscopy` assets are distributed outside Git so
+that clone and pull stay lightweight. Restore the directory with:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1
+```
+
+This recreates:
+
+```text
+docs/VLA/ACT_for_microscopy
+```
+
+If you need to overwrite an existing restored directory:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1 -Force
+```
+
+The downloader uses the `vla-act-assets` GitHub Release by default. You can
+override the source with:
+
+```bash
+$env:EIMS_VLA_ACT_RELEASE_TAG="vla-act-assets"
+$env:EIMS_VLA_ACT_REPO="ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy"
+```
+
+or provide a direct base URL that already contains the packaged zip assets:
+
+```bash
+$env:EIMS_VLA_ACT_BASE_URL="https://github.com/<owner>/<repo>/releases/download/<tag>"
+```
+
+For maintainers, build the uploadable zip assets from a local restored copy:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/package_vla_act_assets.ps1
+```
+
+That command writes zip packages to `dist/vla_act_assets/`. Upload those zips
+to the `vla-act-assets` release to keep the downloader working.
+
 ### Configure Micro-Manager
 
 Install a compatible Micro-Manager build:
