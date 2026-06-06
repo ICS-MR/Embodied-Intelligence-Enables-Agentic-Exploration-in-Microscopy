@@ -1504,6 +1504,7 @@ class ImageJProcessor(BaseTool):
         spot_radius_um: Optional[float] = None,
         max_linking_distance_um: Optional[float] = None,
         min_track_length: int = 3,
+        channel_index: int = 1,
         out_prefix: str = "trackmate",
     ) -> dict[str, Any]:
         """
@@ -1513,6 +1514,25 @@ class ImageJProcessor(BaseTool):
         distance is omitted, conservative defaults are inferred from pixel size.
         """
         self._require_imagej_initialized()
+        np_xarray = self.ij.py.to_xarray(image_meta.dataset)
+        target_dims = ("t", "pln", "ch", "row", "col")
+        for dim in target_dims:
+            if dim not in np_xarray.dims:
+                np_xarray = np_xarray.expand_dims({dim: 1})
+        np_xarray = np_xarray.transpose("t", "pln", "ch", "row", "col")
+        normalized_shape = np_xarray.shape
+        if int(normalized_shape[0]) <= 1:
+            raise ValueError(
+                "TrackMate tracking requires a time-lapse image with more than one time point after normalization."
+            )
+
+        channel_index = int(channel_index)
+        channel_count = int(normalized_shape[2])
+        if channel_index < 1 or channel_index > channel_count:
+            raise ValueError(
+                f"channel_index must be within [1, {channel_count}] for the normalized dataset, got {channel_index}."
+            )
+
         pixel_size_um = max(float(image_meta.pixel_size_x_um), float(image_meta.pixel_size_y_um), 1e-6)
         if spot_radius_um is None:
             spot_radius_um = max(pixel_size_um * 5.0, 1.0)
@@ -1531,6 +1551,7 @@ class ImageJProcessor(BaseTool):
             spot_radius_um=spot_radius_um,
             max_linking_distance_um=max_linking_distance_um,
             min_track_length=min_track_length,
+            channel_index=channel_index,
         )
 
         frames = self._extract_stack_frames_for_tracking(image_meta.dataset)
@@ -1566,6 +1587,7 @@ class ImageJProcessor(BaseTool):
                 "spot_radius_um": spot_radius_um,
                 "max_linking_distance_um": max_linking_distance_um,
                 "min_track_length": min_track_length,
+                "channel_index": channel_index,
             },
         }
         with open(summary_path, "w", encoding="utf-8") as f:
@@ -1601,6 +1623,7 @@ class ImageJProcessor(BaseTool):
         spot_radius_um: float,
         max_linking_distance_um: float,
         min_track_length: int,
+        channel_index: int,
     ) -> list[dict[str, Any]]:
         imp = self.dataset_to_imp(image_meta.dataset)
         try:
@@ -1628,7 +1651,7 @@ class ImageJProcessor(BaseTool):
             detector_settings = HashMap()
             detector_settings.put("DO_SUBPIXEL_LOCALIZATION", True)
             detector_settings.put("RADIUS", float(spot_radius_um))
-            detector_settings.put("TARGET_CHANNEL", 1)
+            detector_settings.put("TARGET_CHANNEL", int(channel_index))
             detector_settings.put("THRESHOLD", 0.0)
             detector_settings.put("DO_MEDIAN_FILTERING", False)
             settings.detectorFactory = LogDetectorFactory()
@@ -1719,41 +1742,22 @@ class ImageJProcessor(BaseTool):
 
     def _extract_stack_frames_for_tracking(self, dataset) -> np.ndarray:
         np_xarray = self.ij.py.to_xarray(dataset)
+        target_dims = ("t", "pln", "ch", "row", "col")
+        for dim in target_dims:
+            if dim not in np_xarray.dims:
+                np_xarray = np_xarray.expand_dims({dim: 1})
+
+        np_xarray = np_xarray.transpose("t", "pln", "ch", "row", "col")
         data = np.asarray(np_xarray.data)
-        dims = list(getattr(np_xarray, "dims", ()))
-        if not dims:
-            if data.ndim == 2:
-                return data[np.newaxis, ...].astype(np.float32, copy=False)
-            if data.ndim == 3:
-                return data.astype(np.float32, copy=False)
-            raise ValueError(f"Cannot interpret unnamed dataset as time-lapse image: shape={data.shape}")
+        if data.ndim != 5:
+            raise ValueError(f"Expected normalized tracking data to have 5 dims (T,Z,C,Y,X), got shape={data.shape}")
 
-        row_dim = next((name for name in ("row", "y") if name in dims), None)
-        col_dim = next((name for name in ("col", "x") if name in dims), None)
-        if row_dim is None or col_dim is None:
-            raise ValueError(f"Dataset does not expose spatial axes as row/col or y/x: dims={dims}")
+        if int(data.shape[0]) <= 1:
+            raise ValueError(
+                "TrackMate tracking requires a time-lapse image with more than one time point after normalization."
+            )
 
-        frame_dim = None
-        for candidate in ("t", "time", "frame", "pln", "z"):
-            if candidate in dims and int(data.shape[dims.index(candidate)]) > 1:
-                frame_dim = candidate
-                break
-        if frame_dim is None:
-            frame_dim = row_dim
-
-        selection = []
-        for dim_name in dims:
-            if dim_name in {frame_dim, row_dim, col_dim}:
-                selection.append(slice(None))
-            else:
-                selection.append(0)
-        selected = np.asarray(data[tuple(selection)])
-        selected_dims = [dim_name for dim_name, selector in zip(dims, selection) if isinstance(selector, slice)]
-        if frame_dim == row_dim:
-            return selected[np.newaxis, ...].astype(np.float32, copy=False)
-
-        axes = [selected_dims.index(frame_dim), selected_dims.index(row_dim), selected_dims.index(col_dim)]
-        return np.transpose(selected, axes=axes).astype(np.float32, copy=False)
+        return data[:, 0, 0, :, :].astype(np.float32, copy=False)
 
     def _render_trackmate_overlay(
         self,

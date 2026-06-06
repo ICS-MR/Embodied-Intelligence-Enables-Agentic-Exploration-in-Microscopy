@@ -196,16 +196,14 @@ class Frap(BaseTool):
                     ) from None
                 time.sleep(float(poll_interval_sec))
 
-    def activate_window(self, title_keyword: str, dry_run: bool = True) -> dict:
+    def activate_window(self, title_keyword: str) -> dict:
         """
         Activate a desktop window by title keyword.
 
         Args:
             title_keyword: Partial window title used to locate the application window.
-            dry_run: When True, only report the planned activation.
-
         Returns:
-            A dictionary describing the planned or executed activation.
+            A dictionary describing the executed activation.
         """
         window_info = self.inspect_window(title_keyword)
         result = {
@@ -215,11 +213,7 @@ class Frap(BaseTool):
             "top": int(window_info["top"]),
             "width": int(window_info["width"]),
             "height": int(window_info["height"]),
-            "dry_run": bool(dry_run),
         }
-        if dry_run:
-            result["status"] = "planned"
-            return result
 
         pygetwindow = _import_pygetwindow()
         matched_windows = pygetwindow.getWindowsWithTitle(window_info["title"])
@@ -241,7 +235,6 @@ class Frap(BaseTool):
         self,
         keys: list[str] | tuple[str, ...] | str,
         interval_sec: float = 0.0,
-        dry_run: bool = True,
     ) -> dict:
         """
         Press one or more keyboard shortcuts.
@@ -249,10 +242,8 @@ class Frap(BaseTool):
         Args:
             keys: A string key name or a list/tuple of keys passed to pyautogui.hotkey.
             interval_sec: Delay between keys in the hotkey sequence.
-            dry_run: When True, only report the planned hotkey action.
-
         Returns:
-            A dictionary describing the planned or executed hotkey.
+            A dictionary describing the executed hotkey.
         """
         key_list = self._normalize_hotkey_keys(keys)
         if interval_sec < 0:
@@ -261,11 +252,7 @@ class Frap(BaseTool):
         result = {
             "keys": key_list,
             "interval_sec": float(interval_sec),
-            "dry_run": bool(dry_run),
         }
-        if dry_run:
-            result["status"] = "planned"
-            return result
 
         pyautogui = _import_pyautogui()
         original_pause = getattr(pyautogui, "PAUSE", 0.0)
@@ -278,17 +265,15 @@ class Frap(BaseTool):
         result["status"] = "pressed"
         return result
 
-    def type_text(self, text: str, interval_sec: float = 0.0, dry_run: bool = True) -> dict:
+    def type_text(self, text: str, interval_sec: float = 0.0) -> dict:
         """
         Type text into the currently focused application.
 
         Args:
             text: Text to type.
             interval_sec: Delay between characters.
-            dry_run: When True, only report the planned text entry.
-
         Returns:
-            A dictionary describing the planned or executed text entry.
+            A dictionary describing the executed text entry.
         """
         if interval_sec < 0:
             raise ValueError("interval_sec must be non-negative")
@@ -296,11 +281,7 @@ class Frap(BaseTool):
         result = {
             "text": str(text),
             "interval_sec": float(interval_sec),
-            "dry_run": bool(dry_run),
         }
-        if dry_run:
-            result["status"] = "planned"
-            return result
 
         pyautogui = _import_pyautogui()
         original_pause = getattr(pyautogui, "PAUSE", 0.0)
@@ -317,7 +298,6 @@ class Frap(BaseTool):
         self,
         profile_path: str,
         action_names: list[str] | tuple[str, ...],
-        dry_run: bool = True,
     ) -> dict:
         """
         Run a named batch of GUI actions described by a saved UI profile.
@@ -325,10 +305,8 @@ class Frap(BaseTool):
         Args:
             profile_path: Relative or absolute path to a saved UI profile JSON file.
             action_names: Control names to execute in order.
-            dry_run: When True, only report the planned actions.
-
         Returns:
-            A dictionary summarizing the executed or planned action batch.
+            A dictionary summarizing the executed action batch.
         """
         if not isinstance(action_names, (list, tuple)) or not action_names:
             raise ValueError("action_names must be a non-empty list or tuple of control names")
@@ -337,26 +315,24 @@ class Frap(BaseTool):
         window_info = self.wait_for_window(profile["window_title_keyword"])
         actions: list[dict[str, Any]] = []
         if profile["options"]["activate_before_action"]:
-            actions.append(self.activate_window(profile["window_title_keyword"], dry_run=dry_run))
+            actions.append(self.activate_window(profile["window_title_keyword"]))
 
         actions.extend(
             self._execute_action_sequence(
                 list(action_names),
                 profile,
                 window_info,
-                dry_run=bool(dry_run),
             )
         )
         return {
             "status": "ok",
-            "dry_run": bool(dry_run),
             "profile_name": profile["profile_name"],
             "window": window_info,
             "actions": actions,
         }
 
     @tool_func
-    def enable_frap(self, dry_run: bool = False) -> dict:
+    def enable_frap(self) -> dict:
         """
         Open or switch the FRAP software into FRAP mode for the current session.
 
@@ -365,25 +341,21 @@ class Frap(BaseTool):
         ``enable_frap`` control, that GUI action is executed as part of this step.
 
         Args:
-            dry_run: When True, only report the planned action.
-
         Returns:
             A dictionary describing the resulting FRAP software mode state.
         """
-        action_result = self._run_named_profile_action("enable_frap", dry_run=dry_run)
-        if not dry_run:
-            self._frap_enabled = True
+        action_result = self._run_named_profile_action("enable_frap")
+        self._frap_enabled = True
 
         return {
             "status": "ok",
-            "frap_enabled": True,
-            "dry_run": bool(dry_run),
+            "frap_enabled": self._frap_enabled,
             "mode_action": action_result["mode_action"],
             "action": action_result["action"],
         }
 
     @tool_func
-    def disable_frap(self, dry_run: bool = False) -> dict:
+    def disable_frap(self) -> dict:
         """
         Close or exit FRAP mode in the FRAP software for the current session.
 
@@ -392,25 +364,21 @@ class Frap(BaseTool):
         ``disable_frap`` control, that GUI action is executed as part of this step.
 
         Args:
-            dry_run: When True, only report the planned action.
-
         Returns:
             A dictionary describing the resulting FRAP software mode state.
         """
-        action_result = self._run_named_profile_action("disable_frap", dry_run=dry_run)
-        if not dry_run:
-            self._frap_enabled = False
+        action_result = self._run_named_profile_action("disable_frap")
+        self._frap_enabled = False
 
         return {
             "status": "ok",
-            "frap_enabled": False,
-            "dry_run": bool(dry_run),
+            "frap_enabled": self._frap_enabled,
             "mode_action": action_result["mode_action"],
             "action": action_result["action"],
         }
 
     @tool_func
-    def laser_position(self, x_px: float, y_px: float, dry_run: bool = True) -> dict:
+    def laser_position(self, x_px: float, y_px: float) -> dict:
         """
         Move to an image-relative target position and trigger the FRAP click.
 
@@ -421,47 +389,38 @@ class Frap(BaseTool):
             y_px: Vertical pixel offset relative to the image center, where
                 the image center is always ``(0, 0)``. Positive y moves down
                 from the center. 
-            dry_run: When True, only report the planned movement and click.
-
         Returns:
             A dictionary containing:
             - ``status``: String status, currently ``"ok"`` on success.
         """
-        self._require_frap_enabled(dry_run=bool(dry_run))
+        self._require_frap_enabled()
         profile, window_info = self._prepare_laser_runtime_context()
         target_info = self._resolve_laser_target(
             x_px=float(x_px),
             y_px=float(y_px),
             profile=profile,
         )
-        activation_result = self._activate_profile_window_if_needed(
-            profile,
-            dry_run=bool(dry_run),
-        )
+        activation_result = self._activate_profile_window_if_needed(profile)
         pre_actions = self._execute_profile_stage_actions(
             profile["workflow"]["pre_point_actions"],
             profile,
             window_info,
-            dry_run=bool(dry_run),
         )
         click_result = self._click_laser_target(
             profile=profile,
             window_info=window_info,
             roi_offset_x=target_info["roi_offset_x"],
             roi_offset_y=target_info["roi_offset_y"],
-            dry_run=bool(dry_run),
         )
         post_actions = self._execute_profile_stage_actions(
             profile["workflow"]["post_point_actions"],
             profile,
             window_info,
-            dry_run=bool(dry_run),
         )
 
         return {
             "status": "ok",
             "frap_enabled": self._frap_enabled,
-            "dry_run": bool(dry_run),
             "coordinate_system": "image_centered_pixels",
             "input_target_px": {
                 "x_px": float(x_px),
@@ -580,7 +539,6 @@ class Frap(BaseTool):
         screen_x: int,
         screen_y: int,
         move_duration_sec: float = 0.0,
-        dry_run: bool = True,
     ) -> dict:
         """
         Click one point on the screen.
@@ -589,20 +547,14 @@ class Frap(BaseTool):
             screen_x: Horizontal screen coordinate.
             screen_y: Vertical screen coordinate.
             move_duration_sec: Mouse move duration before clicking.
-            dry_run: When True, return the planned click without touching the mouse.
-
         Returns:
-            A dictionary describing the executed or planned click.
+            A dictionary describing the executed click.
         """
         result = {
             "screen_x": int(screen_x),
             "screen_y": int(screen_y),
             "move_duration_sec": float(move_duration_sec),
-            "dry_run": bool(dry_run),
         }
-        if dry_run:
-            result["status"] = "planned"
-            return result
 
         pyautogui = _import_pyautogui()
         original_pause = getattr(pyautogui, "PAUSE", 0.0)
@@ -881,8 +833,8 @@ class Frap(BaseTool):
         clamped = max(0, min(int(pixel_value), int(axis_extent - 1)))
         return int(axis_extent - 1 - clamped) if flip_axis else clamped
 
-    def _require_frap_enabled(self, *, dry_run: bool) -> None:
-        if not self._frap_enabled and not dry_run:
+    def _require_frap_enabled(self) -> None:
+        if not self._frap_enabled:
             raise RuntimeError("FRAP is not enabled. Call enable_frap() before laser_position().")
 
     def _prepare_laser_runtime_context(self) -> tuple[dict, dict]:
@@ -919,24 +871,21 @@ class Frap(BaseTool):
             "roi_offset_y": int(roi_offset_y),
         }
 
-    def _activate_profile_window_if_needed(self, profile: dict, *, dry_run: bool) -> dict | None:
+    def _activate_profile_window_if_needed(self, profile: dict) -> dict | None:
         if not bool(profile["options"].get("activate_before_action", True)):
             return None
-        return self.activate_window(profile["window_title_keyword"], dry_run=bool(dry_run))
+        return self.activate_window(profile["window_title_keyword"])
 
     def _execute_profile_stage_actions(
         self,
         action_names: list[Any],
         profile: dict,
         window_info: dict,
-        *,
-        dry_run: bool,
     ) -> list[dict[str, Any]]:
         return self._execute_action_sequence(
             action_names,
             profile,
             window_info,
-            dry_run=bool(dry_run),
         )
 
     def _click_laser_target(
@@ -946,7 +895,6 @@ class Frap(BaseTool):
         window_info: dict,
         roi_offset_x: int,
         roi_offset_y: int,
-        dry_run: bool,
     ) -> dict:
         image_region = profile["image_region"]
         options = profile["options"]
@@ -957,7 +905,6 @@ class Frap(BaseTool):
             move_duration_sec=float(options["move_duration_sec"]),
             button="left",
             clicks=1,
-            dry_run=bool(dry_run),
         )
 
     def _load_default_ui_profile(self, *, required: bool) -> dict | None:
@@ -971,27 +918,23 @@ class Frap(BaseTool):
                 ) from None
             return None
 
-    def _run_named_profile_action(self, action_name: str, *, dry_run: bool) -> dict:
+    def _run_named_profile_action(self, action_name: str) -> dict:
         profile = self._load_default_ui_profile(required=False)
         if profile is None:
-            return {
-                "mode_action": "state_only",
-                "action": None,
-            }
+            raise FileNotFoundError(
+                "Default FRAP UI profile not found. "
+                f"Expected '{self._default_profile_filename}' in the FRAP output directory."
+            )
 
         controls = profile.get("controls", {})
         if action_name not in controls:
-            return {
-                "mode_action": "state_only",
-                "action": None,
-            }
+            raise ValueError(f"Default FRAP UI profile does not define control: {action_name}")
 
         return {
             "mode_action": "profile_action",
             "action": self.run_ui_actions(
                 self._default_profile_filename,
                 [action_name],
-                dry_run=bool(dry_run),
             ),
         }
 
@@ -1194,7 +1137,6 @@ class Frap(BaseTool):
         move_duration_sec: float,
         button: str = "left",
         clicks: int = 1,
-        dry_run: bool,
     ) -> dict:
         window_left = int(window_info["left"])
         window_top = int(window_info["top"])
@@ -1212,12 +1154,11 @@ class Frap(BaseTool):
 
         screen_x = window_left + int(offset_x)
         screen_y = window_top + int(offset_y)
-        if bool(dry_run) or (str(button) == "left" and int(clicks) == 1):
+        if str(button) == "left" and int(clicks) == 1:
             click_result = self.click_screen_point(
                 screen_x=screen_x,
                 screen_y=screen_y,
                 move_duration_sec=float(move_duration_sec),
-                dry_run=bool(dry_run),
             )
         else:
             pyautogui = _import_pyautogui()
@@ -1232,7 +1173,6 @@ class Frap(BaseTool):
                 "screen_x": int(screen_x),
                 "screen_y": int(screen_y),
                 "move_duration_sec": float(move_duration_sec),
-                "dry_run": bool(dry_run),
                 "status": "clicked",
             }
         return {
@@ -1251,8 +1191,6 @@ class Frap(BaseTool):
         action_items: list[Any],
         ui_profile: dict,
         window_info: dict,
-        *,
-        dry_run: bool,
     ) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for item in action_items:
@@ -1267,12 +1205,11 @@ class Frap(BaseTool):
                     move_duration_sec=float(ui_profile["options"]["move_duration_sec"]),
                     button=str(action_spec["button"]),
                     clicks=int(action_spec["clicks"]),
-                    dry_run=bool(dry_run),
                 )
                 result["action_type"] = "point"
                 result["description"] = str(action_spec.get("description", ""))
                 results.append(result)
-                if not dry_run and float(ui_profile["options"]["click_interval_sec"]) > 0:
+                if float(ui_profile["options"]["click_interval_sec"]) > 0:
                     time.sleep(float(ui_profile["options"]["click_interval_sec"]))
                 continue
 
@@ -1280,7 +1217,6 @@ class Frap(BaseTool):
                 result = self.press_hotkey(
                     action_spec["keys"],
                     interval_sec=0.0,
-                    dry_run=bool(dry_run),
                 )
                 result["action_type"] = "hotkey"
                 result["description"] = str(action_spec.get("description", ""))
@@ -1291,7 +1227,6 @@ class Frap(BaseTool):
                 result = self.type_text(
                     action_spec["text"],
                     interval_sec=float(action_spec["interval_sec"]),
-                    dry_run=bool(dry_run),
                 )
                 result["action_type"] = "text"
                 result["description"] = str(action_spec.get("description", ""))
@@ -1302,12 +1237,11 @@ class Frap(BaseTool):
                 result = {
                     "action_type": "wait",
                     "seconds": float(action_spec["seconds"]),
-                    "dry_run": bool(dry_run),
                     "description": str(action_spec.get("description", "")),
-                    "status": "planned" if dry_run else "waited",
+                    "status": "waited",
                 }
                 results.append(result)
-                if not dry_run and float(action_spec["seconds"]) > 0:
+                if float(action_spec["seconds"]) > 0:
                     time.sleep(float(action_spec["seconds"]))
                 continue
 
