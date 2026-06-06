@@ -1,0 +1,66 @@
+Metadata-Version: 2.1
+Name: mmcv
+Version: 2.1.0
+Summary: OpenMMLab Computer Vision Foundation
+Home-page: https://github.com/open-mmlab/mmcv
+Author: MMCV Contributors
+Author-email: openmmlab@gmail.com
+Keywords: computer vision
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+License-File: LICENSE
+License-File: LICENSES.md
+Requires-Dist: addict
+Requires-Dist: mmengine >=0.3.0
+Requires-Dist: numpy
+Requires-Dist: packaging
+Requires-Dist: Pillow
+Requires-Dist: pyyaml
+Requires-Dist: yapf
+Requires-Dist: opencv-python >=3
+Requires-Dist: regex ; sys_platform == "win32"
+Provides-Extra: all
+Requires-Dist: pytest-runner ; extra == 'all'
+Requires-Dist: ninja ; extra == 'all'
+Requires-Dist: psutil ; extra == 'all'
+Requires-Dist: addict ; extra == 'all'
+Requires-Dist: mmengine >=0.3.0 ; extra == 'all'
+Requires-Dist: numpy ; extra == 'all'
+Requires-Dist: packaging ; extra == 'all'
+Requires-Dist: Pillow ; extra == 'all'
+Requires-Dist: pyyaml ; extra == 'all'
+Requires-Dist: yapf ; extra == 'all'
+Requires-Dist: coverage ; extra == 'all'
+Requires-Dist: lmdb ; extra == 'all'
+Requires-Dist: onnx ; extra == 'all'
+Requires-Dist: onnxoptimizer ; extra == 'all'
+Requires-Dist: onnxruntime ; extra == 'all'
+Requires-Dist: pytest ; extra == 'all'
+Requires-Dist: PyTurboJPEG ; extra == 'all'
+Requires-Dist: scipy ; extra == 'all'
+Requires-Dist: tifffile ; extra == 'all'
+Requires-Dist: regex ; (sys_platform == "win32") and extra == 'all'
+Provides-Extra: build
+Requires-Dist: pytest-runner ; extra == 'build'
+Provides-Extra: optional
+Requires-Dist: ninja ; extra == 'optional'
+Requires-Dist: psutil ; extra == 'optional'
+Provides-Extra: tests
+Requires-Dist: coverage ; extra == 'tests'
+Requires-Dist: lmdb ; extra == 'tests'
+Requires-Dist: onnx ; extra == 'tests'
+Requires-Dist: onnxoptimizer ; extra == 'tests'
+Requires-Dist: onnxruntime ; extra == 'tests'
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: PyTurboJPEG ; extra == 'tests'
+Requires-Dist: scipy ; extra == 'tests'
+Requires-Dist: tifffile ; extra == 'tests'
+

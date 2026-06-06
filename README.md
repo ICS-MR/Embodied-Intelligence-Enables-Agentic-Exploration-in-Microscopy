@@ -150,14 +150,17 @@ define its own model paths and confidence threshold:
 
 ```bash
 uv venv --python 3.10
-uv sync
+pwsh -File scripts/install_mmcv_with_fallback.ps1
 ```
 
-If `uv sync` fails while fetching `mmcv` from OpenMMLab, install `mmcv` separately without changing other dependencies:
+The installer prefers the official OpenMMLab `mmcv` wheel first. If that
+download fails, it automatically falls back to the vendored local wheel in
+`third_party/wheels/`.
+
+If you want the non-`mmcv` dependencies only, run:
 
 ```bash
 uv sync --frozen --no-install-package mmcv
-uv pip install --no-deps mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html
 ```
 
 Useful validation commands:
