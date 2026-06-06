@@ -32,7 +32,6 @@ model/*
 !model/README.md
 third_party/wheels/
 third_party/mmcv_repack/
-docs/VLA/ACT_for_microscopy/
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
