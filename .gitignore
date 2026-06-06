@@ -27,6 +27,8 @@ scripts/*
 model/*
 !model/Download link.txt
 !model/README.md
+third_party/wheels/
+third_party/mmcv_repack/
 
 # Python cache directories anywhere in the repo
 **/__pycache__/

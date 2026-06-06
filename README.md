@@ -150,12 +150,32 @@ define its own model paths and confidence threshold:
 
 ```bash
 uv venv --python 3.10
-pwsh -File scripts/install_mmcv_with_fallback.ps1
+powershell -ExecutionPolicy Bypass -File scripts/install_mmcv_with_fallback.ps1
 ```
 
 The installer prefers the official OpenMMLab `mmcv` wheel first. If that
-download fails, it automatically falls back to the vendored local wheel in
-`third_party/wheels/`.
+download fails, it automatically falls back to a GitHub Release wheel URL.
+By default it uses:
+
+```text
+https://github.com/ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy/releases/download/mmcv-fallback/mmcv-2.1.0-cp310-cp310-win_amd64.whl
+```
+
+You can override the fallback location with:
+
+```bash
+$env:EIMS_MMCV_FALLBACK_URL="https://github.com/<owner>/<repo>/releases/download/<tag>/mmcv-2.1.0-cp310-cp310-win_amd64.whl"
+```
+
+or just override the tag while keeping the current repository/release layout:
+
+```bash
+$env:EIMS_MMCV_RELEASE_TAG="mmcv-fallback"
+```
+
+If the GitHub Release fallback is unavailable, the installer still supports an
+optional local wheel at `third_party/wheels/mmcv-2.1.0-cp310-cp310-win_amd64.whl`.
+That local wheel is optional and should not be committed to Git.
 
 If you want the non-`mmcv` dependencies only, run:
 
