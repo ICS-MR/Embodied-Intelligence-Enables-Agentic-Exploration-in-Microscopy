@@ -2,7 +2,6 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $wheelFilename = "mmcv-2.1.0-cp310-cp310-win_amd64.whl"
-$localWheel = Join-Path $repoRoot "third_party/wheels/$wheelFilename"
 $downloadDir = Join-Path $repoRoot ".runtime/downloads"
 $downloadedWheel = Join-Path $downloadDir $wheelFilename
 $remoteIndex = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html"
@@ -49,18 +48,12 @@ try {
             Write-Host "Installed mmcv from GitHub Release fallback."
         }
         catch {
-            if (Test-Path $localWheel) {
-                Write-Warning "GitHub Release fallback failed. Falling back to local wheel: $localWheel"
-                Install-WheelFile -WheelPath $localWheel
-                Write-Host "Installed mmcv from local fallback wheel."
-            }
-            else {
-                throw (
-                    "GitHub Release fallback failed and no local wheel is available.`n" +
-                    "Release URL: $releaseUrl`n" +
-                    "Optional local wheel path: $localWheel"
-                )
-            }
+            $releaseError = $_.Exception.Message
+            throw (
+                "GitHub Release fallback failed.`n" +
+                "Release URL: $releaseUrl`n" +
+                "Inner error: $releaseError"
+            )
         }
     }
 }

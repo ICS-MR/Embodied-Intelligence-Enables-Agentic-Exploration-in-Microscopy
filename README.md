@@ -173,10 +173,6 @@ or just override the tag while keeping the current repository/release layout:
 $env:EIMS_MMCV_RELEASE_TAG="mmcv-fallback"
 ```
 
-If the GitHub Release fallback is unavailable, the installer still supports an
-optional local wheel at `third_party/wheels/mmcv-2.1.0-cp310-cp310-win_amd64.whl`.
-That local wheel is optional and should not be committed to Git.
-
 If you want the non-`mmcv` dependencies only, run:
 
 ```bash
