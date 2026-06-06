@@ -905,8 +905,6 @@ dependencies = [
     { name = "mistune", marker = "sys_platform == 'win32'" },
     { name = "mkl", marker = "sys_platform == 'win32'" },
     { name = "ml-dtypes", marker = "sys_platform == 'win32'" },
-    { name = "mmcv", marker = "sys_platform == 'win32'" },
-    { name = "mmdet", marker = "sys_platform == 'win32'" },
     { name = "mmengine", marker = "sys_platform == 'win32'" },
     { name = "mmh3", marker = "sys_platform == 'win32'" },
     { name = "mouseinfo", marker = "sys_platform == 'win32'" },
@@ -1212,8 +1210,6 @@ requires-dist = [
     { name = "mistune", specifier = "==3.2.0" },
     { name = "mkl", specifier = "==2021.4.0" },
     { name = "ml-dtypes", specifier = "==0.5.4" },
-    { name = "mmcv", url = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.1.0/mmcv-2.1.0-cp310-cp310-win_amd64.whl" },
-    { name = "mmdet", specifier = "==3.3.0" },
     { name = "mmengine", specifier = "==0.10.7" },
     { name = "mmh3", specifier = "==5.2.0" },
     { name = "mouseinfo", specifier = "==0.1.3" },
@@ -2265,90 +2261,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0e/4a/c27b42ed9b1c7d13d9ba8b6905dece787d6259152f2309338aed29b2447b/ml_dtypes-0.5.4.tar.gz", hash = "sha256:8ab06a50fb9bf9666dd0fe5dfb4676fa2b0ac0f31ecff72a6c3af8e22c063453", size = 692314, upload-time = "2025-11-17T22:32:31.031Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/a3/51886727bd16e2f47587997b802dd56398692ce8c6c03c2e5bb32ecafe26/ml_dtypes-0.5.4-cp310-cp310-win_amd64.whl", hash = "sha256:4ff7f3e7ca2972e7de850e7b8fcbb355304271e2933dd90814c1cb847414d6e2", size = 210738, upload-time = "2025-11-17T22:31:37.43Z" },
-]
-
-[[package]]
-name = "mmcv"
-version = "2.1.0"
-source = { url = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.1.0/mmcv-2.1.0-cp310-cp310-win_amd64.whl" }
-dependencies = [
-    { name = "addict", marker = "sys_platform == 'win32'" },
-    { name = "mmengine", marker = "sys_platform == 'win32'" },
-    { name = "numpy", marker = "sys_platform == 'win32'" },
-    { name = "opencv-python", marker = "sys_platform == 'win32'" },
-    { name = "packaging", marker = "sys_platform == 'win32'" },
-    { name = "pillow", marker = "sys_platform == 'win32'" },
-    { name = "pyyaml", marker = "sys_platform == 'win32'" },
-    { name = "regex", marker = "sys_platform == 'win32'" },
-    { name = "yapf", marker = "sys_platform == 'win32'" },
-]
-wheels = [
-    { url = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.1.0/mmcv-2.1.0-cp310-cp310-win_amd64.whl", hash = "sha256:7f47493a1f329a67a85b4bc8921f6475e20616d2c1d2bbeed118d2d82773d899" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "addict" },
-    { name = "addict", marker = "extra == 'all'" },
-    { name = "coverage", marker = "extra == 'all'" },
-    { name = "coverage", marker = "extra == 'tests'" },
-    { name = "lmdb", marker = "extra == 'all'" },
-    { name = "lmdb", marker = "extra == 'tests'" },
-    { name = "mmengine", specifier = ">=0.3.0" },
-    { name = "mmengine", marker = "extra == 'all'", specifier = ">=0.3.0" },
-    { name = "ninja", marker = "extra == 'all'" },
-    { name = "ninja", marker = "extra == 'optional'" },
-    { name = "numpy" },
-    { name = "numpy", marker = "extra == 'all'" },
-    { name = "onnx", marker = "extra == 'all'" },
-    { name = "onnx", marker = "extra == 'tests'" },
-    { name = "onnxoptimizer", marker = "extra == 'all'" },
-    { name = "onnxoptimizer", marker = "extra == 'tests'" },
-    { name = "onnxruntime", marker = "extra == 'all'" },
-    { name = "onnxruntime", marker = "extra == 'tests'" },
-    { name = "opencv-python", specifier = ">=3" },
-    { name = "packaging" },
-    { name = "packaging", marker = "extra == 'all'" },
-    { name = "pillow" },
-    { name = "pillow", marker = "extra == 'all'" },
-    { name = "psutil", marker = "extra == 'all'" },
-    { name = "psutil", marker = "extra == 'optional'" },
-    { name = "pytest", marker = "extra == 'all'" },
-    { name = "pytest", marker = "extra == 'tests'" },
-    { name = "pytest-runner", marker = "extra == 'all'" },
-    { name = "pytest-runner", marker = "extra == 'build'" },
-    { name = "pyturbojpeg", marker = "extra == 'all'" },
-    { name = "pyturbojpeg", marker = "extra == 'tests'" },
-    { name = "pyyaml" },
-    { name = "pyyaml", marker = "extra == 'all'" },
-    { name = "regex", marker = "sys_platform == 'win32'" },
-    { name = "regex", marker = "sys_platform == 'win32' and extra == 'all'" },
-    { name = "scipy", marker = "extra == 'all'" },
-    { name = "scipy", marker = "extra == 'tests'" },
-    { name = "tifffile", marker = "extra == 'all'" },
-    { name = "tifffile", marker = "extra == 'tests'" },
-    { name = "yapf" },
-    { name = "yapf", marker = "extra == 'all'" },
-]
-provides-extras = ["all", "build", "optional", "tests"]
-
-[[package]]
-name = "mmdet"
-version = "3.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "matplotlib", marker = "sys_platform == 'win32'" },
-    { name = "numpy", marker = "sys_platform == 'win32'" },
-    { name = "pycocotools", marker = "sys_platform == 'win32'" },
-    { name = "scipy", marker = "sys_platform == 'win32'" },
-    { name = "shapely", marker = "sys_platform == 'win32'" },
-    { name = "six", marker = "sys_platform == 'win32'" },
-    { name = "terminaltables", marker = "sys_platform == 'win32'" },
-    { name = "tqdm", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/9e/c897d2fe3c3aa40fd83ea04c6103412cf0bd4db4bb20db4248f5c09673e7/mmdet-3.3.0.tar.gz", hash = "sha256:fe8cc2685d60a2a4f2530a4e92aa6269fe45af93265303a31bf4ea463eb3164f", size = 1249318, upload-time = "2024-01-05T06:25:32.637Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/c7/c2d91161c9b3e1c237ea00e9cefb7f4bfe2854769f56025db415b734aedb/mmdet-3.3.0-py3-none-any.whl", hash = "sha256:2e23e291281ac57e7dccf8678e957da45fbe560ce78a1f5ded6afeccd3730f17", size = 2231444, upload-time = "2024-01-05T06:25:30.116Z" },
 ]
 
 [[package]]
@@ -4021,7 +3933,7 @@ dependencies = [
     { name = "typing-extensions", marker = "sys_platform == 'win32'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu118/torch-2.1.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:eb512249df3083bce7bd3d89d9d1289fa82fe807e714a02b754e66971d358da3" },
+    { url = "https://download-r2.pytorch.org/whl/cu118/torch-2.1.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:eb512249df3083bce7bd3d89d9d1289fa82fe807e714a02b754e66971d358da3", upload-time = "2023-10-06T21:10:36Z" },
 ]
 
 [[package]]
@@ -4032,7 +3944,7 @@ dependencies = [
     { name = "torch", marker = "sys_platform == 'win32'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.1.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:0537d813a600f9a6da9a5e9584390317ca288581e2b27a00e0382399b7a2e302" },
+    { url = "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.1.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:0537d813a600f9a6da9a5e9584390317ca288581e2b27a00e0382399b7a2e302", upload-time = "2023-10-06T21:35:08Z" },
 ]
 
 [[package]]
@@ -4046,7 +3958,7 @@ dependencies = [
     { name = "torch", marker = "sys_platform == 'win32'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu118/torchvision-0.16.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:1042597e3ae225921099129cfc125c1d49e1f932b6fce02921fbe36653dac58c" },
+    { url = "https://download-r2.pytorch.org/whl/cu118/torchvision-0.16.0%2Bcu118-cp310-cp310-win_amd64.whl", hash = "sha256:1042597e3ae225921099129cfc125c1d49e1f932b6fce02921fbe36653dac58c", upload-time = "2023-10-06T21:35:34Z" },
 ]
 
 [[package]]

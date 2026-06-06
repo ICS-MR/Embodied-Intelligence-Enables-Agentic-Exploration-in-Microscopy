@@ -153,83 +153,14 @@ uv venv --python 3.10
 powershell -ExecutionPolicy Bypass -File scripts/install_mmcv_with_fallback.ps1
 ```
 
-The installer prefers the official OpenMMLab `mmcv` wheel first. If that
-download fails, it automatically falls back to a GitHub Release wheel URL.
-By default it uses:
+The installer tries the official OpenMMLab `mmcv` wheel first and
+automatically falls back to the project GitHub Release if needed.
 
-```text
-https://github.com/ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy/releases/download/mmcv-fallback/mmcv-2.1.0-cp310-cp310-win_amd64.whl
-```
-
-You can override the fallback location with:
+Verify the install with:
 
 ```bash
-$env:EIMS_MMCV_FALLBACK_URL="https://github.com/<owner>/<repo>/releases/download/<tag>/mmcv-2.1.0-cp310-cp310-win_amd64.whl"
-```
-
-or just override the tag while keeping the current repository/release layout:
-
-```bash
-$env:EIMS_MMCV_RELEASE_TAG="mmcv-fallback"
-```
-
-If you want the non-`mmcv` dependencies only, run:
-
-```bash
-uv sync --frozen --no-install-package mmcv
-```
-
-Useful validation commands:
-
-```bash
-uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
 uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine.__version__, mmdet.__version__)"
-uv run python -c "import importlib.metadata; print(importlib.metadata.version('cellpose'))"
 ```
-
-### Restore VLA ACT Assets
-
-The large `docs/VLA/ACT_for_microscopy` assets are distributed outside Git so
-that clone and pull stay lightweight. Restore the directory with:
-
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1
-```
-
-This recreates:
-
-```text
-docs/VLA/ACT_for_microscopy
-```
-
-If you need to overwrite an existing restored directory:
-
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1 -Force
-```
-
-The downloader uses the `vla-act-assets` GitHub Release by default. You can
-override the source with:
-
-```bash
-$env:EIMS_VLA_ACT_RELEASE_TAG="vla-act-assets"
-$env:EIMS_VLA_ACT_REPO="ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy"
-```
-
-or provide a direct base URL that already contains the packaged zip assets:
-
-```bash
-$env:EIMS_VLA_ACT_BASE_URL="https://github.com/<owner>/<repo>/releases/download/<tag>"
-```
-
-For maintainers, build the uploadable zip assets from a local restored copy:
-
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/package_vla_act_assets.ps1
-```
-
-That command writes zip packages to `dist/vla_act_assets/`. Upload those zips
-to the `vla-act-assets` release to keep the downloader working.
 
 ### Configure Micro-Manager
 

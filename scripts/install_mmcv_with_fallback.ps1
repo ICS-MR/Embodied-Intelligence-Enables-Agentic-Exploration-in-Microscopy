@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $wheelFilename = "mmcv-2.1.0-cp310-cp310-win_amd64.whl"
+$mmdetVersion = "3.3.0"
 $downloadDir = Join-Path $repoRoot ".runtime/downloads"
 $downloadedWheel = Join-Path $downloadDir $wheelFilename
 $remoteIndex = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html"
@@ -27,10 +28,10 @@ function Install-WheelFile {
 
 Push-Location $repoRoot
 try {
-    Write-Host "Installing all dependencies except mmcv..."
-    & uv sync --frozen --no-install-package mmcv
+    Write-Host "Installing base dependencies..."
+    & uv sync --frozen
     if ($LASTEXITCODE -ne 0) {
-        throw "uv sync failed before mmcv installation."
+        throw "uv sync failed before MMDetection stack installation."
     }
 
     Write-Host "Trying remote mmcv wheel from OpenMMLab..."
@@ -55,6 +56,12 @@ try {
                 "Inner error: $releaseError"
             )
         }
+    }
+
+    Write-Host "Installing mmdet..."
+    & uv pip install --no-deps --force-reinstall "mmdet==$mmdetVersion"
+    if ($LASTEXITCODE -ne 0) {
+        throw "mmdet installation failed."
     }
 }
 finally {
