@@ -143,6 +143,11 @@ define its own model paths and confidence threshold:
 }
 ```
 
+The `model_checkpoint` path remains a local runtime path. Large model weights such as
+`weights/2Dcell.pth` are intended to be distributed through GitHub Releases rather than
+stored directly in the git history. Download the release asset and place it at the path
+referenced by `model_checkpoint`.
+
 ## Quick Start
 
 ### Requirements
@@ -169,6 +174,18 @@ Verify the install with:
 ```bash
 uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine.__version__, mmdet.__version__)"
 ```
+
+### Download Model Weights
+
+Some detector checkpoints are too large for normal git storage. For example, the
+`2Dcell` detector expects:
+
+```text
+weights/2Dcell.pth
+```
+
+Download that file from the project GitHub Release assets and place it in the local
+`weights/` directory before running `2Dcell` detection.
 
 ### Configure Micro-Manager
 
