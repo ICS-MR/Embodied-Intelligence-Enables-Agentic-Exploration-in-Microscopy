@@ -177,16 +177,23 @@ uv run python -c "import mmcv, mmengine, mmdet; print(mmcv.__version__, mmengine
 
 ### Download Model Weights
 
-Some detector checkpoints are too large for normal git storage. For example, the
-`2Dcell` detector expects:
+Some detector checkpoints are too large for normal git storage. Detector weights are
+distributed through the `detector-weights` prerelease rather than stored in the main git
+tree.
+
+Restore the detector weights locally with:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/download_detector_weights.ps1
+```
+
+This installs the current checkpoints to:
 
 ```text
 weights/2Dcell.pth
+weights/organoid.pth
+weights/mitosis_best.pth
 ```
-
-Download that file from the project GitHub Release assets and place it in the local
-`weights/` directory before running `2Dcell` detection. The current checkpoint is
-published in the `2dcell-weight` prerelease.
 
 ### Restore VLA ACT Assets
 
