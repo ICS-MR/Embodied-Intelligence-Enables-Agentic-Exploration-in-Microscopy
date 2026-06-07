@@ -185,7 +185,8 @@ weights/2Dcell.pth
 ```
 
 Download that file from the project GitHub Release assets and place it in the local
-`weights/` directory before running `2Dcell` detection.
+`weights/` directory before running `2Dcell` detection. The current checkpoint is
+published in the `2dcell-weight` prerelease.
 
 ### Configure Micro-Manager
 
