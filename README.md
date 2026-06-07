@@ -197,8 +197,9 @@ weights/mitosis_best.pth
 
 ### Restore VLA ACT Assets
 
-The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the
-`vla-act-assets` release rather than stored in the main git tree. Restore it locally with:
+The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
+repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy)
+rather than stored in the main git tree. Restore it locally with:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1

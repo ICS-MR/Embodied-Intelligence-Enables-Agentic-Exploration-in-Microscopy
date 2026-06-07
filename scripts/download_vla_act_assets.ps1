@@ -1,6 +1,6 @@
 param(
-    [string]$Repo = $(if ($env:EIMS_VLA_ACT_REPO) { $env:EIMS_VLA_ACT_REPO } else { "ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy" }),
-    [string]$ReleaseTag = $(if ($env:EIMS_VLA_ACT_RELEASE_TAG) { $env:EIMS_VLA_ACT_RELEASE_TAG } else { "vla-act-assets" }),
+    [string]$Repo = $(if ($env:EIMS_VLA_ACT_REPO) { $env:EIMS_VLA_ACT_REPO } else { "404lzh/ACT_for_microscopy" }),
+    [string]$Revision = $(if ($env:EIMS_VLA_ACT_REVISION) { $env:EIMS_VLA_ACT_REVISION } else { "main" }),
     [string]$AssetBaseUrl = $env:EIMS_VLA_ACT_BASE_URL,
     [string]$TargetRoot,
     [string]$AssetDir,
@@ -44,7 +44,7 @@ function Get-AssetUrl {
         return ($AssetBaseUrl.TrimEnd('/') + "/" + $Name)
     }
 
-    return "https://github.com/$Repo/releases/download/$ReleaseTag/$Name"
+    return "https://huggingface.co/$Repo/resolve/$Revision/$Name"
 }
 
 if (Test-Path $targetDir) {
