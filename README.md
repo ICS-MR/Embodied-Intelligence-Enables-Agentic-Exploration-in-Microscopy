@@ -199,10 +199,11 @@ weights/mitosis_best.pth
 
 The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
 repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy)
-rather than stored in the main git tree. Restore it locally with:
+rather than stored in the main git tree. Download or clone that repository separately and
+place its contents under:
 
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1
+```text
+docs/VLA/ACT_for_microscopy
 ```
 
 ### Configure Micro-Manager
