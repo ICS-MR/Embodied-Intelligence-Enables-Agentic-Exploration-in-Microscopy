@@ -32,6 +32,7 @@ model/*
 !model/README.md
 third_party/wheels/
 third_party/mmcv_repack/
+weights/2Dcell.pth
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
