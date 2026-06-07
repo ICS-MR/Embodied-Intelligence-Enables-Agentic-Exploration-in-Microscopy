@@ -1,4 +1,5 @@
 import json
+import inspect
 import logging
 import os
 import xml.etree.ElementTree as ET
@@ -63,6 +64,26 @@ class Cellpose2D(BaseTool):
         self.output_directory: str = output_path
         self.model = None  # Initialize model as None
         self._use_GPU = None  # Record GPU usage status
+
+    def _build_model_init_kwargs(
+        self,
+        *,
+        use_gpu: bool,
+        model_type: str | None,
+        resolved_device: str,
+    ) -> dict[str, object]:
+        kwargs: dict[str, object] = {"gpu": use_gpu}
+        if model_type is not None:
+            kwargs["pretrained_model"] = model_type
+
+        if resolved_device:
+            try:
+                signature = inspect.signature(cellpose_models.CellposeModel)
+            except Exception:
+                signature = None
+            if signature is not None and "device" in signature.parameters:
+                kwargs["device"] = resolved_device
+        return kwargs
 
     def _resolve_input_path(self, file_path: str | Path) -> Path:
         candidate = Path(file_path).expanduser()
@@ -422,10 +443,12 @@ class Cellpose2D(BaseTool):
             use_gpu = detected_gpu if gpu is None else bool(gpu and detected_gpu)
 
         self._use_GPU = use_gpu
-        if model_type is None:
-            self.model = cellpose_models.CellposeModel(gpu=use_gpu)
-        else:
-            self.model = cellpose_models.CellposeModel(gpu=use_gpu, pretrained_model=model_type)
+        model_kwargs = self._build_model_init_kwargs(
+            use_gpu=use_gpu,
+            model_type=model_type,
+            resolved_device=resolved_device,
+        )
+        self.model = cellpose_models.CellposeModel(**model_kwargs)
     @tool_func
     def cellpose_read(
         self,
@@ -625,11 +648,16 @@ class Cellpose2D(BaseTool):
             raise ValueError(f"Mask must be a 2D array, but got {masks.ndim} dimensions")
 
         output_path = Path(self.output_directory, filename).expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        masks_array = np.asarray(masks)
+        max_label = int(np.max(masks_array)) if masks_array.size else 0
 
         try:
-            # Cellpose 4.0 recommended save format
-            tifffile.imwrite(output_path, masks.astype('uint16'), compression='zlib')
-            self._storagemanger.register_file(filename, description, 'cellpose', 'tiff')
+            # Preserve label integrity for large tiled segmentations that may exceed
+            # the uint16 range.
+            save_dtype = np.uint16 if max_label <= np.iinfo(np.uint16).max else np.uint32
+            tifffile.imwrite(output_path, masks_array.astype(save_dtype, copy=False), compression='zlib')
+            self._storagemanger.register_file(str(Path(filename).name), description, 'cellpose', 'tiff')
             return output_path
         except Exception as e:
             raise IOError(f"Failed to save mask: {e}")
@@ -640,6 +668,7 @@ class Cellpose2D(BaseTool):
             raise ValueError("Input must be a pandas DataFrame")
 
         output_path = Path(self.output_directory, filename).expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             df.to_csv(output_path, index=False)
             self._storagemanger.register_file(str(Path(filename).name), "Cellpose analysis CSV", 'cellpose', 'csv')
@@ -772,10 +801,6 @@ class Cellpose2D(BaseTool):
         # Convert to RGB (remove Alpha channel)
         colored_mask_rgb = (colored_mask[:, :, :3] * 255).astype(np.uint8)
 
-        # Save colored mask (optional)
-        output_path = Path(self.output_directory, "colored_mask.png")
-        io.imsave(output_path, colored_mask_rgb)
-
         return colored_mask_rgb
 
     @tool_func
@@ -795,6 +820,7 @@ class Cellpose2D(BaseTool):
         # Generate and save colored mask
         colored_mask = self.color_masks(masks)
         color_path = Path(self.output_directory, f"{base_filename}_colored.png")
+        color_path.parent.mkdir(parents=True, exist_ok=True)
         io.imsave(color_path, colored_mask)
 
         # Analyze and save statistical data
@@ -805,6 +831,7 @@ class Cellpose2D(BaseTool):
         if image is not None:
             overlay = self._create_overlay(image, masks)
             overlay_path = Path(self.output_directory, f"{base_filename}_overlay.png")
+            overlay_path.parent.mkdir(parents=True, exist_ok=True)
             io.imsave(overlay_path, overlay)
 
     def _create_overlay(self, image: np.ndarray, masks: np.ndarray, alpha: float = 0.5) -> np.ndarray:

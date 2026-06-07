@@ -16,6 +16,8 @@ os.environ["BFIO_LOG_TO_FILE"] = "0"
 
 
 ROOT_DIR = Path(__file__).parent
+logger = logging.getLogger("uvicorn.error")
+logger.info("Server is starting. Please wait for 'Application startup complete.' before opening http://127.0.0.1:8000")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +42,7 @@ app.include_router(stream_router)
 @app.on_event("startup")
 async def startup_event() -> None:
     await app.state.runtime_manager.startup()
+    logger.info("Backend startup finished. The web UI is ready at http://127.0.0.1:8000")
 
 
 @app.on_event("shutdown")

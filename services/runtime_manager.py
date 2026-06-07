@@ -1,6 +1,7 @@
 ﻿import asyncio
 import json
 import logging
+import re
 import subprocess
 import sys
 import time
@@ -469,11 +470,55 @@ class RuntimeManager:
     def _build_failure_message(self, step: str, exc: Exception) -> str:
         detail = str(exc).strip() or type(exc).__name__
         if step == "startup_state_apply":
+            normalized_detail = detail.lower()
+            if normalized_detail in {"xy position out of range", "z position out of range"}:
+                try:
+                    settings = load_runtime_settings()
+                    startup = settings.startup
+                    system = settings.system
+                    return (
+                        "Initialization failed while applying the startup stage position. "
+                        f"Saved startup position: X={startup.x_position}, Y={startup.y_position}, Z={startup.z_position}. "
+                        f"Allowed range: X {system.Min_X_position} to {system.Max_X_position}, "
+                        f"Y {system.Min_Y_position} to {system.Max_Y_position}, "
+                        f"Z {system.Min_Z_position} to {system.Max_Z_position}. "
+                        "The stage origin may not be aligned with the saved startup coordinates, so the requested startup position falls outside the configured travel range."
+                    )
+                except Exception:
+                    return (
+                        "Initialization failed while applying the startup stage position because it is outside the configured travel range. "
+                        "The stage origin may not be aligned with the saved startup coordinates."
+                    )
             return (
                 f"Initialization failed during {step}: {detail}. "
                 "XY initial movement was not executed during startup."
             )
         return f"Initialization failed during {step}: {detail}"
+
+    def humanize_exception_message(self, exc: Exception, *, context: str = "runtime") -> str:
+        detail = str(exc).strip() or type(exc).__name__
+        normalized = detail.lower()
+
+        if normalized == "xy position out of range":
+            return "The requested XY stage position is outside the configured travel range."
+        if normalized == "z position out of range":
+            return "The requested Z stage position is outside the configured travel range."
+        if normalized == "stitching area out of range":
+            return "The requested stitching area extends outside the configured stage travel range."
+        if "validation error for taskexecutionresponse" in normalized:
+            return "The backend produced an invalid internal task response."
+        if re.search(r"timed out after \d+s", normalized):
+            if context == "initialization":
+                return "System initialization timed out while waiting for a runtime or hardware step to finish."
+            if context == "execution":
+                return "Task execution timed out while waiting for a runtime or hardware step to finish."
+            return "An internal operation timed out while waiting for a runtime or hardware step to finish."
+
+        if context == "execution":
+            return "Task execution failed because of an internal runtime error."
+        if context == "initialization":
+            return "System initialization failed because of an internal runtime error."
+        return "The system encountered an internal runtime error."
 
     async def _finalize_init_failure(self, step: str, exc: Exception, runtime_context: RuntimeContext | None = None) -> dict[str, Any]:
         if runtime_context is not None:
@@ -599,7 +644,7 @@ class RuntimeManager:
 
         simulation_mode = bool(runtime_context.runtime["agent"].Simulation_mode)
         ready_message = (
-            "System initialization completed. Currently using Empty_function simulated hardware. Open the runtime page to start live preview."
+            "System initialization completed. Simulation mode is active. Open the runtime page to start live preview."
             if simulation_mode
             else "System initialization completed. Open the runtime page to start live preview."
         )
@@ -922,7 +967,7 @@ class RuntimeManager:
                     )
                     self._send_message("task_complete", "")
                     return self._make_task_response(
-                        status="unsupported",
+                        status="failed",
                         retry_times=0,
                         summary=str(getattr(plan, "planner_raw_response", "") or getattr(plan, "error", "") or unsupported_text),
                         task_id=plan.task_id if plan is not None else uuid.uuid4().hex,
@@ -1066,7 +1111,7 @@ class RuntimeManager:
                 break
             except Exception as exc:
                 logger.error("SSE generator error: %s", exc)
-                yield f"data: {json.dumps({'type': 'error', 'text': str(exc)})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'text': self.humanize_exception_message(exc)})}\n\n"
 
     async def receive_user_input(self, text: str) -> dict[str, str]:
         if not self.app_state.session.is_asking_user:

@@ -62,7 +62,8 @@ async def execute_command_api(req: CommandRequest, runtime_manager=Depends(get_r
     try:
         return TaskExecutionResponse.model_validate(await runtime_manager.execute_command(command))
     except Exception as exc:
-        runtime_manager.enqueue_output_message({"type": "error", "text": f"Execution failed: {exc}"})
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        message = runtime_manager.humanize_exception_message(exc, context="execution")
+        runtime_manager.enqueue_output_message({"type": "error", "text": message})
+        raise HTTPException(status_code=500, detail=message) from exc
     finally:
         runtime_manager.app_state.task.running = False

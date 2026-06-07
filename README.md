@@ -14,7 +14,7 @@ planner skills, session history, and structured runtime configuration.
 - Confirm-before-execute workflow before microscope actions run
 - Web runtime with configuration, initialization, preview, execution updates, and summaries
 - CLI runtime for direct research and debugging workflows
-- Hardware-free simulation through `Empty_function.py`
+- Hardware-free simulation mode for safe workflow testing
 - Real microscope runtime through Micro-Manager and `pymmcore-plus`
 - Fiji/ImageJ integration for image processing and analysis
 - Cellpose and MMDetection integration for segmentation and target detection
@@ -57,7 +57,7 @@ from the runtime configuration and `config/tool_manifest.json`.
 ```text
 .
 |-- app.py                         # FastAPI Web runtime
-|-- app_mock.py                    # lightweight mock Web runtime
+|-- app_mock.py                    # internal mock Web runtime helper for development
 |-- main.py                        # CLI runtime
 |-- api/                           # API routes and response models
 |-- services/                      # runtime manager and task orchestration
@@ -79,8 +79,8 @@ from the runtime configuration and `config/tool_manifest.json`.
 
 EIMS has two runtime modes:
 
-- `Simulation_mode=true`: uses the hardware-free mock tool chain in `Empty_function.py`.
-- `Simulation_mode=false`: uses real tools under `core_tool/`.
+- `Simulation_mode=true`: runs EIMS in simulation mode without real microscope hardware.
+- `Simulation_mode=false`: runs EIMS against the real microscope and related tool stack.
 
 Use simulation mode when developing prompts, tools, and task plans. Switch to real mode
 only after Micro-Manager, hardware limits, Fiji, model paths, and API credentials are
@@ -268,12 +268,6 @@ Open:
 http://127.0.0.1:8000
 ```
 
-For a lighter mock UI flow:
-
-```bash
-uv run uvicorn app_mock:app --reload
-```
-
 ### Run the CLI Runtime
 
 ```bash
@@ -382,7 +376,7 @@ Representative task prompts live in `docs/test_tasks/task.txt`.
 ## Safety Notes
 
 Real microscope operation can damage samples or hardware if configuration is wrong.
-Before running with `Simulation_mode=false`:
+Before running in real hardware mode:
 
 - verify the Micro-Manager `.cfg` in the official Micro-Manager GUI
 - configure objective, XY, Z, brightness, and exposure limits
@@ -396,18 +390,25 @@ automation. Use simulation mode for new workflows before running on hardware.
 
 ## Licensing Notes
 
-EIMS is distributed as a combined work that incorporates Fiji/ImageJ and
-Micro-Manager.
+Unless otherwise noted, the original EIMS source code in this repository is made
+available under the BSD 3-Clause License. See
+[LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause).
 
-- The overall EIMS distribution is licensed under GPLv3. See [LICENSE](LICENSE).
-- The original code specifically developed for EIMS is also made available under
-  the BSD 3-Clause License. See [LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause).
-- Fiji is distributed under GPL-related licensing, with ImageJ2 components under
-  BSD-style licenses. Individual plugins may have their own licenses.
-- Micro-Manager is an open-source project under a BSD-style license.
+Some runtime workflows depend on third-party software, datasets, models, or
+plugins that are licensed separately from EIMS. In particular:
 
-For external redistribution or commercial deployment, review both the project
-licenses above and the upstream licenses of bundled or integrated dependencies.
+- Fiji/ImageJ and its plugins are subject to their own upstream licenses.
+- Micro-Manager is subject to its own upstream license.
+- Individual model weights, detector checkpoints, and external tools referenced by
+  EIMS may have additional license terms or redistribution restrictions.
+
+This repository's license does not replace or override the licenses of those
+third-party components. If you download, bundle, redistribute, or deploy EIMS
+together with external dependencies, you are responsible for reviewing and
+complying with the applicable upstream license terms.
+
+The file [LICENSE](LICENSE) provides additional project-level licensing context
+for combined distributions and integrated dependency scenarios.
 
 ## Contributions
 
