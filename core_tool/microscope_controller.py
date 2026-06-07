@@ -1098,11 +1098,16 @@ class MicroscopeController(BaseTool):
         *,
         pixel_sizes: PhysicalPixelSizes,
         channel_names: List[str],
+        num_frames_captured: Optional[int] = None,
     ) -> ImagingData:
         save_path = os.path.join(self.output_directory, f"{position_record['name']}.ome.tif")
         os.makedirs(self.output_directory, exist_ok=True)
+        captured_frames = int(num_frames_captured) if num_frames_captured is not None else int(position_record["data"].shape[0])
+        if captured_frames < 1:
+            raise ValueError("No time-series frames were captured for this acquisition position")
+        captured_data = position_record["data"][:captured_frames]
         self._save_ome_tiff(
-            position_record["data"],
+            captured_data,
             save_path,
             pixel_sizes,
             position_record["metadata"],
@@ -1125,7 +1130,7 @@ class MicroscopeController(BaseTool):
         )
 
         imaging_data = ImagingData(
-            image=position_record["data"],
+            image=captured_data,
             center_x=position_record["metadata"]["center_x"],
             center_y=position_record["metadata"]["center_y"],
             center_z=position_record["metadata"]["center_z"],
@@ -1169,9 +1174,13 @@ class MicroscopeController(BaseTool):
     @tool_func
     def set_time_series(self, num_frames: int, interval_sec: float) -> None:
         """Configure time-series acquisition parameters."""
+        if int(num_frames) < 1:
+            raise ValueError("num_frames must be at least 1.")
+        if float(interval_sec) < 0:
+            raise ValueError("interval_sec must be non-negative.")
         self.time_lapse_params = {
-            "num_frames": num_frames,
-            "interval_sec": interval_sec
+            "num_frames": int(num_frames),
+            "interval_sec": float(interval_sec)
         }
     @tool_func
     def run_acquisition(self) -> List[ImagingData]:
@@ -1209,6 +1218,7 @@ class MicroscopeController(BaseTool):
                 num_frames=time_num_frames,
                 z_positions=z_positions,
             )
+            completed_timepoints = 0
 
             try:
                 for t_idx in range(time_num_frames):
@@ -1221,11 +1231,22 @@ class MicroscopeController(BaseTool):
                             time_index=t_idx,
                             z_positions=z_positions,
                         )
+                    completed_timepoints = t_idx + 1
 
                     if time_num_frames > 1 and t_idx < time_num_frames - 1:
                         elapsed = time.time() - start_time
+                        if elapsed > tim_interval:
+                            logger.warning(
+                                "Time-series acquisition overran the requested interval: elapsed=%.3fs, requested_interval=%.3fs. "
+                                "The next frame will start immediately.",
+                                elapsed,
+                                tim_interval,
+                            )
                         wait_time = max(0, tim_interval - elapsed)
                         time.sleep(wait_time)
+
+                if completed_timepoints < 1:
+                    return acquisition_imaging_data_list
 
                 pixel_sizes = PhysicalPixelSizes(
                     Z=z_stack_params["z_step"],
@@ -1238,6 +1259,7 @@ class MicroscopeController(BaseTool):
                             pos_item,
                             pixel_sizes=pixel_sizes,
                             channel_names=channels_name,
+                            num_frames_captured=completed_timepoints,
                         )
                     )
 

@@ -37,8 +37,8 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
         "target_class_name": "2Dcell",
         "score_thr": 0.2,
         "output_filename": "2Dcell_locations_list.json",
-        "model_config": "",
-        "model_checkpoint": "",
+        "model_config": "detector_configs/2dcell.py",
+        "model_checkpoint": "weights/2Dcell.pth",
     },
     "organoid": {
         "target_class_id": 0,
