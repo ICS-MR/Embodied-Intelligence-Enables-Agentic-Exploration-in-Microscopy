@@ -18,6 +18,7 @@ except Exception:
     cv2 = None
 import cellpose.core as cellpose_core
 import cellpose.models as cellpose_models
+import torch
 
 from core_tool.spatial_metadata import load_ome_spatial_metadata
 from tool.base import BaseTool, tool_func
@@ -82,7 +83,7 @@ class Cellpose2D(BaseTool):
             except Exception:
                 signature = None
             if signature is not None and "device" in signature.parameters:
-                kwargs["device"] = resolved_device
+                kwargs["device"] = torch.device(resolved_device)
         return kwargs
 
     def _resolve_input_path(self, file_path: str | Path) -> Path:
