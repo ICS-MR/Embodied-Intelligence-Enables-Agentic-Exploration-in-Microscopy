@@ -188,6 +188,15 @@ Download that file from the project GitHub Release assets and place it in the lo
 `weights/` directory before running `2Dcell` detection. The current checkpoint is
 published in the `2dcell-weight` prerelease.
 
+### Restore VLA ACT Assets
+
+The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the
+`vla-act-assets` release rather than stored in the main git tree. Restore it locally with:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/download_vla_act_assets.ps1
+```
+
 ### Configure Micro-Manager
 
 Install a compatible Micro-Manager build:

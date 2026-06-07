@@ -34,6 +34,9 @@ model/*
 third_party/wheels/
 third_party/mmcv_repack/
 docs/VLA/Mircomanipulation_tool/.codex
+weights/2Dcell.pth
+docs/VLA/ACT_for_microscopy/*
+!docs/VLA/ACT_for_microscopy/README.md
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
