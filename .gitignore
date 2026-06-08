@@ -28,6 +28,7 @@ scripts/*
 !scripts/install_mmcv_with_fallback.ps1
 !scripts/download_detector_weights.ps1
 !scripts/package_vla_act_assets.ps1
+!scripts/run_generated_imagej_code.py
 model/*
 !model/Download link.txt
 !model/README.md
