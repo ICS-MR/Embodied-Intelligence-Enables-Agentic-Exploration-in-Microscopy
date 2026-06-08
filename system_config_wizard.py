@@ -436,7 +436,12 @@ def resolve_fiji_root(fiji_dir: Path) -> Path:
     )
 
 
-def _iter_fiji_root_candidates(root: Path, *, max_depth: int = 3) -> List[Path]:
+def _iter_fiji_root_candidates(
+    root: Path,
+    *,
+    max_depth: int = 3,
+    include_extract_tmp: bool = False,
+) -> List[Path]:
     base = root.expanduser().resolve()
     if not base.exists():
         return []
@@ -446,7 +451,7 @@ def _iter_fiji_root_candidates(root: Path, *, max_depth: int = 3) -> List[Path]:
 
     def add(candidate: Path) -> None:
         resolved = candidate.resolve()
-        if any(part.lower() == "_fiji_extract_tmp" for part in resolved.parts):
+        if not include_extract_tmp and any(part.lower() == "_fiji_extract_tmp" for part in resolved.parts):
             return
         if resolved not in seen:
             seen.add(resolved)
@@ -621,7 +626,7 @@ def install_fiji(dest: Path, *, update_runtime_config: bool) -> Path:
             archive_path.unlink()
 
     extracted_root: Optional[Path] = None
-    for candidate in _iter_fiji_root_candidates(extract_root):
+    for candidate in _iter_fiji_root_candidates(extract_root, include_extract_tmp=True):
         try:
             extracted_root = resolve_fiji_root(candidate)
             break
