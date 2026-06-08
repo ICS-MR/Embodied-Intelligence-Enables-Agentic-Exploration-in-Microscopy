@@ -51,6 +51,45 @@ DEFAULT_GLOBAL_TILE_IOU_THRESHOLD = 0.2
 DEFAULT_TILE_EDGE_MARGIN = 32.0
 
 
+def _find_bundled_fiji_java_home(fiji_root: str | os.PathLike[str] | None) -> Optional[Path]:
+    if not fiji_root:
+        return None
+    java_root = Path(fiji_root).expanduser().resolve() / "java"
+    if not java_root.is_dir():
+        return None
+
+    java_names = {"java.exe", "java"}
+    candidates: List[Path] = []
+    for candidate in java_root.rglob("*"):
+        if candidate.is_file() and candidate.name.lower() in java_names and candidate.parent.name.lower() == "bin":
+            candidates.append(candidate.parent.parent)
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda path: len(path.parts))
+    return candidates[0]
+
+
+def _prefer_java_home(java_home: Path) -> None:
+    java_home = java_home.expanduser().resolve()
+    bin_dir = java_home / "bin"
+    if not bin_dir.is_dir():
+        raise FileNotFoundError(f"Java bin directory not found under {java_home}")
+
+    path_entries = os.environ.get("PATH", "").split(os.pathsep) if os.environ.get("PATH") else []
+    normalized_bin = str(bin_dir)
+    filtered_entries: List[str] = []
+    for entry in path_entries:
+        try:
+            if Path(entry).expanduser().resolve() == bin_dir:
+                continue
+        except OSError:
+            pass
+        filtered_entries.append(entry)
+    os.environ["JAVA_HOME"] = str(java_home)
+    os.environ["PATH"] = os.pathsep.join([normalized_bin, *filtered_entries]) if filtered_entries else normalized_bin
+
+
 
 def _iter_detection_tiles(image_shape: tuple[int, int], tile_size: int, tile_overlap: int = 0):
     height, width = image_shape
@@ -717,6 +756,10 @@ class ImageJProcessor(BaseTool):
                 "Configure Fiji first, for example:\n"
                 "  uv run python system_config_wizard.py --setup-fiji"
             )
+        bundled_java_home = _find_bundled_fiji_java_home(fiji_path)
+        if bundled_java_home is not None:
+            _prefer_java_home(bundled_java_home)
+            print(f"Using bundled Fiji JDK: {bundled_java_home}")
         if shutil.which("java") is None:
             raise RuntimeError(
                 "Java was not found on PATH. pyimagej requires a working Java/JDK environment.\n"
@@ -1641,29 +1684,38 @@ class ImageJProcessor(BaseTool):
             TrackMate = jimport("fiji.plugin.trackmate.TrackMate")
             LogDetectorFactory = jimport("fiji.plugin.trackmate.detection.LogDetectorFactory")
             SparseLAPTrackerFactory = jimport("fiji.plugin.trackmate.tracking.jaqaman.SparseLAPTrackerFactory")
-            LAPUtils = jimport("fiji.plugin.trackmate.tracking.LAPUtils")
+            try:
+                LAPUtils = jimport("fiji.plugin.trackmate.tracking.jaqaman.LAPUtils")
+            except Exception:
+                LAPUtils = jimport("fiji.plugin.trackmate.tracking.LAPUtils")
+            TrackerKeys = jimport("fiji.plugin.trackmate.tracking.TrackerKeys")
             HashMap = jimport("java.util.HashMap")
+            JDouble = jimport("java.lang.Double")
+            JInteger = jimport("java.lang.Integer")
+            JBoolean = jimport("java.lang.Boolean")
 
             model = Model()
-            settings = Settings()
-            settings.setFrom(imp)
+            settings = Settings(imp)
 
             detector_settings = HashMap()
-            detector_settings.put("DO_SUBPIXEL_LOCALIZATION", True)
-            detector_settings.put("RADIUS", float(spot_radius_um))
-            detector_settings.put("TARGET_CHANNEL", int(channel_index))
-            detector_settings.put("THRESHOLD", 0.0)
-            detector_settings.put("DO_MEDIAN_FILTERING", False)
+            detector_settings.put("DO_SUBPIXEL_LOCALIZATION", JBoolean(True))
+            detector_settings.put("RADIUS", JDouble(float(spot_radius_um)))
+            detector_settings.put("TARGET_CHANNEL", JInteger(int(channel_index)))
+            detector_settings.put("THRESHOLD", JDouble(0.0))
+            detector_settings.put("DO_MEDIAN_FILTERING", JBoolean(False))
             settings.detectorFactory = LogDetectorFactory()
             settings.detectorSettings = detector_settings
 
-            tracker_settings = LAPUtils.getDefaultLAPSettingsMap()
-            tracker_settings.put("LINKING_MAX_DISTANCE", float(max_linking_distance_um))
-            tracker_settings.put("ALLOW_GAP_CLOSING", True)
-            tracker_settings.put("GAP_CLOSING_MAX_DISTANCE", float(max_linking_distance_um) * 1.5)
-            tracker_settings.put("GAP_CLOSING_MAX_FRAME_GAP", 2)
-            tracker_settings.put("ALLOW_TRACK_SPLITTING", False)
-            tracker_settings.put("ALLOW_TRACK_MERGING", False)
+            if hasattr(LAPUtils, "getDefaultLAPSettingsMap"):
+                tracker_settings = LAPUtils.getDefaultLAPSettingsMap()
+            else:
+                tracker_settings = LAPUtils.getDefaultSegmentSettingsMap()
+            tracker_settings.put(TrackerKeys.KEY_LINKING_MAX_DISTANCE, JDouble(float(max_linking_distance_um)))
+            tracker_settings.put(TrackerKeys.KEY_ALLOW_GAP_CLOSING, JBoolean(True))
+            tracker_settings.put(TrackerKeys.KEY_GAP_CLOSING_MAX_DISTANCE, JDouble(float(max_linking_distance_um) * 1.5))
+            tracker_settings.put(TrackerKeys.KEY_GAP_CLOSING_MAX_FRAME_GAP, JInteger(2))
+            tracker_settings.put(TrackerKeys.KEY_ALLOW_TRACK_SPLITTING, JBoolean(False))
+            tracker_settings.put(TrackerKeys.KEY_ALLOW_TRACK_MERGING, JBoolean(False))
             settings.trackerFactory = SparseLAPTrackerFactory()
             settings.trackerSettings = tracker_settings
 

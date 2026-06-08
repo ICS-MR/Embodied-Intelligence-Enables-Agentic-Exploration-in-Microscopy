@@ -243,7 +243,9 @@ uv run python system_config_wizard.py --check-fiji
 
 `--setup-fiji` first tries to reuse an existing local Fiji installation. If no valid
 Fiji install is detected, it automatically downloads Fiji to the default EIMS runtime
-location, updates `FIJI_PATH`, and then validates the Java/pyimagej stack.
+location, updates `FIJI_PATH`, and then validates the Java/pyimagej stack. EIMS now
+prefers Fiji's official `stable` download channel instead of `latest` to reduce
+TrackMate/API compatibility drift.
 
 On Windows, the default automatic download location is typically:
 

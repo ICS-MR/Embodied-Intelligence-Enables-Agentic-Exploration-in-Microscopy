@@ -39,7 +39,7 @@ FILTER_COLOR_HINTS: Tuple[Tuple[Tuple[str, ...], Tuple[int, int, int]], ...] = (
 DEFAULT_MMCORE_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Micro-Manager"
 DEFAULT_FIJI_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Fiji"
 FIJI_MANUAL_DOWNLOAD_URL = "https://imagej.net/software/fiji/"
-FIJI_DOWNLOAD_BASE_URL = "https://downloads.imagej.net/fiji/latest"
+FIJI_DOWNLOAD_BASE_URL = os.environ.get("EIMS_FIJI_DOWNLOAD_BASE_URL", "https://downloads.imagej.net/fiji/stable")
 
 
 @dataclass
@@ -398,19 +398,25 @@ def open_mmstudio(mm_dir: Optional[Path] = None) -> Path:
 def is_fiji_root(path: Path) -> bool:
     if not path.exists() or not path.is_dir():
         return False
-    has_launcher = any(
-        (path / name).exists()
-        for name in (
-            "ImageJ-win64.exe",
-            "ImageJ-win32.exe",
-            "ImageJ.exe",
-            "Fiji.exe",
-            "ImageJ-linux64",
-            "ImageJ-macosx",
-        )
-    ) or any(candidate.is_file() for candidate in path.glob("ImageJ*"))
-    has_fiji_layout = (path / "jars").is_dir() or (path / "plugins").is_dir()
-    return has_launcher and has_fiji_layout
+    launcher_names = (
+        "ImageJ-win64.exe",
+        "ImageJ-win32.exe",
+        "ImageJ.exe",
+        "Fiji.exe",
+        "fiji-windows-x64.exe",
+        "fiji-windows.exe",
+        "fiji-linux64",
+        "fiji-linux-x64",
+        "fiji-macosx",
+        "ImageJ-linux64",
+        "ImageJ-macosx",
+        "fiji",
+        "fiji.bat",
+    )
+    has_launcher = any((path / name).is_file() for name in launcher_names)
+    has_fiji_layout = (path / "jars").is_dir() and (path / "plugins").is_dir()
+    has_fiji_metadata = (path / "db.xml.gz").is_file()
+    return has_launcher and has_fiji_layout and has_fiji_metadata
 
 
 def resolve_fiji_root(fiji_dir: Path) -> Path:
@@ -430,14 +436,52 @@ def resolve_fiji_root(fiji_dir: Path) -> Path:
     )
 
 
+def _iter_fiji_root_candidates(root: Path, *, max_depth: int = 3) -> List[Path]:
+    base = root.expanduser().resolve()
+    if not base.exists():
+        return []
+
+    seen: set[Path] = set()
+    candidates: List[Path] = []
+
+    def add(candidate: Path) -> None:
+        resolved = candidate.resolve()
+        if any(part.lower() == "_fiji_extract_tmp" for part in resolved.parts):
+            return
+        if resolved not in seen:
+            seen.add(resolved)
+            candidates.append(resolved)
+
+    add(base)
+    if base.is_file():
+        add(base.parent)
+        return candidates
+
+    stack: List[Tuple[Path, int]] = [(base, 0)]
+    while stack:
+        current, depth = stack.pop()
+        if depth >= max_depth:
+            continue
+        try:
+            children = list(current.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if not child.is_dir():
+                continue
+            add(child)
+            if child.name.lower() != "fiji.app":
+                add(child / "Fiji.app")
+            stack.append((child, depth + 1))
+
+    return candidates
+
+
 def list_fiji_install_dirs(dest: Path) -> List[Path]:
     installs: List[Path] = []
     if not dest.exists():
         return installs
-    candidates = [dest / "Fiji.app"]
-    candidates.extend(path for path in dest.glob("Fiji*") if path.is_dir())
-    candidates.extend(path / "Fiji.app" for path in dest.glob("*") if path.is_dir())
-    for candidate in candidates:
+    for candidate in _iter_fiji_root_candidates(dest):
         try:
             root = resolve_fiji_root(candidate)
         except FileNotFoundError:
@@ -465,11 +509,7 @@ def discover_fiji_roots() -> List[Path]:
     for raw_dir in search_dirs:
         if raw_dir is None or not str(raw_dir):
             continue
-        candidates = [raw_dir]
-        if raw_dir.exists() and raw_dir.is_dir():
-            candidates.extend(path for path in raw_dir.glob("Fiji*") if path.is_dir())
-            candidates.extend(path / "Fiji.app" for path in raw_dir.glob("*") if path.is_dir())
-        for candidate in candidates:
+        for candidate in _iter_fiji_root_candidates(raw_dir):
             try:
                 root = resolve_fiji_root(candidate)
             except FileNotFoundError:
@@ -485,11 +525,11 @@ def _fiji_download_filename() -> str:
     machine = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower() or os.environ.get("PROCESSOR_IDENTIFIER", "").lower()
     is_arm64 = "arm64" in machine or "aarch64" in machine
     if system.startswith("win"):
-        return "fiji-latest-win-arm64-jdk.zip" if is_arm64 else "fiji-latest-win64-jdk.zip"
+        return "fiji-stable-win-arm64-jdk.zip" if is_arm64 else "fiji-stable-win64-jdk.zip"
     if system == "darwin":
-        return "fiji-latest-macos-arm64-jdk.zip" if is_arm64 else "fiji-latest-macos64-jdk.zip"
+        return "fiji-stable-macos-arm64-jdk.zip" if is_arm64 else "fiji-stable-macos64-jdk.zip"
     if system.startswith("linux"):
-        return "fiji-latest-linux-arm64-jdk.zip" if is_arm64 else "fiji-latest-linux64-jdk.zip"
+        return "fiji-stable-linux-arm64-jdk.zip" if is_arm64 else "fiji-stable-linux64-jdk.zip"
     raise RuntimeError(
         f"Automatic Fiji download is not configured for platform '{sys.platform}'. "
         f"Please download Fiji manually from {FIJI_MANUAL_DOWNLOAD_URL}"
@@ -526,6 +566,11 @@ def _download_file_with_progress(url: str, destination: Path) -> None:
             elif downloaded >= next_report_bytes:
                 print(f"Downloaded {downloaded / (1024 * 1024):.1f} MB ...")
                 next_report_bytes = downloaded + (25 * 1024 * 1024)
+    final_size = destination.stat().st_size if destination.exists() else 0
+    if total_size > 0 and final_size != total_size:
+        raise RuntimeError(
+            f"Downloaded file size mismatch for {url}: expected {total_size} bytes, got {final_size} bytes."
+        )
 
 
 def _safe_remove_tree(path: Path, expected_parent: Path) -> None:
@@ -549,10 +594,14 @@ def install_fiji(dest: Path, *, update_runtime_config: bool) -> Path:
         _safe_remove_tree(extract_root, target_dest)
     extract_root.mkdir(parents=True, exist_ok=True)
 
-    print(f"Downloading Fiji from {archive_url}")
+    print(f"Downloading stable Fiji from {archive_url}")
     print(f"Destination: {target_dest}")
     try:
         _download_file_with_progress(archive_url, archive_path)
+        if not zipfile.is_zipfile(archive_path):
+            raise RuntimeError(
+                f"Downloaded file is not a valid ZIP archive: {archive_path}"
+            )
     except Exception as exc:
         raise RuntimeError(
             "Automatic Fiji download failed.\n"
@@ -571,11 +620,8 @@ def install_fiji(dest: Path, *, update_runtime_config: bool) -> Path:
         if archive_path.exists():
             archive_path.unlink()
 
-    extracted_candidates = [extract_root]
-    extracted_candidates.extend(path for path in extract_root.iterdir() if path.is_dir())
-
     extracted_root: Optional[Path] = None
-    for candidate in extracted_candidates:
+    for candidate in _iter_fiji_root_candidates(extract_root):
         try:
             extracted_root = resolve_fiji_root(candidate)
             break
@@ -605,18 +651,22 @@ def install_fiji(dest: Path, *, update_runtime_config: bool) -> Path:
 
 def resolve_fiji_executable(fiji_root: Path) -> Path:
     candidates = [
+        fiji_root / "fiji-windows-x64.exe",
+        fiji_root / "fiji-windows.exe",
         fiji_root / "ImageJ-win64.exe",
         fiji_root / "ImageJ-win32.exe",
         fiji_root / "ImageJ.exe",
         fiji_root / "Fiji.exe",
+        fiji_root / "fiji.bat",
+        fiji_root / "fiji",
+        fiji_root / "fiji-linux-x64",
+        fiji_root / "fiji-linux64",
+        fiji_root / "fiji-macosx",
         fiji_root / "ImageJ-linux64",
         fiji_root / "ImageJ-macosx",
     ]
     for candidate in candidates:
         if candidate.exists() and candidate.is_file():
-            return candidate
-    for candidate in fiji_root.glob("ImageJ*"):
-        if candidate.is_file():
             return candidate
     raise FileNotFoundError(f"Could not find a Fiji/ImageJ launcher under {fiji_root}")
 
@@ -667,8 +717,51 @@ def open_fiji(fiji_dir: Optional[Path] = None) -> Path:
     return executable
 
 
-def check_java() -> bool:
+def find_bundled_fiji_java_home(fiji_root: Optional[Path]) -> Optional[Path]:
+    if fiji_root is None:
+        return None
+    java_root = fiji_root / "java"
+    if not java_root.is_dir():
+        return None
+
+    java_names = {"java.exe", "java"}
+    candidates: List[Path] = []
+    for candidate in java_root.rglob("*"):
+        if candidate.is_file() and candidate.name.lower() in java_names and candidate.parent.name.lower() == "bin":
+            candidates.append(candidate.parent.parent)
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda path: len(path.parts))
+    return candidates[0]
+
+
+def prefer_java_home(java_home: Path) -> None:
+    java_home = java_home.expanduser().resolve()
+    bin_dir = java_home / "bin"
+    if not bin_dir.is_dir():
+        raise FileNotFoundError(f"Java bin directory not found under {java_home}")
+
+    path_entries = os.environ.get("PATH", "").split(os.pathsep) if os.environ.get("PATH") else []
+    normalized_bin = str(bin_dir)
+    filtered_entries: List[str] = []
+    for entry in path_entries:
+        try:
+            if Path(entry).expanduser().resolve() == bin_dir:
+                continue
+        except OSError:
+            pass
+        filtered_entries.append(entry)
+    os.environ["JAVA_HOME"] = str(java_home)
+    os.environ["PATH"] = os.pathsep.join([normalized_bin, *filtered_entries]) if filtered_entries else normalized_bin
+
+
+def check_java(fiji_root: Optional[Path] = None) -> bool:
     print("Checking Java for pyimagej ...")
+    bundled_java_home = find_bundled_fiji_java_home(fiji_root)
+    if bundled_java_home is not None:
+        prefer_java_home(bundled_java_home)
+        print(f"Using bundled Fiji JDK: {bundled_java_home}")
     try:
         java_result = subprocess.run(["java", "-version"], capture_output=True, text=True)
     except FileNotFoundError:
@@ -718,7 +811,7 @@ def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
     print(f"Checking Fiji root: {fiji_root}")
     resolve_fiji_executable(fiji_root)
 
-    if not check_java():
+    if not check_java(fiji_root):
         print("Skipping pyimagej initialization because Java/JVM is not ready.")
         return False
 
@@ -760,7 +853,7 @@ def setup_fiji(
     except FileNotFoundError:
         download_dest = fiji_dir or DEFAULT_FIJI_DEST
         print("No existing Fiji installation was detected.")
-        print("Falling back to automatic download of Fiji with bundled JDK ...")
+        print("Falling back to automatic download of the stable Fiji build with bundled JDK ...")
         fiji_root = install_fiji(download_dest, update_runtime_config=update_runtime_config)
 
     print("\nJava reminder:")
