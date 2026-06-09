@@ -299,6 +299,22 @@ uv add huggingface_hub
 uv run python scripts/setup_models.py
 ```
 
+### Preflight Checklist
+
+Before the first real run on a machine:
+
+- Confirm `config/runtime_config.json` contains valid local paths for this machine.
+- Confirm `FIJI_PATH`, `MM_DIR`, model paths, and other local dependency paths exist and are accessible.
+- If your workflow calls external APIs, confirm the required keys are configured in `.env`.
+- If configuration or hardware state is uncertain, start with simulation mode instead of connecting to real hardware immediately.
+
+Before real microscope execution:
+
+- Verify in the Micro-Manager GUI that the devices are controllable before starting EIMS automation.
+- Confirm stage coordinate conventions, objective selection, illumination source, exposure settings, and Z-direction definitions are correct.
+- If motion or acquisition behavior looks wrong, stop and check configuration, travel limits, and coordinate direction before retrying.
+- If you suspect a travel-limit or collision risk, stop the automated workflow immediately and inspect the current and target positions manually in the GUI.
+
 ### Run the Web Runtime
 
 ```bash
