@@ -494,9 +494,11 @@ requirements.
 
 ## Licensing Notes
 
-Unless otherwise noted, the original EIMS source code in this repository is made
-available under the BSD 3-Clause License. See
-[LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause).
+Unless otherwise noted, the original source code developed specifically for EIMS
+is made available under the BSD 3-Clause License. See
+[LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause). The broader project-level licensing
+context, including combined distributions with external dependencies, is described
+in [LICENSE](LICENSE).
 
 Some runtime workflows depend on third-party software, datasets, models, or
 plugins that are licensed separately from EIMS. In particular:
@@ -510,9 +512,6 @@ This repository's license does not replace or override the licenses of those
 third-party components. If you download, bundle, redistribute, or deploy EIMS
 together with external dependencies, you are responsible for reviewing and
 complying with the applicable upstream license terms.
-
-The file [LICENSE](LICENSE) provides additional project-level licensing context
-for combined distributions and integrated dependency scenarios.
 
 ## Contributions
 
