@@ -372,7 +372,7 @@ def read_public_config_snapshot(config_path: Optional[Path] = None, *, apply_env
     return _snapshot_payload(settings, include_secrets=False)
 
 
-def config_is_complete(snapshot: Mapping[str, Any]) -> bool:
+def missing_required_fields(snapshot: Mapping[str, Any]) -> Dict[str, list[str]]:
     system_cfg = snapshot["system"]
     agent_cfg = snapshot["agent"]
     simulation_mode = bool(agent_cfg.get("Simulation_mode", True))
@@ -396,7 +396,17 @@ def config_is_complete(snapshot: Mapping[str, Any]) -> bool:
         "vlm_base_url",
         "vlm_model_name",
     ]
-    return all(system_cfg.get(field) for field in required_system) and all(agent_cfg.get(field) for field in required_agent)
+    missing_system = [field for field in required_system if not system_cfg.get(field)]
+    missing_agent = [field for field in required_agent if not agent_cfg.get(field)]
+    return {
+        "system": missing_system,
+        "agent": missing_agent,
+    }
+
+
+def config_is_complete(snapshot: Mapping[str, Any]) -> bool:
+    missing = missing_required_fields(snapshot)
+    return not missing["system"] and not missing["agent"]
 
 
 

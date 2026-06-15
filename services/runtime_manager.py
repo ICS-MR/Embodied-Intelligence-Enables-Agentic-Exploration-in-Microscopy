@@ -15,7 +15,13 @@ import numpy as np
 
 from api.models import RuntimeInitializationResponse, TaskExecutionResponse, UserInputResponse
 from api.state import AppState
-from bootstrap.config import config_is_complete, load_runtime_settings, read_config_snapshot, save_runtime_settings
+from bootstrap.config import (
+    config_is_complete,
+    load_runtime_settings,
+    missing_required_fields,
+    read_config_snapshot,
+    save_runtime_settings,
+)
 from services.runtime_state import SystemStatus
 from services.task_orchestrator import TaskRequest
 from utils.interaction_flow import interpret_plan_feedback, is_debug_plan_request, pick_text, prefers_chinese
@@ -253,12 +259,26 @@ class RuntimeManager:
     def refresh_status_after_config_save(self) -> dict[str, Any]:
         snapshot = self.current_snapshot()
         if not config_is_complete(snapshot):
+            missing = missing_required_fields(snapshot)
+            missing_fields = [*missing["agent"], *missing["system"]]
+            missing_text = ", ".join(missing_fields)
+            simulation_mode = bool(snapshot["agent"].get("Simulation_mode", True))
+            if simulation_mode:
+                message = (
+                    "Configuration saved. Before starting the system, complete these required fields "
+                    f"for simulation mode: {missing_text}."
+                )
+            else:
+                message = (
+                    "Configuration saved. Before starting the system, complete these required fields "
+                    f"for real hardware mode: {missing_text}."
+                )
             self._set_system_status(
                 phase="unconfigured",
                 initialized=False,
                 initializing=False,
                 error=None,
-                message="Configuration saved. Please complete all required fields before starting the system.",
+                message=message,
             )
         elif self.runtime_context is not None and self.orchestrator is not None and self.system_status.initialized:
             self._set_system_status(
