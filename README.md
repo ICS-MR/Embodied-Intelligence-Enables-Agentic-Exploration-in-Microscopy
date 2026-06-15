@@ -241,11 +241,15 @@ uv run python system_config_wizard.py --check-java
 uv run python system_config_wizard.py --check-fiji
 ```
 
-`--setup-fiji` first tries to reuse an existing local Fiji installation. If no valid
-Fiji install is detected, it automatically downloads Fiji to the default EIMS runtime
-location, updates `FIJI_PATH`, and then validates the Java/pyimagej stack. EIMS now
-prefers Fiji's official `stable` download channel instead of `latest` to reduce
-TrackMate/API compatibility drift.
+`--setup-fiji` reuses an existing local Fiji installation when possible. If none is
+found, it downloads Fiji from the official `stable` channel, updates `FIJI_PATH`, and
+validates the Java/pyimagej runtime.
+
+The helper installs or reuses Fiji itself; it does not silently install third-party
+Fiji plugins. Some EIMS workflows require optional Fiji capabilities, such as
+DeconvolutionLab2 for Richardson-Lucy deconvolution. `--check-fiji` initializes Fiji,
+scans the declared capability requirements, and reports missing plugins with
+installation hints.
 
 On Windows, the default automatic download location is typically:
 
@@ -424,6 +428,26 @@ python create_tool.py register --class-path tool.new_tool:NewTool --tool-id "new
 python create_tool.py list
 ```
 
+### Fiji Capability Declarations
+
+Fiji-backed tool methods that depend on optional Fiji plugins should declare those
+dependencies next to the method implementation in `core_tool/fiji.py`. The declaration
+is used by `--check-fiji` and is also checked again at runtime before the method runs.
+
+```python
+@tool_func
+@requires_fiji_capability(
+    id="plugin_id",
+    label="Plugin Display Name",
+    required_for="short workflow description",
+    command="ImageJ Command Name",
+    # or: java_class="plugin.package.ClassName",
+    install_hint="Install this plugin in Fiji, then restart EIMS.",
+)
+def plugin_dependent_method(...):
+    ...
+```
+
 ## Example Task Types
 
 Representative task prompts live in `docs/test_tasks/task.txt`.
@@ -450,6 +474,24 @@ Before running in real hardware mode:
 Generated code execution is constrained, but it should still be treated as experimental
 automation. Use simulation mode for new workflows before running on hardware.
 
+## Acknowledgements
+
+EIMS builds on a broad open-source scientific software ecosystem. We gratefully
+acknowledge the developers and maintainers of
+[Micro-Manager](https://micro-manager.org/),
+[Fiji/ImageJ](https://imagej.net/software/fiji/),
+[pyimagej](https://github.com/imagej/pyimagej),
+[pymmcore-plus](https://github.com/pymmcore-plus/pymmcore-plus),
+[Cellpose](https://www.cellpose.org/),
+[OpenMMLab/MMDetection](https://github.com/open-mmlab/mmdetection),
+[PyTorch](https://pytorch.org/), and the Python scientific-computing libraries
+that support this project.
+
+These tools make reproducible microscope control, image processing, model
+inference, and web-based scientific workflows possible. Please refer to the
+respective upstream projects for their documentation, licenses, and citation
+requirements.
+
 ## Licensing Notes
 
 Unless otherwise noted, the original EIMS source code in this repository is made
@@ -474,5 +516,10 @@ for combined distributions and integrated dependency scenarios.
 
 ## Contributions
 
-Issues, pull requests, tool integrations, planning skills, test tasks, and documentation
-improvements are welcome.
+Contributions are welcome. You can help by reporting bugs, fixing issues,
+improving documentation, adding test tasks, refining planner skills, or extending
+tool integrations.
+
+For changes that affect real hardware control, image-analysis behavior,
+generated-code execution, or Fiji plugin-dependent features, please include the
+relevant validation steps and dependency declarations with the contribution.

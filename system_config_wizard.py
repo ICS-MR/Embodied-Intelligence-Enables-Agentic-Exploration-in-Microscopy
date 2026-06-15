@@ -838,6 +838,30 @@ def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
         print(f"Initializing pyimagej in {mode} mode ...")
         ij = imagej.init(str(fiji_root), mode=mode)
         print(f"ImageJ version: {ij.getVersion()}")
+        try:
+            from core_tool.fiji import check_declared_fiji_capabilities
+
+            capability_results = check_declared_fiji_capabilities(ij)
+            if capability_results:
+                print("\nChecking declared Fiji capabilities ...")
+                missing_results = []
+                for result in capability_results:
+                    status = "OK" if result["available"] else "MISSING"
+                    print(f"- {result['label']}: {status} ({result['required_for']})")
+                    if not result["available"]:
+                        missing_results.append(result)
+                        if result.get("install_hint"):
+                            print(f"  hint: {result['install_hint']}")
+                        if result.get("detail"):
+                            print(f"  detail: {result['detail']}")
+                if missing_results:
+                    print(
+                        "\nFiji initialized successfully, but some plugin-dependent "
+                        "EIMS features may fail until the missing capabilities are installed."
+                    )
+        except Exception as exc:
+            print("Fiji capability precheck could not be completed.")
+            print(f"Error: {exc}")
         return True
     except Exception as exc:
         print("pyimagej initialization failed.")

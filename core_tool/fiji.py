@@ -16,6 +16,7 @@ from scyjava import jimport
 import json
 import csv
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any, Callable, List, Tuple, Optional
 from bootstrap.config import load_detection_targets
 from config.system_config import (
@@ -43,6 +44,90 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 _TORCH_MODULE = None
 _CV2_MODULE = None
 _MMDET_APIS = None
+
+
+@dataclass(frozen=True)
+class FijiCapabilityRequirement:
+    id: str
+    label: str
+    required_for: str
+    command: str = ""
+    java_class: str = ""
+    install_hint: str = ""
+
+
+def requires_fiji_capability(**requirement_kwargs):
+    requirement = FijiCapabilityRequirement(**requirement_kwargs)
+
+    def decorator(func):
+        existing = list(getattr(func, "_fiji_capability_requirements", []))
+        requirements = [*existing, requirement]
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self.require_fiji_capabilities(requirements)
+            return func(self, *args, **kwargs)
+
+        wrapper._fiji_capability_requirements = requirements
+        return wrapper
+
+    return decorator
+
+
+def _iter_fiji_capability_requirements(tool_cls) -> list[FijiCapabilityRequirement]:
+    seen: set[tuple[str, str, str]] = set()
+    requirements: list[FijiCapabilityRequirement] = []
+    for attr_name in dir(tool_cls):
+        attr = getattr(tool_cls, attr_name, None)
+        for requirement in getattr(attr, "_fiji_capability_requirements", []):
+            key = (requirement.id, requirement.command, requirement.java_class)
+            if key in seen:
+                continue
+            seen.add(key)
+            requirements.append(requirement)
+    requirements.sort(key=lambda item: item.id)
+    return requirements
+
+
+def _probe_fiji_capability(ij, requirement: FijiCapabilityRequirement) -> tuple[bool, str]:
+    try:
+        if requirement.java_class:
+            jimport(requirement.java_class)
+        if requirement.command:
+            Menus = jimport("ij.Menus")
+            commands = Menus.getCommands()
+            if commands is None:
+                return False, "ImageJ command registry is unavailable."
+            command_found = False
+            try:
+                command_found = bool(commands.containsKey(requirement.command))
+            except Exception:
+                command_found = commands.get(requirement.command) is not None
+            if not command_found:
+                return False, f"ImageJ command not found: {requirement.command}"
+        return True, ""
+    except Exception as exc:
+        return False, str(exc) or type(exc).__name__
+
+
+def check_declared_fiji_capabilities(ij, tool_cls=None) -> list[dict[str, Any]]:
+    requirements = _iter_fiji_capability_requirements(tool_cls or ImageJProcessor)
+    results: list[dict[str, Any]] = []
+    for requirement in requirements:
+        available, detail = _probe_fiji_capability(ij, requirement)
+        results.append(
+            {
+                "id": requirement.id,
+                "label": requirement.label,
+                "required_for": requirement.required_for,
+                "command": requirement.command,
+                "java_class": requirement.java_class,
+                "install_hint": requirement.install_hint,
+                "available": available,
+                "detail": detail,
+            }
+        )
+    return results
 
 
 DEFAULT_DETECTION_TILE_SIZE = 2048
@@ -708,6 +793,39 @@ class ImageJProcessor(BaseTool):
             raise RuntimeError("ImageJ not initialized, please call fiji_initialize() first")
         return self.ij
 
+    def require_fiji_capabilities(self, requirements: list[FijiCapabilityRequirement]) -> None:
+        ij = self._require_imagej_initialized()
+        missing = []
+        for requirement in requirements:
+            available, detail = _probe_fiji_capability(ij, requirement)
+            if available:
+                continue
+            missing.append((requirement, detail))
+
+        if not missing:
+            return
+
+        messages = []
+        for requirement, detail in missing:
+            message = (
+                f"Missing Fiji capability: {requirement.label}. "
+                f"Required for: {requirement.required_for}."
+            )
+            if requirement.command:
+                message += f" Expected ImageJ command: {requirement.command}."
+            if requirement.java_class:
+                message += f" Expected Java class: {requirement.java_class}."
+            if requirement.install_hint:
+                message += f" {requirement.install_hint}"
+            if detail:
+                message += f" Probe detail: {detail}"
+            messages.append(message)
+
+        raise RuntimeError(
+            "\n".join(messages)
+            + "\nRun `uv run python system_config_wizard.py --check-fiji` after installing Fiji plugins."
+        )
+
     def set_interaction_artifact_listener(
         self,
         listener: Optional[Callable[[dict[str, Any]], None]],
@@ -1320,6 +1438,13 @@ class ImageJProcessor(BaseTool):
         return tmp_path.replace("\\", "/")
 
     @tool_func
+    @requires_fiji_capability(
+        id="deconvolutionlab2",
+        label="DeconvolutionLab2",
+        required_for="Richardson-Lucy deconvolution",
+        command="DeconvolutionLab2 Run",
+        install_hint="Install DeconvolutionLab2 in this Fiji installation, then restart EIMS.",
+    )
     def richardson_lucy(
         self,
         image_meta: ImageWithMetadata,
@@ -1541,6 +1666,13 @@ class ImageJProcessor(BaseTool):
 
     # ----------------- TrackMate tracking -----------------
     @tool_func
+    @requires_fiji_capability(
+        id="trackmate",
+        label="TrackMate",
+        required_for="time-lapse object tracking",
+        java_class="fiji.plugin.trackmate.Model",
+        install_hint="Install or update TrackMate in this Fiji installation, then restart EIMS.",
+    )
     def trackmate_tracking(
         self,
         image_meta: ImageWithMetadata,
