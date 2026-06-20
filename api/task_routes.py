@@ -1,11 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import time
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from api.dependencies import get_runtime_manager
-from api.models import CommandRequest, PreviewStartResponse, RuntimeInitializationResponse, SystemStatusResponse, TaskExecutionResponse
+from api.models import CommandRequest, PreviewStartResponse, RuntimeInitializationResponse, SystemShutdownResponse, SystemStatusResponse, TaskExecutionResponse
 from bootstrap.config import config_is_complete
 
 
 router = APIRouter()
+
+
+def _terminate_current_process() -> None:
+    # Give the HTTP response a brief window to flush before terminating the server process.
+    time.sleep(0.5)
+    os._exit(0)
 
 
 @router.post("/api/system/initialize", response_model=RuntimeInitializationResponse)
@@ -22,6 +31,26 @@ async def restart_system_api(runtime_manager=Depends(get_runtime_manager)) -> Ru
     if not result.initialized and not result.initializing and result.system_phase == "unconfigured":
         raise HTTPException(status_code=400, detail=result.message)
     return result
+
+
+@router.post("/api/system/shutdown", response_model=SystemShutdownResponse)
+async def shutdown_system_api(
+    background_tasks: BackgroundTasks,
+    runtime_manager=Depends(get_runtime_manager),
+) -> SystemShutdownResponse:
+    await runtime_manager.release_system()
+    runtime_manager._set_system_status(
+        phase="unconfigured",
+        initialized=False,
+        initializing=False,
+        error=None,
+        message="Backend shutdown requested.",
+    )
+    background_tasks.add_task(_terminate_current_process)
+    return SystemShutdownResponse(
+        shutting_down=True,
+        message="Backend shutdown requested. This page will disconnect in a moment.",
+    )
 
 
 @router.get("/api/system/status", response_model=SystemStatusResponse)

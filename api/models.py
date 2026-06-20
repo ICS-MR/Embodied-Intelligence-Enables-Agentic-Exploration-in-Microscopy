@@ -20,6 +20,11 @@ class RuntimeInitializationResponse(BaseModel):
     failure_step: str = ""
 
 
+class SystemShutdownResponse(BaseModel):
+    shutting_down: bool
+    message: str
+
+
 class PreviewStartResponse(BaseModel):
     started: bool
     message: str

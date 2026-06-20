@@ -923,6 +923,7 @@
                         <button id="saveConfigBtn" class="btn-secondary">Save Configuration</button>
                         <button id="startSystemBtn" class="btn-primary">Start System</button>
                         <button id="refreshConfigBtn" class="btn-secondary">Refresh Current Configuration</button>
+                        <button id="shutdownServerBtn" class="btn-secondary">Shutdown Server</button>
                     </div>
                     <div id="configFeedback" class="feedback"></div>
                 </section>
@@ -950,6 +951,7 @@
                         </div>
                         <div class="header-actions">
                             <button id="restartPreviewBtn" class="header-button" style="display: none;">Restart Preview</button>
+                            <button id="shutdownServerRuntimeBtn" class="header-button">Shutdown Server</button>
                             <button id="backToConfigBtn" class="header-button">Back to Config</button>
                         </div>
                     </div>
@@ -1063,6 +1065,19 @@
             const el = $("configFeedback");
             el.textContent = text;
             el.style.color = isError ? "#d32f2f" : "#5a67d8";
+        }
+
+        function disconnectBackendStreams() {
+            clearConfigStatusPolling();
+            clearPreviewStatusPolling();
+            clearPreviewAutoRetryTimer();
+            clearVideoReconnectTimer();
+            disconnectVideoStream();
+            if (uiState.eventSource) {
+                uiState.eventSource.close();
+                uiState.eventSource = null;
+            }
+            uiState.streamStarted = false;
         }
 
         function updateConfigStatus(text, detail, configured, initialized, initializing = false) {
@@ -1460,6 +1475,29 @@
                 return;
             }
             throw new Error(data.message || status.status_message || "System restart did not begin successfully");
+        }
+
+        async function shutdownServer() {
+            const confirmed = window.confirm("Shut down the backend server now? This will disconnect the current page.");
+            if (!confirmed) return;
+
+            showFeedback("Shutting down backend service...", false);
+            $("runtimeSubtitle").textContent = "Backend shutdown requested";
+            $("videoModeBadge").textContent = "Server Stopping";
+            $("consoleStatus").textContent = "Server Shutdown Requested";
+
+            try {
+                await fetchJson("/api/system/shutdown", { method: "POST" });
+            } catch (error) {
+                showFeedback(error.message || "Shutdown failed", true);
+                return;
+            }
+
+            disconnectBackendStreams();
+            resetTaskState();
+            setActiveScreen("config");
+            updateConfigStatus("Backend Offline", "Backend shutdown requested. Restart the server process to reconnect.", false, false);
+            showFeedback("Backend stopped. Restart the Python server process to use the UI again.", false);
         }
 
         // Chat and message rendering
@@ -1903,6 +1941,10 @@
                 }
             });
 
+            $("shutdownServerBtn").addEventListener("click", async () => {
+                await shutdownServer();
+            });
+
             $("restartPreviewBtn").addEventListener("click", async () => {
                 try {
                     uiState.previewAutoRetried = false;
@@ -1917,6 +1959,10 @@
                     setPreviewRestartVisible(true);
                     $("runtimeSubtitle").textContent = String(error.message || error);
                 }
+            });
+
+            $("shutdownServerRuntimeBtn").addEventListener("click", async () => {
+                await shutdownServer();
             });
 
             $("backToConfigBtn").addEventListener("click", () => setActiveScreen("config"));

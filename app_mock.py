@@ -1,7 +1,9 @@
 ﻿import asyncio
 import json
 import logging
+import os
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict
@@ -115,6 +117,11 @@ def reset_preview_state() -> None:
     session.preview_start_requested_at = None
     session.preview_starting = False
     session.preview_started_once = False
+
+
+def terminate_current_process() -> None:
+    time.sleep(0.5)
+    os._exit(0)
 
 
 async def robot_say(message: str) -> None:
@@ -719,6 +726,23 @@ async def restart_system_api() -> Dict[str, Any]:
     if not result["initialized"] and not result["initializing"] and result["system_phase"] == "unconfigured":
         raise HTTPException(status_code=400, detail=result["message"])
     return result
+
+
+@app.post("/api/system/shutdown")
+async def shutdown_system_api() -> Dict[str, Any]:
+    await release_system()
+    set_system_status(
+        phase="unconfigured",
+        initialized=False,
+        initializing=False,
+        error=None,
+        message="Backend shutdown requested.",
+    )
+    threading.Thread(target=terminate_current_process, daemon=True).start()
+    return {
+        "shutting_down": True,
+        "message": "Backend shutdown requested. This page will disconnect in a moment.",
+    }
 
 
 @app.post("/api/preview/start")
