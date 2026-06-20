@@ -1077,13 +1077,6 @@
                 : "Configuration incomplete, please fill required fields.";
         }
 
-        function normalizeImportedModelName(modelName) {
-            const raw = String(modelName || "").trim();
-            if (!raw) return "";
-            const parts = raw.split("/");
-            return parts[parts.length - 1].trim();
-        }
-
         function fillConfigForm(data) {
             const system = data.system || {};
             const agent = data.agent || {};
@@ -1100,9 +1093,9 @@
             $("clarifyEnabled").value = String(agent.clarify_enabled ?? false);
             $("checkerEnabled").value = String(agent.checker_enabled ?? true);
             $("baseUrl").value = agent.base_url || "";
-            $("modelName").value = normalizeImportedModelName(agent.model_name);
+            $("modelName").value = agent.model_name || "";
             $("vlmBaseUrl").value = agent.vlm_base_url || "";
-            $("vlmModelName").value = normalizeImportedModelName(agent.vlm_model_name);
+            $("vlmModelName").value = agent.vlm_model_name || "";
             $("openaiApiKey").placeholder = agent.masked?.openai_api_key || "sk-...";
             $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
         }

@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RUNTIME_CONFIG_PATH = ROOT_DIR / "config" / "runtime_config.json"
+ENV_PATH = ROOT_DIR / ".env"
 
 
 DEFAULT_OBJECTIVE_LABELS: Dict[str, int] = {
@@ -250,6 +251,42 @@ def _load_env_values(*, include_dotenv: bool) -> Dict[str, str]:
     return merged
 
 
+def save_env_secrets(*, openai_api_key: str | None = None, vlm_api_key: str | None = None, env_path: Optional[Path] = None) -> None:
+    target_path = env_path or ENV_PATH
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    updates = {
+        "EIMS_OPENAI_API_KEY": openai_api_key,
+        "EIMS_VLM_API_KEY": vlm_api_key,
+    }
+    pending = {key: value for key, value in updates.items() if value is not None}
+    if not pending:
+        return
+
+    existing_lines: list[str] = []
+    if target_path.exists():
+        existing_lines = target_path.read_text(encoding="utf-8").splitlines()
+
+    remaining = dict(pending)
+    rewritten_lines: list[str] = []
+    for line in existing_lines:
+        stripped = line.strip()
+        replaced = False
+        if stripped and not stripped.startswith("#") and "=" in line:
+            key, _sep, _value = line.partition("=")
+            env_key = key.strip()
+            if env_key in remaining:
+                rewritten_lines.append(f"{env_key}={remaining.pop(env_key)}")
+                replaced = True
+        if not replaced:
+            rewritten_lines.append(line)
+
+    for env_key, env_value in remaining.items():
+        rewritten_lines.append(f"{env_key}={env_value}")
+
+    target_path.write_text("\n".join(rewritten_lines) + "\n", encoding="utf-8")
+
+
 def load_runtime_settings(config_path: Optional[Path] = None, *, apply_env: bool = True) -> RuntimeSettings:
     settings = RuntimeSettings()
     target_path = config_path or RUNTIME_CONFIG_PATH
@@ -289,6 +326,8 @@ def save_runtime_settings(
         "startup": _dataclass_dict(settings.startup),
         "detection_targets": settings.detection_targets,
     }
+    payload["model"].pop("openai_api_key", None)
+    payload["model"].pop("vlm_api_key", None)
     target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return settings
 

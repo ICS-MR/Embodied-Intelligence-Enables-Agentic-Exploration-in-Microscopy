@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from Empty_function import MicroscopeController
 from api.models import ConfigSaveRequest
-from bootstrap.config import config_is_complete, read_config_snapshot, read_public_config_snapshot, save_runtime_settings
+from bootstrap.config import config_is_complete, read_config_snapshot, read_public_config_snapshot, save_env_secrets, save_runtime_settings
 from system_config_wizard import (
     build_dichroic_colors,
     build_objective_labels,
@@ -669,10 +669,8 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
     }
     model_updates = {
         "Simulation_mode": req.simulation_mode,
-        "openai_api_key": req.openai_api_key or agent_current["openai_api_key"],
         "base_url": coalesce_text(req.base_url, agent_current["base_url"]),
         "model_name": coalesce_text(req.model_name, agent_current["model_name"]),
-        "vlm_api_key": req.vlm_api_key or agent_current["vlm_api_key"],
         "vlm_base_url": coalesce_text(req.vlm_base_url, agent_current["vlm_base_url"]),
         "vlm_model_name": coalesce_text(req.vlm_model_name, agent_current["vlm_model_name"]),
         "clarify_enabled": req.clarify_enabled,
@@ -690,6 +688,10 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
         system_updates=system_updates,
         model_updates=model_updates,
         startup_updates=startup_updates,
+    )
+    save_env_secrets(
+        openai_api_key=req.openai_api_key.strip() or None,
+        vlm_api_key=req.vlm_api_key.strip() or None,
     )
     result = refresh_status_after_config_save()
     return {

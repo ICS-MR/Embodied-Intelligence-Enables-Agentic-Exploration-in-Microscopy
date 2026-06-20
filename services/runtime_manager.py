@@ -473,6 +473,25 @@ class RuntimeManager:
             return user_reply
         finally:
             self.app_state.session.is_asking_user = False
+
+    async def _prompt_for_plan_feedback_with_debug(
+        self,
+        plan: Any,
+        prompt_text: str,
+        *,
+        command_snapshot: str = "",
+        prefers_zh: bool,
+    ) -> str:
+        while True:
+            user_reply = await self._prompt_for_plan_feedback(
+                prompt_text,
+                command_snapshot=command_snapshot,
+            )
+            if is_debug_plan_request(user_reply):
+                self._emit_raw_planner_debug(plan, prefers_zh=prefers_zh)
+                continue
+            return user_reply
+
     async def release_system(self) -> None:
         current_context = self.runtime_context
         self.runtime_context = None
@@ -869,17 +888,16 @@ class RuntimeManager:
                         lambda on_delta: self.orchestrator.stream_plan_preview(plan, on_delta),
                         final_type="robot_say",
                     )
-                    user_reply = await self._prompt_for_plan_feedback(
+                    user_reply = await self._prompt_for_plan_feedback_with_debug(
+                        plan,
                         pick_text(
                             prefers_zh,
                             "If this plan looks good, reply with 'confirm' or 'continue'. If you want changes, send the revision directly. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop, reply with 'cancel'.",
                             "If this plan looks good, reply with 'confirm' or 'continue'. If you want changes, send the revision directly. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop, reply with 'cancel'.",
                         ),
                         command_snapshot=current_command,
+                        prefers_zh=prefers_zh,
                     )
-                    if is_debug_plan_request(user_reply):
-                        self._emit_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                        continue
                     decision = interpret_plan_feedback(
                         user_reply,
                         plan_ready=True,
@@ -920,17 +938,16 @@ class RuntimeManager:
                         "I need one key detail before I can continue planning.",
                     )
                     self._send_message("robot_say", prompt_text)
-                    user_reply = await self._prompt_for_plan_feedback(
+                    user_reply = await self._prompt_for_plan_feedback_with_debug(
+                        plan,
                         pick_text(
                             prefers_zh,
                             f"{prompt_text}\nYou can also reply with 'debug_plan' to inspect the raw planner output, or reply with 'cancel'.",
                             f"{prompt_text}\nYou can also reply with 'debug_plan' to inspect the raw planner output, or reply with 'cancel'.",
                         ),
                         command_snapshot=current_command,
+                        prefers_zh=prefers_zh,
                     )
-                    if is_debug_plan_request(user_reply):
-                        self._emit_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                        continue
                     decision = interpret_plan_feedback(
                         user_reply,
                         plan_ready=False,
@@ -1002,17 +1019,16 @@ class RuntimeManager:
                         "I still cannot turn the current request into an executable plan. You can add more detail or reply with 'cancel'.",
                     ),
                 )
-                user_reply = await self._prompt_for_plan_feedback(
+                user_reply = await self._prompt_for_plan_feedback_with_debug(
+                    plan,
                     pick_text(
                         prefers_zh,
                         "Please add more revisions. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop this task, reply with 'cancel'.",
                         "Please add more revisions. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop this task, reply with 'cancel'.",
                     ),
                     command_snapshot=current_command,
+                    prefers_zh=prefers_zh,
                 )
-                if is_debug_plan_request(user_reply):
-                    self._emit_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                    continue
                 decision = interpret_plan_feedback(
                     user_reply,
                     plan_ready=False,
