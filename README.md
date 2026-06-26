@@ -69,7 +69,6 @@ from the runtime configuration and `config/tool_manifest.json`.
 |-- config/                        # runtime example, tool manifest, static task config
 |-- prompts/                       # planner and executor prompts
 |-- user_skills/                   # planning skills
-|-- docs/test_tasks/               # representative task prompts
 |-- evaluation/                    # model evaluation helpers
 |-- weights/                       # model checkpoints
 `-- history/                       # per-run runtime history and outputs
@@ -539,17 +538,6 @@ is used by `--check-fiji` and is also checked again at runtime before the method
 def plugin_dependent_method(...):
     ...
 ```
-
-## Example Task Types
-
-Representative task prompts live in `docs/test_tasks/task.txt`.
-
-- capture multi-channel fluorescence images and merge channels
-- scan a brightfield area, detect target regions, and revisit them at higher magnification
-- segment cells with Cellpose and export masks or statistics
-- perform long-running time-lapse imaging
-- acquire Z-stacks and produce projected or deconvolved images
-- detect organoids, lesions, bacteria, cells, or mitotic events and record coordinates
 
 ## Safety Notes
 
