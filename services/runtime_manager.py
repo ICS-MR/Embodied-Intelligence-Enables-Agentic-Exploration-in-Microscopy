@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 import cv2
 import numpy as np
+from openai import APIStatusError
 
 from api.models import RuntimeInitializationResponse, TaskExecutionResponse, UserInputResponse
 from api.state import AppState
@@ -45,6 +46,25 @@ PREVIEW_START_COMMAND_TIMEOUT_SEC = 10.0
 PREVIEW_FALLBACK_LOG_INTERVAL_SEC = 5.0
 INIT_COMPONENT_TIMEOUT_SEC = 90.0
 MICROSCOPE_SETUP_TIMEOUT_SEC = 30.0
+
+
+def _summarize_api_status_error(exc: APIStatusError) -> str:
+    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or "").strip()
+            code = str(error.get("code") or "").strip()
+            extra = f" code={code}" if code else ""
+            if message:
+                return f"Upstream model API returned HTTP {status_code}.{extra} {message}".strip()
+        message = str(body.get("message") or "").strip()
+        if message:
+            return f"Upstream model API returned HTTP {status_code}. {message}"
+    if isinstance(body, str) and body.strip():
+        return f"Upstream model API returned HTTP {status_code}. {body.strip()}"
+    return f"Upstream model API returned HTTP {status_code}."
 
 
 def _normalize_stream_frame(frame: Any) -> Optional[np.ndarray]:
@@ -552,6 +572,8 @@ class RuntimeManager:
             if context == "execution":
                 return "Task execution timed out while waiting for a runtime or hardware step to finish."
             return "An internal operation timed out while waiting for a runtime or hardware step to finish."
+        if isinstance(exc, APIStatusError):
+            return _summarize_api_status_error(exc)
 
         if context == "execution":
             return "Task execution failed because of an internal runtime error."

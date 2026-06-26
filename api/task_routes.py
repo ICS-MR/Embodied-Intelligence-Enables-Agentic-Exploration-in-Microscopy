@@ -2,6 +2,7 @@ import os
 import time
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from openai import APIStatusError
 
 from api.dependencies import get_runtime_manager
 from api.models import CommandRequest, PreviewStartResponse, RuntimeInitializationResponse, SystemShutdownResponse, SystemStatusResponse, TaskExecutionResponse
@@ -9,6 +10,15 @@ from bootstrap.config import config_is_complete
 
 
 router = APIRouter()
+
+
+def _upstream_http_status(exc: Exception) -> int | None:
+    if isinstance(exc, APIStatusError):
+        try:
+            return int(exc.response.status_code)
+        except Exception:
+            return None
+    return None
 
 
 def _terminate_current_process() -> None:
@@ -93,6 +103,6 @@ async def execute_command_api(req: CommandRequest, runtime_manager=Depends(get_r
     except Exception as exc:
         message = runtime_manager.humanize_exception_message(exc, context="execution")
         runtime_manager.enqueue_output_message({"type": "error", "text": message})
-        raise HTTPException(status_code=500, detail=message) from exc
+        raise HTTPException(status_code=_upstream_http_status(exc) or 500, detail=message) from exc
     finally:
         runtime_manager.app_state.task.running = False
