@@ -36,6 +36,22 @@ class LocalizationConfig:
     iou_threshold: float = 0.5
     confidence_threshold: float = 0.3
 
+    def __post_init__(self) -> None:
+        if self.image_id < 0:
+            raise ValueError("image_id must be non-negative")
+        if self.category_id < 0:
+            raise ValueError("category_id must be non-negative")
+        for field_name in ("score_thr", "nms_thr", "detection_threshold", "iou_threshold", "confidence_threshold"):
+            value = float(getattr(self, field_name))
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{field_name} must be between 0 and 1")
+        if self.tile_size <= 0:
+            raise ValueError("tile_size must be positive")
+        if self.overlap < 0 or self.overlap >= self.tile_size:
+            raise ValueError("overlap must satisfy 0 <= overlap < tile_size")
+        if not self.query_texts or not all(str(query).strip() for query in self.query_texts):
+            raise ValueError("query_texts must contain at least one non-empty query")
+
     def ensure_output_dir(self) -> Path:
         output_path = Path(self.output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -105,6 +121,7 @@ def run_model_localization(cfg: LocalizationConfig):
         tile_size=cfg.tile_size,
         overlap=cfg.overlap,
         image_id=cfg.image_id,
+        category_id=cfg.category_id,
         pad_to_tile_size=cfg.pad_to_tile_size,
     )
 
@@ -123,7 +140,11 @@ def run_vlm_localization(cfg: LocalizationConfig) -> int:
         str(raw_json),
         cfg.detection_threshold,
         list(cfg.query_texts),
+        show_window=False,
     )
+
+    if not raw_json.is_file():
+        raise RuntimeError(f"VLM inference did not produce its expected output: {raw_json}")
 
     return _vlm_json_to_coco(str(raw_json), str(coco_json), cfg.image_id, cfg.category_id)
 

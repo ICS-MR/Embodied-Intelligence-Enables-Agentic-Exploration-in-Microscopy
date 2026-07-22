@@ -42,9 +42,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
     if args.mode in {"vlm", "model"} and not args.image:
-        raise SystemExit("--image is required for vlm and model modes")
+        parser.error("--image is required for vlm and model modes")
+    if args.mode == "model" and (not args.config or not args.checkpoint):
+        parser.error("--config and --checkpoint are required for model mode")
+    if args.mode == "compare" and not args.gt:
+        parser.error("--gt is required for compare mode")
+    if args.mode == "compare" and bool(args.model_pred) != bool(args.vlm_pred):
+        parser.error("--model-pred and --vlm-pred must be supplied together")
 
     cfg = LocalizationConfig(
         image_path=args.image,

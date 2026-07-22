@@ -20,29 +20,49 @@ The workflow supports three actions:
 
 ## Command Line Usage
 
-```bash
-python -m localization_toolkit.cli ^
-  --mode vlm ^
-  --image path/to/image.jpg ^
-  --output-dir localization_output ^
+Install the dependencies from the repository root:
+
+```powershell
+uv pip install --python .venv\Scripts\python.exe -r docs\vlm_location_comparison\requirements.txt
+```
+
+The local-model mode also requires the CUDA/PyTorch-compatible MMCV build documented
+in the repository's main README.
+
+Before using `--mode vlm`, replace the configuration placeholders at the top of
+`localization_toolkit/vlm_inference.py`:
+
+```python
+API_KEY = "<your-vlm-api-key>"
+API_URL = "<your-vlm-api-endpoint>"
+MODEL_NAME = "<your-vlm-model-name>"
+```
+
+```powershell
+python -m localization_toolkit.cli `
+  --mode vlm `
+  --image path/to/image.jpg `
+  --output-dir localization_output `
+  --category-id 1 `
   --queries cell
 ```
 
-```bash
-python -m localization_toolkit.cli ^
-  --mode model ^
-  --image path/to/image.jpg ^
-  --output-dir localization_output ^
-  --config path/to/config.py ^
+```powershell
+python -m localization_toolkit.cli `
+  --mode model `
+  --image path/to/image.jpg `
+  --output-dir localization_output `
+  --category-id 1 `
+  --config path/to/config.py `
   --checkpoint path/to/epoch.pth
 ```
 
-```bash
-python -m localization_toolkit.cli ^
-  --mode compare ^
-  --gt path/to/test.json ^
-  --model-pred localization_output/model_detection_result.json ^
-  --vlm-pred localization_output/vlm_output_coco.json ^
+```powershell
+python -m localization_toolkit.cli `
+  --mode compare `
+  --gt path/to/test.json `
+  --model-pred localization_output/model_detection_result.json `
+  --vlm-pred localization_output/vlm_output_coco.json `
   --output-dir localization_output
 ```
 
@@ -60,7 +80,7 @@ cfg = LocalizationConfig(
     image_path=r"path/to/image.jpg",
     output_dir="localization_output",
     image_id=1,
-    category_id=0,
+    category_id=1,
     config_file=r"path/to/config.py",
     checkpoint_file=r"path/to/epoch.pth",
     gt_annotation_file=r"path/to/test.json",
@@ -85,10 +105,21 @@ compare_localizations(cfg)
 Use the same input image and ground-truth annotation when comparing methods so
 the reported localization errors are directly comparable.
 
+`error_results.json` includes matched-box localization errors plus `gt_count`,
+`prediction_count`, `true_positive`, `false_positive`, `false_negative`,
+`precision`, `recall`, and `f1`. Predictions and annotations are matched only
+when both their image IDs and category IDs agree. When no boxes are matched,
+the localization-error fields are `null` rather than zero.
+
 ## Notes
 
 - Run commands from this directory so Python can import `localization_toolkit`.
 - MMDetection, model configs, checkpoints, input images, and COCO annotation files
   are external test assets and are not stored here.
-- `localization_toolkit/vlm_inference.py` contains Qwen-VL API configuration. Move
-  credentials to an environment variable before sharing or publishing this code.
+- VLM credentials and endpoint details are configured at the top of
+  `localization_toolkit/vlm_inference.py`. Replace all three placeholders locally,
+  and never commit real credentials to this repository.
+- The VLM request asks for bounding boxes normalized to the `0-999` coordinate range.
+  The configured endpoint and model must support that response convention.
+- For the default single-class workflow, set `--category-id` to the cell category ID
+  used by the COCO ground-truth file. Both MMDetection and VLM results use this ID.

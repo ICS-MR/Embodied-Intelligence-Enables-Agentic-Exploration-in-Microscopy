@@ -5,15 +5,10 @@ from __future__ import annotations
 import json
 import os
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from pycocotools.coco import COCO
 from tqdm import tqdm
-
-matplotlib.rcParams["font.sans-serif"] = ["SimHei"]
-matplotlib.rcParams["axes.unicode_minus"] = False
-
 
 def _compute_iou_matrix(boxes1: np.ndarray, boxes2: np.ndarray) -> np.ndarray:
     ious = np.zeros((len(boxes1), len(boxes2)))
@@ -51,19 +46,33 @@ def _evaluate_one_method(
     iou_threshold: float,
     confidence_threshold: float,
 ) -> dict:
-    pred_by_image: dict[int, list[dict]] = {}
+    pred_by_group: dict[tuple[int, int], list[dict]] = {}
     for pred in pred_results:
         if pred["score"] < confidence_threshold:
             continue
-        pred_by_image.setdefault(pred["image_id"], []).append(pred)
+        key = (int(pred["image_id"]), int(pred["category_id"]))
+        pred_by_group.setdefault(key, []).append(pred)
+
+    gt_by_group: dict[tuple[int, int], list[dict]] = {}
+    for ann in coco_gt.dataset.get("annotations", []):
+        key = (int(ann["image_id"]), int(ann["category_id"]))
+        gt_by_group.setdefault(key, []).append(ann)
 
     area_errors = []
     center_distances = []
+    true_positives = 0
+    false_positives = 0
+    false_negatives = 0
 
-    for img_id in tqdm(coco_gt.imgs.keys(), desc=f"Evaluating {method_name}", leave=False):
-        gt_anns = coco_gt.loadAnns(coco_gt.getAnnIds(imgIds=img_id))
-        preds = pred_by_image.get(img_id, [])
-        if not gt_anns or not preds:
+    group_keys = sorted(set(gt_by_group) | set(pred_by_group))
+    for key in tqdm(group_keys, desc=f"Evaluating {method_name}", leave=False):
+        gt_anns = gt_by_group.get(key, [])
+        preds = pred_by_group.get(key, [])
+        if not gt_anns:
+            false_positives += len(preds)
+            continue
+        if not preds:
+            false_negatives += len(gt_anns)
             continue
 
         gt_boxes = np.array([ann["bbox"] for ann in gt_anns])
@@ -83,6 +92,7 @@ def _evaluate_one_method(
                 continue
             matched_pred.add(pred_idx)
             matched_gt.add(gt_idx)
+            true_positives += 1
 
             pred_area = pred_boxes[pred_idx][2] * pred_boxes[pred_idx][3]
             gt_area = gt_areas[gt_idx]
@@ -94,11 +104,28 @@ def _evaluate_one_method(
                 float(np.sqrt((pred_center[0] - gt_center[0]) ** 2 + (pred_center[1] - gt_center[1]) ** 2))
             )
 
+        false_positives += len(preds) - len(matched_pred)
+        false_negatives += len(gt_anns) - len(matched_gt)
+
+    prediction_count = sum(len(preds) for preds in pred_by_group.values())
+    gt_count = sum(len(anns) for anns in gt_by_group.values())
+    precision = true_positives / prediction_count if prediction_count else 0.0
+    recall = true_positives / gt_count if gt_count else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+
     return {
-        "mape": float(np.mean(area_errors)) if area_errors else 0.0,
-        "mean_center_distance": float(np.mean(center_distances)) if center_distances else 0.0,
-        "median_center_distance": float(np.median(center_distances)) if center_distances else 0.0,
-        "matched_count": len(area_errors),
+        "mape": float(np.mean(area_errors)) if area_errors else None,
+        "mean_center_distance": float(np.mean(center_distances)) if center_distances else None,
+        "median_center_distance": float(np.median(center_distances)) if center_distances else None,
+        "gt_count": gt_count,
+        "prediction_count": prediction_count,
+        "true_positive": true_positives,
+        "false_positive": false_positives,
+        "false_negative": false_negatives,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "matched_count": true_positives,
         "area_errors": area_errors,
         "center_distances": center_distances,
     }
@@ -136,9 +163,9 @@ def compare_coco_predictions(
     for name in method_names:
         if results[name]["area_errors"]:
             plt.hist(results[name]["area_errors"], bins=50, alpha=0.7, label=name, density=True)
-    plt.xlabel("面积相对误差")
-    plt.ylabel("密度")
-    plt.title("面积误差分布")
+    plt.xlabel("Relative area error")
+    plt.ylabel("Density")
+    plt.title("Area error distribution")
     plt.legend()
     plt.grid(True, alpha=0.3)
 
@@ -146,9 +173,9 @@ def compare_coco_predictions(
     for name in method_names:
         if results[name]["center_distances"]:
             plt.hist(results[name]["center_distances"], bins=50, alpha=0.7, label=name, density=True)
-    plt.xlabel("中心点距离 (像素)")
-    plt.ylabel("密度")
-    plt.title("中心点误差分布")
+    plt.xlabel("Center distance (pixels)")
+    plt.ylabel("Density")
+    plt.title("Center error distribution")
     plt.legend()
     plt.grid(True, alpha=0.3)
 

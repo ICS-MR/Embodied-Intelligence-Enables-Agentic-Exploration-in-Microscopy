@@ -22,27 +22,42 @@ def detect_and_save_tiled_mmdet(
     tile_size=1024,
     overlap=128,
     image_id=0,
-    pad_to_tile_size=True  # 是否将小 tile padding 到 tile_size
+    pad_to_tile_size=True,  # Pad edge tiles to tile_size.
+    category_id=0,
 ):
     """
-    使用 MMDetection 进行分块检测，支持 padding、全局 NMS、COCO 格式输出。
+    Run tiled MMDetection inference with padding, global NMS, and COCO output.
     """
-    print("🔧 初始化 MMDetection 模型...")
+    if tile_size <= 0:
+        raise ValueError("tile_size must be positive")
+    if overlap < 0 or overlap >= tile_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < tile_size")
+    if not 0.0 <= float(score_thr) <= 1.0:
+        raise ValueError("score_thr must be between 0 and 1")
+    if not 0.0 <= float(nms_thr) <= 1.0:
+        raise ValueError("nms_thr must be between 0 and 1")
+    for path_value, label in (
+        (config_file, "MMDetection config"),
+        (checkpoint_file, "MMDetection checkpoint"),
+        (img_path, "input image"),
+    ):
+        if not path_value or not Path(path_value).is_file():
+            raise FileNotFoundError(f"{label} does not exist: {path_value}")
+
+    print("Initializing MMDetection model...")
     model = init_detector(config_file, checkpoint_file, device=device)
 
-    print(f"🖼️ 读取图像: {img_path}")
-    if not os.path.exists(img_path):
-        raise FileNotFoundError(f"图像不存在: {img_path}")
+    print(f"Reading image: {img_path}")
     full_img = cv2.imread(img_path)
     if full_img is None:
-        raise ValueError(f"无法读取图像: {img_path}")
+        raise ValueError(f"Unable to read image: {img_path}")
     orig_h, orig_w = full_img.shape[:2]
-    print(f"   图像尺寸: {orig_w} x {orig_h}")
+    print(f"   Image size: {orig_w} x {orig_h}")
 
     step = tile_size - overlap
     num_cols = (orig_w + step - 1) // step
     num_rows = (orig_h + step - 1) // step
-    print(f"✂️ 分块: {num_rows} 行 × {num_cols} 列 (tile={tile_size}, overlap={overlap})")
+    print(f"Tiling: {num_rows} rows x {num_cols} columns (tile={tile_size}, overlap={overlap})")
 
     all_detections = []
 
@@ -60,7 +75,7 @@ def detect_and_save_tiled_mmdet(
             if tile_img.size == 0:
                 continue
 
-            # 👉 可选：padding 到 tile_size（避免模型对小图报错）
+            # Optionally pad edge tiles to the configured size.
             pad_h = tile_size - tile_img.shape[0]
             pad_w = tile_size - tile_img.shape[1]
             if pad_to_tile_size and (pad_h > 0 or pad_w > 0):
@@ -69,11 +84,11 @@ def detect_and_save_tiled_mmdet(
                     cv2.BORDER_CONSTANT, value=(0, 0, 0)
                 )
 
-            # 推理
+            # Run inference on this tile.
             try:
                 result = inference_detector(model, tile_img)
             except Exception as e:
-                print(f"   ⚠️ Tile {tile_idx} 推理异常: {e}")
+                print(f"   Warning: inference failed for tile {tile_idx}: {e}")
                 continue
 
             pred = result.pred_instances.cpu()
@@ -85,7 +100,7 @@ def detect_and_save_tiled_mmdet(
             scores = pred.scores[mask].numpy()
             labels = pred.labels[mask].numpy().astype(int)
 
-            # 如果做了 padding，需裁剪回原始 tile 范围（仅 x2,y2 可能超）
+            # Clip padded detections back to the unpadded tile bounds.
             if pad_to_tile_size:
                 bboxes[:, [2, 3]] = np.minimum(bboxes[:, [2, 3]], [x_max - x_min, y_max - y_min])
 
@@ -97,9 +112,9 @@ def detect_and_save_tiled_mmdet(
                 'y_off': y_min
             })
 
-            print(f"   🧩 Tile {tile_idx}: 检测到 {len(bboxes)} 个目标")
+            print(f"   Tile {tile_idx}: detected {len(bboxes)} objects")
 
-    # === 合并到原图坐标系 ===
+    # Merge detections into the full-image coordinate system.
     merged_boxes = []
     merged_scores = []
     merged_labels = []
@@ -108,7 +123,7 @@ def detect_and_save_tiled_mmdet(
         x_off, y_off = det['x_off'], det['y_off']
         for bbox, score, label in zip(det['boxes'], det['scores'], det['labels']):
             x1, y1, x2, y2 = bbox
-            # 保证不超出原图边界（可选）
+            # Keep boxes within the original image bounds.
             x1 = max(0, x1 + x_off)
             y1 = max(0, y1 + y_off)
             x2 = min(orig_w, x2 + x_off)
@@ -119,49 +134,46 @@ def detect_and_save_tiled_mmdet(
             merged_scores.append(float(score))
             merged_labels.append(int(label))
 
-    print(f"📊 合并前共 {len(merged_boxes)} 个检测框")
+    print(f"Merged {len(merged_boxes)} boxes before NMS")
 
-    # === 全局 NMS ===
+    # Apply global NMS.
     if not merged_boxes:
         kept_boxes, kept_scores, kept_labels = [], [], []
     else:
         boxes_np = np.array(merged_boxes, dtype=np.float32)
         scores_np = np.array(merged_scores, dtype=np.float32)
 
-        # 使用 cv2 NMS（兼容不同版本）
+        # OpenCV NMS expects boxes in xywh format.
+        boxes_xywh = boxes_np.copy()
+        boxes_xywh[:, 2] = boxes_np[:, 2] - boxes_np[:, 0]
+        boxes_xywh[:, 3] = boxes_np[:, 3] - boxes_np[:, 1]
         indices = cv2.dnn.NMSBoxes(
-            bboxes=boxes_np.tolist(),
+            bboxes=boxes_xywh.tolist(),
             scores=scores_np.tolist(),
-            score_threshold=score_thr - 0.05,  # 略低于阈值，防止漏框
+            score_threshold=max(0.0, score_thr - 0.05),
             nms_threshold=nms_thr
         )
 
-        # 处理 OpenCV 版本差异
+        # Normalize the index shape returned by different OpenCV versions.
         if len(indices) == 0:
             kept_boxes, kept_scores, kept_labels = [], [], []
         else:
-            if isinstance(indices[0], (list, np.ndarray)):
-                indices = [i[0] for i in indices]
-            else:
-                indices = indices.flatten().tolist()
+            indices = np.asarray(indices).reshape(-1).astype(int).tolist()
 
             kept_boxes = [merged_boxes[i] for i in indices]
             kept_scores = [merged_scores[i] for i in indices]
             kept_labels = [merged_labels[i] for i in indices]
 
-    print(f"✅ NMS 后保留 {len(kept_boxes)} 个检测框")
+    print(f"Kept {len(kept_boxes)} boxes after NMS")
 
-    # === 保存 COCO 格式 JSON ===
+    # Save COCO-style predictions.
     json_results = []
-    for box, score, label in zip(kept_boxes, kept_scores, kept_labels):
+    for box, score in zip(kept_boxes, kept_scores):
         x1, y1, x2, y2 = box
         w, h = x2 - x1, y2 - y1
-        # ⚠️ 注意：MMDetection 默认类别从 0 开始，COCO 通常从 1 开始？
-        # 如果你的模型训练时类别是 0-based，且 COCO label 也是 0-based，则保留。
-        # 否则需 +1。这里假设 config 中 category_id 与模型一致。
         json_results.append({
             "image_id": int(image_id),
-            "category_id": int(label),  # 如需 +1，改为 label + 1
+            "category_id": int(category_id),
             "bbox": [round(x1, 2), round(y1, 2), round(w, 2), round(h, 2)],
             "score": round(score, 4)
         })
@@ -169,9 +181,9 @@ def detect_and_save_tiled_mmdet(
     os.makedirs(os.path.dirname(output_json) if os.path.dirname(output_json) else '.', exist_ok=True)
     with open(output_json, 'w', encoding='utf-8') as f:
         json.dump(json_results, f, indent=2)
-    print(f"✅ 检测结果已保存: {output_json} ({len(json_results)} 个目标)")
+    print(f"Saved detection results to {output_json} ({len(json_results)} objects)")
 
-    # === 可视化 ===
+    # Render a visualization.
     if kept_boxes:
         pred_instances = InstanceData()
         pred_instances.bboxes = np.array(kept_boxes, dtype=np.float32)
@@ -182,11 +194,11 @@ def detect_and_save_tiled_mmdet(
         final_result.pred_instances = pred_instances
 
         visualizer = DetLocalVisualizer()
-        # 👉 关键：设置 classes 才能显示类别名
+        # Dataset metadata is required to render class names.
         if hasattr(model, 'dataset_meta') and 'classes' in model.dataset_meta:
             visualizer.dataset_meta = model.dataset_meta
         else:
-            # 若未定义，尝试从 checkpoint 或 config 推断（简化处理）
+            # Fall back to generic class names when metadata is unavailable.
             visualizer.dataset_meta = {'classes': [f'class_{i}' for i in range(80)]}
 
         visualizer.add_datasample(
@@ -198,15 +210,15 @@ def detect_and_save_tiled_mmdet(
             show=False,
             out_file=output_img
         )
-        print(f"✅ 可视化图像已保存: {output_img}")
+        print(f"Saved visualization to {output_img}")
     else:
         cv2.imwrite(output_img, full_img)
-        print(f"⚠️ 无检测结果，原图已保存: {output_img}")
+        print(f"No detections; saved the original image to {output_img}")
 
     return json_results, model
 
 
-# ========== 使用示例 ==========
+# Usage example
 if __name__ == "__main__":
     config_file = r'work_dirs/2D_/2D_.py'
     checkpoint_file = r'work_dirs/2D_/epoch_50.pth'
@@ -224,5 +236,6 @@ if __name__ == "__main__":
         tile_size=2048,
         overlap=128,
         image_id=1,
-        pad_to_tile_size=True  # 推荐开启
+        category_id=1,
+        pad_to_tile_size=True  # Recommended for edge tiles.
     )

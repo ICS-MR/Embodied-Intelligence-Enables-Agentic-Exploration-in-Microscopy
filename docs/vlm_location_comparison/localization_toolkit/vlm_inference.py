@@ -9,55 +9,70 @@ import cv2
 import os
 import io
 
-# ===== 配置参数 =====
-API_KEY = "sk-fe8622aafd6f42df95d2274f996a8e68"
-API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-MODEL_NAME = "qwen3-vl-235b-a22b-instruct"
+# Replace these placeholders before running VLM inference.
+API_KEY = "<your-vlm-api-key>"
+API_URL = "<your-vlm-api-endpoint>"
+MODEL_NAME = "<your-vlm-model-name>"
 
-# 最大允许输入边长（Qwen-VL 推荐 ≤ 4096）
+# Maximum input edge length.
 MAX_INPUT_SIZE = 512
-# 图像质量压缩参数（0-100，越低质量越小）
-IMAGE_QUALITY = 80  # 可根据需要调整，建议 70-90
-# 是否启用渐进式JPEG（进一步减小体积）
+# JPEG quality from 0 to 100; lower values produce smaller payloads.
+IMAGE_QUALITY = 80  # Recommended range: 70-90.
+# Progressive JPEG further reduces the encoded payload size.
 PROGRESSIVE_JPEG = True
 
 
 def encode_image_from_pil(image, quality=95, progressive=False):
-    """从PIL图像直接编码为base64，同时压缩质量"""
+    """Encode a PIL image as a compressed base64 JPEG."""
     try:
-        # 创建字节流
         img_byte_arr = io.BytesIO()
-        # 保存为JPEG并设置质量参数
         image.save(
             img_byte_arr,
             format='JPEG',
             quality=quality,
             progressive=progressive,
-            optimize=True  # 启用优化
+            optimize=True
         )
-        # 重置指针到开头
         img_byte_arr.seek(0)
-        # 编码为base64
         return base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
     except Exception as e:
-        print(f"❌ 图像编码失败: {str(e)}")
+        print(f"Image encoding failed: {str(e)}")
         return None
 
 
 def encode_image(image_path):
-    """兼容原有接口的文件编码函数（也加入质量压缩）"""
+    """Read an image file and encode it as a compressed base64 JPEG."""
     try:
         with Image.open(image_path) as img:
-            img = img.convert("RGB")  # 确保为RGB模式
+            img = img.convert("RGB")
             return encode_image_from_pil(img, IMAGE_QUALITY, PROGRESSIVE_JPEG)
     except Exception as e:
-        print(f"❌ 读取并编码图像文件失败: {str(e)}")
+        print(f"Unable to read and encode image: {str(e)}")
         return None
 
 
+def _load_api_config():
+    values = {
+        "API_KEY": str(API_KEY).strip(),
+        "API_URL": str(API_URL).strip(),
+        "MODEL_NAME": str(MODEL_NAME).strip(),
+    }
+    unconfigured = [
+        name for name, value in values.items()
+        if not value or (value.startswith("<") and value.endswith(">"))
+    ]
+    if unconfigured:
+        raise RuntimeError(
+            "VLM API configuration contains placeholders. Replace: "
+            f"{', '.join(unconfigured)} in localization_toolkit/vlm_inference.py."
+        )
+    return values["API_KEY"], values["API_URL"], values["MODEL_NAME"]
+
+
 def call_qwen_vl_api(image_b64, queries):
+    api_key, api_url, model_name = _load_api_config()
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
@@ -73,24 +88,21 @@ def call_qwen_vl_api(image_b64, queries):
                 },
                 {
                     "type": "text",
-                    "text": f"请精确检测图中以下类别的物体：{', '.join(queries)}。要求：\n"
-                            """输出必须是严格符合 JSON 数组格式的字符串，且仅包含以下字段：
-                            - "label": 类别名称（字符串）
-                            - "bbox": 边界框 [x_min, y_min, x_max, y_max]（整数列表）
-                            不要输出任何额外文字、解释、代码块标记（如 ```json）、换行符或空格。
-                            输出示例：[
-                            {
-                                "label":"cell",
-                                "bbox":[100,200,300,400]
-                            }
-                            ]"""
+                    "text": f"Precisely detect objects in these categories: {', '.join(queries)}. Requirements:\n"
+                            """Return a strict JSON object whose top-level "detections" field is an array.
+                            Each detection must contain only these fields:
+                            - "label": category name as a string
+                            - "bbox": bounding box [x_min, y_min, x_max, y_max], normalized to 0-999
+                            - "confidence": confidence score between 0 and 1
+                            Do not return explanations, extra text, or code fences.
+                            Example: {"detections":[{"label":"cell","bbox":[100,200,300,400],"confidence":0.9}]}"""
                 }
             ]
         }
     ]
 
     payload = {
-        "model": MODEL_NAME,
+        "model": model_name,
         "messages": messages,
         "max_tokens": 2000,
         "temperature": 0.01,
@@ -98,43 +110,55 @@ def call_qwen_vl_api(image_b64, queries):
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=120)
         response.raise_for_status()
         result = response.json()
 
         if "choices" in result and len(result["choices"]) > 0:
             return result["choices"][0]["message"]["content"]
-        else:
-            print(f"API返回异常: {json.dumps(result, indent=2)}")
-            return None
+        raise RuntimeError(f"VLM API response has no choices: {json.dumps(result, ensure_ascii=False)}")
 
-    except Exception as e:
-        print(f"API请求失败: {str(e)}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"API错误详情: {e.response.text}")
-        return None
+    except requests.RequestException as exc:
+        detail = ""
+        if exc.response is not None:
+            detail = f" Response: {exc.response.text}"
+        raise RuntimeError(f"VLM API request failed: {exc}.{detail}") from exc
 
 
 def parse_detection_results(api_response, image_width, image_height, detection_threshold):
-    """解析 API 返回，将 Qwen-VL 的 0-999 坐标转为实际像素坐标"""
+    """Parse a VLM response and convert normalized coordinates to pixels."""
     try:
         if not api_response:
             return [], [], []
 
-        # 提取 JSON
-        json_match = re.search(r'(\[.*\])', api_response, re.DOTALL)
-        if not json_match:
-            print("❌ 无法找到有效的JSON结构")
-            return [], [], []
+        cleaned = str(api_response).strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+        try:
+            payload = json.loads(cleaned)
+        except json.JSONDecodeError:
+            json_match = re.search(r'(\{.*\}|\[.*\])', cleaned, re.DOTALL)
+            if not json_match:
+                raise ValueError("VLM response does not contain valid JSON")
+            payload = json.loads(json_match.group(1))
 
-        detections = json.loads(json_match.group(1))
+        if isinstance(payload, dict):
+            detections = payload.get("detections", payload.get("objects", payload.get("results", [])))
+        else:
+            detections = payload
+        if not isinstance(detections, list):
+            raise ValueError("VLM detection payload must be a JSON array")
 
         formatted_detections = []
         for det in detections:
             if "bbox_2d" in det:
-                formatted_detections.append({"label": "cell", "bbox": det["bbox_2d"]})
+                formatted_detections.append({
+                    "label": det.get("label", "cell"),
+                    "bbox": det["bbox_2d"],
+                    "confidence": det.get("confidence", det.get("score", 1.0)),
+                })
             elif "label" in det and "bbox" in det:
-                formatted_detections.append({"label": det["label"], "bbox": det["bbox"]})
+                formatted_detections.append(det)
 
         boxes = []
         scores = []
@@ -147,14 +171,17 @@ def parse_detection_results(api_response, image_width, image_height, detection_t
 
             orig_x_min, orig_y_min, orig_x_max, orig_y_max = [float(x) for x in bbox]
             label = det["label"]
+            score = float(det.get("confidence", det.get("score", 1.0)))
+            if not 0.0 <= score <= 1.0 or score < float(detection_threshold):
+                continue
 
-            # Qwen-VL 返回的是 0-999 的相对坐标
+            # The VLM returns relative coordinates in the 0-999 range.
             x_min = (orig_x_min / 999.0) * image_width
             y_min = (orig_y_min / 999.0) * image_height
             x_max = (orig_x_max / 999.0) * image_width
             y_max = (orig_y_max / 999.0) * image_height
 
-            # 边界裁剪
+            # Clip coordinates to the image bounds.
             x_min = max(0, min(x_min, image_width - 1))
             y_min = max(0, min(y_min, image_height - 1))
             x_max = max(1, min(x_max, image_width))
@@ -164,18 +191,17 @@ def parse_detection_results(api_response, image_width, image_height, detection_t
                 continue
 
             boxes.append([x_min, y_min, x_max, y_max])
-            scores.append(1.0)  # 所有 score 为 1.0
+            scores.append(score)
             labels.append(label)
 
         return boxes, scores, labels
 
-    except Exception as e:
-        print(f"🔥 解析检测结果时发生错误: {str(e)}")
-        return [], [], []
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Failed to parse VLM detection response: {exc}") from exc
 
 
 def draw_boxes(image, boxes, scores, labels):
-    """在图像上绘制检测框（支持中文）"""
+    """Draw detection boxes and labels on an image."""
     draw = ImageDraw.Draw(image)
 
     font = None
@@ -196,7 +222,7 @@ def draw_boxes(image, boxes, scores, labels):
 
     for box, score, label in zip(boxes, scores, labels):
         draw.rectangle(box, outline=(0, 255, 0), width=2)
-        label_text = f"{label} {score:.2f}"  # 增加类别显示
+        label_text = f"{label} {score:.2f}"
         try:
             text_bbox = draw.textbbox((0, 0), label_text, font=font)
             text_width = text_bbox[2] - text_bbox[0]
@@ -229,70 +255,73 @@ def save_results(boxes, scores, labels, output_json):
     os.makedirs(os.path.dirname(os.path.abspath(output_json)), exist_ok=True)
     with open(output_json, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"💾 检测结果已保存到: {os.path.abspath(output_json)}")
+    print(f"Saved detection results to {os.path.abspath(output_json)}")
 
 
-def vlm_inference(IMAGE_PATH, OUTPUT_IMAGE, OUTPUT_JSON, DETECTION_THRESHOLD, QUERY_TEXTS):
-    print("===== Qwen-VL 细胞检测系统 (缩放+质量压缩) =====")
-    print(f"🔬 检测类别: {', '.join(QUERY_TEXTS)}")
-    print(f"🎯 置信度阈值: {DETECTION_THRESHOLD}")
-    print(f"🖼️ 图像压缩质量: {IMAGE_QUALITY}%")
-    print(f"⚡ 渐进式JPEG: {'开启' if PROGRESSIVE_JPEG else '关闭'}")
+def vlm_inference(
+    IMAGE_PATH,
+    OUTPUT_IMAGE,
+    OUTPUT_JSON,
+    DETECTION_THRESHOLD,
+    QUERY_TEXTS,
+    *,
+    show_window=False,
+):
+    print("===== VLM localization (resize and JPEG compression) =====")
+    print(f"Target categories: {', '.join(QUERY_TEXTS)}")
+    print(f"Confidence threshold: {DETECTION_THRESHOLD}")
+    print(f"JPEG quality: {IMAGE_QUALITY}%")
+    print(f"Progressive JPEG: {'enabled' if PROGRESSIVE_JPEG else 'disabled'}")
 
-    # 1. 读取原始图像
+    # 1. Read the original image.
     try:
-        original_image = Image.open(IMAGE_PATH).convert("RGB")
+        with Image.open(IMAGE_PATH) as source_image:
+            original_image = source_image.convert("RGB")
         orig_w, orig_h = original_image.size
         orig_size = os.path.getsize(IMAGE_PATH) / 1024 / 1024  # MB
-        print(f"📊 原始图像: {orig_w}x{orig_h}, 大小: {orig_size:.2f} MB")
-    except Exception as e:
-        print(f"❌ 打开图像失败: {e}")
-        print(f"🔍 请检查文件是否存在: {os.path.abspath(IMAGE_PATH)}")
-        return
+        print(f"Original image: {orig_w}x{orig_h}, {orig_size:.2f} MB")
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"Unable to open input image {os.path.abspath(IMAGE_PATH)}: {exc}") from exc
 
-    # 2. 缩放图像（如过大）
+    # 2. Resize images that exceed the input limit.
     scale_factor = 1.0
     if max(orig_w, orig_h) > MAX_INPUT_SIZE:
         scale_factor = MAX_INPUT_SIZE / max(orig_w, orig_h)
         new_w = int(orig_w * scale_factor)
         new_h = int(orig_h * scale_factor)
         input_image = original_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        print(f"🔄 图像过大，已缩放至: {new_w}x{new_h} (缩放因子: {scale_factor:.4f})")
+        print(f"Resized image to {new_w}x{new_h} (scale factor: {scale_factor:.4f})")
     else:
         input_image = original_image
         new_w, new_h = orig_w, orig_h
-        print("✅ 图像尺寸在允许范围内，无需缩放")
+        print("Image dimensions are within the input limit; no resize required")
 
-    # 3. 直接编码缩放后的图像（带质量压缩）
-    print("🔄 正在编码图像（带质量压缩）...")
+    # 3. Encode the resized image with JPEG compression.
+    print("Encoding image with JPEG compression...")
     image_b64 = encode_image_from_pil(input_image, IMAGE_QUALITY, PROGRESSIVE_JPEG)
 
     if not image_b64:
-        print("❌ 图像编码失败，终止流程")
+        print("Image encoding failed; stopping inference")
         return
 
-    # 计算压缩后的大小
-    compressed_size = len(image_b64) * 3 / 4 / 1024  # base64编码后体积增加约33%
-    print(f"📦 压缩后图像大小: {compressed_size:.2f} KB")
+    # Estimate the decoded JPEG size from the base64 payload.
+    compressed_size = len(image_b64) * 3 / 4 / 1024
+    print(f"Compressed image size: {compressed_size:.2f} KB")
 
-    # 4. 调用 API
-    print("🔄 正在调用 Qwen-VL API...")
+    # 4. Call the VLM API.
+    print("Calling VLM API...")
     start_time = time.time()
     api_response = call_qwen_vl_api(image_b64, QUERY_TEXTS)
     elapsed = time.time() - start_time
-    print(f"⏱️ API 响应时间: {elapsed:.2f} 秒")
+    print(f"API response time: {elapsed:.2f} seconds")
 
-    if api_response is None:
-        print("❌ API 未返回有效结果，终止流程")
-        return
-
-    # 5. 解析检测结果（基于缩放后图像）
+    # 5. Parse detections in resized-image coordinates.
     boxes, scores, labels = parse_detection_results(api_response, new_w, new_h, DETECTION_THRESHOLD)
-    print(f"✅ 在缩放图像上检测到 {len(boxes)} 个目标")
+    print(f"Detected {len(boxes)} objects in the resized image")
 
-    # 6. 坐标还原到原始图像
+    # 6. Map coordinates back to the original image.
     if scale_factor != 1.0:
-        print("🔄 正在将检测框坐标还原到原始图像尺寸...")
+        print("Mapping detection coordinates to the original image size...")
         original_boxes = []
         for box in boxes:
             x1, y1, x2, y2 = box
@@ -304,48 +333,49 @@ def vlm_inference(IMAGE_PATH, OUTPUT_IMAGE, OUTPUT_JSON, DETECTION_THRESHOLD, QU
             ])
         boxes = original_boxes
 
-    # 7. 保存结果
+    # 7. Save structured results.
     save_results(boxes, scores, labels, OUTPUT_JSON)
 
-    # 8. 绘制并保存标注图
-    print("🖼️ 正在绘制检测结果...")
+    # 8. Draw and save the annotated image.
+    print("Drawing detection results...")
     result_image = draw_boxes(original_image.copy(), boxes, scores, labels)
     os.makedirs(os.path.dirname(os.path.abspath(OUTPUT_IMAGE)), exist_ok=True)
-    # 保存结果图时也可压缩
     result_image.save(
         OUTPUT_IMAGE,
-        quality=90,  # 结果图质量稍高
+        quality=90,
         progressive=True,
         optimize=True
     )
-    print(f"🖼️ 标注图像已保存至: {os.path.abspath(OUTPUT_IMAGE)}")
+    print(f"Saved annotated image to {os.path.abspath(OUTPUT_IMAGE)}")
 
-    # 9. 显示结果（可选）
-    try:
-        cv_image = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
-        screen_width = 1920
-        max_width = min(1200, screen_width - 100)
-        scale = max_width / cv_image.shape[1]
-        new_height = int(cv_image.shape[0] * scale)
-        cv_image_resized = cv2.resize(cv_image, (max_width, new_height))
-        cv2.imshow("Qwen-VL 检测结果 (缩放+质量压缩)", cv_image_resized)
-        print("\n🖼️ 按任意键关闭窗口...")
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-    except Exception as e:
-        print(f"⚠️ 显示图像失败（不影响保存）: {e}")
+    if show_window:
+        try:
+            cv_image = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
+            screen_width = 1920
+            max_width = min(1200, screen_width - 100)
+            scale = max_width / cv_image.shape[1]
+            new_height = int(cv_image.shape[0] * scale)
+            cv_image_resized = cv2.resize(cv_image, (max_width, new_height))
+            cv2.imshow("VLM detection results", cv_image_resized)
+            print("\nPress any key to close the window...")
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        except Exception as exc:
+            print(f"Unable to display image; saved outputs are unaffected: {exc}")
+
+    return len(boxes)
 
 
 if __name__ == "__main__":
-    # ===== 用户配置区 =====
+    # Example configuration
     IMAGE_PATH = r"pos_4x.ome.png"
     OUTPUT_IMAGE = "output_scaled.jpg"
     OUTPUT_JSON = "detections_scaled.json"
-    DETECTION_THRESHOLD = 0.3  # 实际未用于过滤（因 score 恒为 1.0），保留兼容性
+    DETECTION_THRESHOLD = 0.3
     QUERY_TEXTS = ["cell"]
 
-    # 可在这里临时调整压缩参数
-    # IMAGE_QUALITY = 75  # 更低的质量，更小的体积
+    # Compression parameters can be adjusted for local experiments.
+    # IMAGE_QUALITY = 75  # Lower quality produces a smaller payload.
     # PROGRESSIVE_JPEG = True
 
     vlm_inference(IMAGE_PATH, OUTPUT_IMAGE, OUTPUT_JSON, DETECTION_THRESHOLD, QUERY_TEXTS)
