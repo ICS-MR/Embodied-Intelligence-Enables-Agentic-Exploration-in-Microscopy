@@ -9,10 +9,10 @@ import numpy as np
 class SerialCommunication:
     def __init__(self, port, baudrate, timeout=1):
         """
-        初始化串口通信类
-        :param port: 串口号，例如 'COM3' 或 '/dev/ttyUSB0'
-        :param baudrate: 波特率，例如 9600
-        :param timeout: 超时时间（秒），默认为 1 秒
+        Initialize serial communication.
+        :param port: Serial port, for example 'COM3' or '/dev/ttyUSB0'.
+        :param baudrate: Serial baud rate, for example 9600.
+        :param timeout: Read timeout in seconds.
         """
         self.port = port
         self.baudrate = baudrate
@@ -24,31 +24,31 @@ class SerialCommunication:
 
     def open_port(self):
         """
-        打开串口
+        Open the serial port.
         """
         try:
             if not self.ser or not self.ser.is_open:
                 self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
-                # 添加串口打开状态验证
-                for _ in range(3):  # 重试3次
+                # Verify the port state with a few short retries.
+                for _ in range(3):
                     if self.ser.is_open:
-                        print("端口打开成功")
+                        print("Serial port opened successfully")
                         return
                     time.sleep(0.1)
-                raise serial.SerialException("端口打开超时")
+                raise serial.SerialException("Timed out while opening serial port")
         except Exception as e:
-            print(f"打开串口失败: {e}")
-            raise  # 向上抛出异常
+            print(f"Unable to open serial port: {e}")
+            raise
     
     
 
     def write_data(self, data):
         """
-        向串口写入数据
-        :param data: 要写入的数据，必须是 bytes 类型
+        Write bytes to the serial port.
+        :param data: Payload to write; must be bytes.
         """
         if not isinstance(data, bytes):
-            raise TypeError("数据必须是 bytes 类型")
+            raise TypeError("Serial payload must be bytes")
         try:
 
             if self.ser and self.ser.is_open:
@@ -56,9 +56,9 @@ class SerialCommunication:
                 self.rx_buffer.clear()
                 self.ser.write(data)
             else:
-                print("串口未打开，无法写入数据")
+                print("Serial port is not open; cannot write data")
         except serial.SerialException as e:
-            print(f"写入数据失败: {e}")
+            print(f"Serial write failed: {e}")
 
     def _trim_buffer(self):
         head_idx = self.rx_buffer.find(self.frame_head)
@@ -87,8 +87,8 @@ class SerialCommunication:
 
     def read_data(self) -> Optional[bytes]:
         """
-        从串口读取数据
-        :return: 读取到的数据（bytes 类型），如果没有数据则返回 None
+        Read one framed payload from the serial port.
+        :return: A bytes frame, or None when no frame is available.
         """
         try:
             if not self.ser or not self.ser.is_open:
@@ -114,21 +114,21 @@ class SerialCommunication:
 
             return self._extract_frame()
         except serial.SerialException as e:
-            print(f"读取数据失败: {e}")
+            print(f"Serial read failed: {e}")
             return None
 
     def close_port(self):
         """
-        关闭串口
+        Close the serial port.
         """
         try:
             if self.ser and self.ser.is_open:
                 self.ser.close()
-                # print("串口已关闭")
+                # print("Serial port closed")
             else:
-                print("串口未打开或已关闭")
+                print("Serial port is not open or is already closed")
         except serial.SerialException as e:
-            print(f"关闭串口失败: {e}")
+            print(f"Unable to close serial port: {e}")
 
 class Robot(object):
     def __init__(self, port_id, baudrate, timeout):
@@ -166,15 +166,15 @@ class Robot(object):
                 self.buffer.extend(data)
 
     def _extract_frame(self) -> Optional[bytes]:
-        """从缓冲区提取完整帧"""
+        """Extract one complete frame from the receive buffer."""
         while len(self.buffer) >= 4:
-            # 查找帧头
+            # Find the frame header.
             start = self.buffer.find(b'\x5D\x5B')
             if start == -1:
                 self.buffer.clear()
                 return None
             
-            # 查找帧尾
+            # Find the frame trailer.
             end = self.buffer.find(b'\x5D\x5D', start + 2)
             if end == -1:
                 return None
@@ -185,12 +185,12 @@ class Robot(object):
         return None
 
     def get_pose(self):
-        # 控制帧：请求获取机械臂坐标
+        # Control frame requesting the robot coordinates.
         my_set = bytes([0x5D, 0x5B, 0x01, 0x01, 0x01, 0xFE, 0x40, 0x55,
                         0x00, 0x01, 0x00, 0xD2, 0x21, 0x5D, 0x5D])
 
-        MAX_RETRY = 5            # 最多允许失败次数
-        COORD_START_IDX = 11     # 坐标数据起始索引
+        MAX_RETRY = 5
+        COORD_START_IDX = 11
         COORD_RANGE = (-10000.0, 10000.0)
         for attempt in range(1, MAX_RETRY + 1):
             try:
@@ -199,36 +199,36 @@ class Robot(object):
                     axis_pose_bytes = self.port.read_data()
 
                 if not axis_pose_bytes:
-                    print(f"[尝试 {attempt}] ❌ 无数据返回")
+                    print(f"[Attempt {attempt}] No data returned")
                     continue
 
-                # 1. ✅ 校验帧头帧尾
+                # Validate the frame header and trailer.
                 if axis_pose_bytes[:2] != b'\x5D\x5B' or axis_pose_bytes[-2:] != b'\x5D\x5D':
-                    print(f"[尝试 {attempt}] ❌ 帧头帧尾错误")
+                    print(f"[Attempt {attempt}] Invalid frame header or trailer")
                     continue
 
-                # 2. ✅长度检测（跳过异常帧）
+                # Optional frame-length validation.
                 # if not (len(axis_pose_bytes) == 194):
-                #     print(f"[尝试 {attempt}] ⚠️ 异常帧长度: {len(axis_pose_bytes)}，跳过")
+                #     print(f"[Attempt {attempt}] Unexpected frame length: {len(axis_pose_bytes)}")
                 #     continue
 
-                # 3. ✅ 解析坐标数据
+                # Decode coordinate values.
                 try:
                     x, y, z = struct.unpack('>fff', axis_pose_bytes[COORD_START_IDX:COORD_START_IDX+12])
                 except struct.error as e:
-                    print(f"[尝试 {attempt}] ❌ 坐标解码失败: {e}")
+                    print(f"[Attempt {attempt}] Coordinate decoding failed: {e}")
                     continue
 
-                # 4. ✅ 校验坐标范围
+                # Validate coordinate ranges.
                 if not all(COORD_RANGE[0] <= val <= COORD_RANGE[1] for val in (x, y, z)):
-                    print(f"[尝试 {attempt}] ❌ 坐标越界: x={x:.2f}, y={y:.2f}, z={z:.2f}")
+                    print(f"[Attempt {attempt}] Coordinates out of range: x={x:.2f}, y={y:.2f}, z={z:.2f}")
                     continue
                 
-                # 5. ✅ 特例验证
+                # Reject implausibly large jumps on the Y axis.
                 if self.current_pose is not None:
                     delta_y = abs(self.current_pose[1] - y)
                     if delta_y > 600:
-                        print(f"[尝试 {attempt}] ⚠️ y轴跳变异常: {delta_y:.2f}")
+                        print(f"[Attempt {attempt}] Abnormal Y-axis jump: {delta_y:.2f}")
                         continue
 
                 self.current_pose = [x, y, z]
@@ -238,47 +238,47 @@ class Robot(object):
                 else:
                     self.smoothed_pose = self.alpha * current_raw_pose + (1 - self.alpha) * self.smoothed_pose
 
-                # ✅ 全部校验通过，返回值
+                # Return the smoothed pose after all checks pass.
                 return [round(val, 2) for val in self.smoothed_pose]
 
             except Exception as e:
-                print(f"[尝试 {attempt}] ⚠️ 系统异常: {e}")
+                print(f"[Attempt {attempt}] Robot communication error: {e}")
                 self._reconnect_port()
 
-        print(f"⚠️ 连续 {MAX_RETRY} 次采集机械臂坐标失败。")
+        print(f"Failed to acquire robot coordinates after {MAX_RETRY} attempts.")
         if self.smoothed_pose is not None:
             last_pose = [round(val, 2) for val in self.smoothed_pose]
-            print(f"    返回上一次的平滑坐标: {last_pose}")
+            print(f"    Returning the last smoothed pose: {last_pose}")
             return last_pose
-        print("    严重警告：从未获取到有效坐标。返回 [0, 0, 0]")
+        print("    No valid coordinates have been received; returning [0, 0, 0]")
         return [0.0, 0.0, 0.0]
 
     def _reconnect_port(self):
-        """端口重连"""
+        """Reconnect the serial port."""
         try:
             self.port.close_port()
             time.sleep(0.5)
             self.port.open_port()
         except Exception as e:
-            print(f"端口重连失败: {e}")
+            print(f"Serial port reconnection failed: {e}")
 
     def move_pose(self, actions):
-        # 固定速度值
+        # Use a fixed movement speed.
         speed = 4000.0
         MAX_RETRY = 3
         self.is_moving = True
-        # 发送每个坐标的移动指令
+        # Send one movement command per axis.
         for axis, coord in zip(['x', 'y', 'z'], actions):
             if axis == 'z':
                 continue
-            # 确定轴选择字节 (57:x, 58:y, 59:z)
+            # Select the protocol byte for this axis.
             axis_byte = {
                 'x': 0x57,
                 'y': 0x58,
                 'z': 0x59
             }[axis]
             command_bytes = self.command_create(axis_byte, speed, coord)
-            # print(f'移动命令：{command_bytes.hex()}')
+            # print(f'Movement command: {command_bytes.hex()}')
             for attempt in range(MAX_RETRY):
                 try:
                     with self.lock:
@@ -287,18 +287,18 @@ class Robot(object):
                     if response and response[:2] == b'\x5D\x5B':
                         break
                     if attempt == MAX_RETRY - 1:
-                        print(f'{axis} 轴移动应答超时，跳过本次应答等待')
+                        print(f'Timed out waiting for the {axis}-axis movement response')
                 except Exception as e:
-                    print(f'命令发送错误：{e}')
+                    print(f'Command transmission failed: {e}')
                     self._reconnect_port()
             self.is_moving = False
 
     @staticmethod
     def crc16_modbus(data: bytes) -> int:
         """
-        计算CRC16校验码
-        :param data: 要计算校验码的数据
-        :return: CRC16校验码
+        Compute a Modbus CRC16 checksum.
+        :param data: Data covered by the checksum.
+        :return: CRC16 checksum.
         """
         crc = 0xFFFF  
         for byte in data:
@@ -311,18 +311,18 @@ class Robot(object):
                     crc >>= 1
         return crc
     def command_create(self, axis_byte, speed, coord):
-        # 构建指令帧
+        # Build the protocol command frame.
         command = [
-            0x5D, 0x5B,                                         # 帧头
-            0x01, 0x01, 0x01, 0xFE, 0x60, 0x66, 0x00, 0x09,     # 固定参数
-            axis_byte,                                          # 轴选择
+            0x5D, 0x5B,                                         # Frame header
+            0x01, 0x01, 0x01, 0xFE, 0x60, 0x66, 0x00, 0x09,     # Fixed parameters
+            axis_byte,                                          # Axis selector
         ]
-        # 添加位置和速度 (IEEE 754大端单精度浮点)
-        command.extend(struct.pack('>f', coord))                    # 位置
-        command.extend(struct.pack('>f', speed))                    # 速度
+        # Append position and speed as big-endian IEEE 754 floats.
+        command.extend(struct.pack('>f', coord))
+        command.extend(struct.pack('>f', speed))
         crc = self.crc16_modbus(bytes(command[2:]))
-        command.extend([crc & 0xFF, (crc >> 8) & 0xFF])             # CRC校验 
-        command.extend([0x5D, 0x5D])                                # 帧尾
+        command.extend([crc & 0xFF, (crc >> 8) & 0xFF])             # CRC checksum
+        command.extend([0x5D, 0x5D])                                # Frame trailer
         command_bytes = bytes(command)
         return command_bytes
     
@@ -332,12 +332,12 @@ class Robot(object):
             with self.lock:
                 self.port.write_data(interrupt_cmd)
                 response = self.port.read_data()
-                # print(f"中断响应: {response.hex() if response else None}")
+                # print(f"Interrupt response: {response.hex() if response else None}")
 
-            # 短帧可能是中断确认，无需解析坐标
+            # A short frame may acknowledge the interrupt without coordinates.
             self.is_moving = False
             self.is_interrupt = False
-            print('中断完成')
+            print('Movement interrupted')
 
     def set_interrupt(self):
         self.is_interrupt = True
@@ -346,7 +346,7 @@ class Robot(object):
         while not self.is_interrupt:
             time.sleep(0.05)
         self.interrupt_move()
-        print("[robot_motoring] 退出监控线程")
+        print("[robot_motoring] Monitoring thread exited")
 
 if __name__ == "__main__":
     target_pos = [0, 0, 0]

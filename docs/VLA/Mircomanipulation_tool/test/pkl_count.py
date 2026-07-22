@@ -8,16 +8,16 @@ def count_files(path):
             total += len(files)
         return total
     except FileNotFoundError:
-        print(f"错误：路径不存在 - {path}")
+        print(f"Path does not exist: {path}")
         return 0
 
 if __name__ == "__main__":
     base_path = '/home/nova/mir/task/task_Splicing_3_language_correction_v2'
     
-    # 遍历所有 epoch 目录
+    # Count files in every epoch directory.
     total_files = 0
-    print("正在扫描训练任务文件...")
-    print(f"{'Epoch':<10} | {'文件数量':>10}")
+    print("Scanning training task files...")
+    print(f"{'Epoch':<10} | {'File count':>10}")
     print("-" * 25)
     
     for dir_name in os.listdir(base_path):
@@ -29,4 +29,4 @@ if __name__ == "__main__":
                 total_files += count
                 
     print("-" * 25)
-    print(f"总文件数量: {total_files:,}")
+    print(f"Total files: {total_files:,}")

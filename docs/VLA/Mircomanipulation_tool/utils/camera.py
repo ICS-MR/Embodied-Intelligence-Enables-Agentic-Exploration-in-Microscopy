@@ -16,33 +16,33 @@ class DahengCamera:
         self.height = height
         self.display_size = display_size
 
-        # 同步与状态控制
-        self.cam_lock = Lock()           # 保护对 self.cam 的所有访问
+        # Synchronization and runtime state.
+        self.cam_lock = Lock()           # Protect all access to self.cam.
         self.frame_lock = Lock()
         self.latest_frame = None
         self.thread = None
-        self.thread_started = False     # 防止重复 start()
-        self.converter = None           # 重用转换器（在相机初始化成功后创建）
+        self.thread_started = False     # Prevent duplicate start() calls.
+        self.converter = None           # Reuse the converter after initialization.
 
-        # 先尝试初始化一次（若失败会把 self.cam 置 None）
+        # Attempt initialization once; failures leave self.cam as None.
         self._reinitialize_camera()
 
-        # Ctrl+C 安全退出
+        # Handle Ctrl+C when constructed in the main thread.
         try:
             signal.signal(signal.SIGINT, self._signal_handler)
         except ValueError:
             print("Warning: Failed to register signal handler (not in main thread). Ignoring.")
 
-    # ---------- 相机打开/关闭/初始化相关 ----------
+    # Camera initialization and shutdown
     def _reinitialize_camera(self):
-        """安全重连：先释放旧设备，再重新打开并start stream"""
+        """Release any old device, reopen the camera, and start streaming."""
         with self.cam_lock:
-            self._release_camera_locked()  # 内部假定持有 cam_lock
+            self._release_camera_locked()
 
             try:
                 dev_num, dev_info_list = self.device_manager.update_all_device_list()
                 if dev_num == 0:
-                    raise Exception("未找到相机设备")
+                    raise Exception("No camera device found")
 
                 sn = dev_info_list[0].get("sn")
 
@@ -50,9 +50,9 @@ class DahengCamera:
                 try:
                     self.cam = self.device_manager.open_device_by_sn(sn)
                 except Exception as e:
-                    # 尝试根据异常信息做替代打开
+                    # Fall back to index-based opening when the SDK reports a duplicate open.
                     if "already been opened" in str(e) or "repeat open" in str(e).lower():
-                        print("[警告] open_device_by_sn 报 already opened，尝试 open_device_by_index")
+                        print("[WARNING] Camera is already open by serial number; trying device index")
                         try:
                             self.cam = self.device_manager.open_device_by_index(0)
                         except Exception as e2:
@@ -60,7 +60,7 @@ class DahengCamera:
                     else:
                         raise e
 
-                # 配置参数（放在打开后）
+                # Configure dimensions after opening the device.
                 try:
                     feature = self.cam.get_remote_device_feature_control()
                     if feature.is_writable("Width"):
@@ -68,28 +68,28 @@ class DahengCamera:
                     if feature.is_writable("Height"):
                         feature.get_int_feature("Height").set(self.height)
                 except Exception as e:
-                    print(f"[警告] 设置 Width/Height 失败: {e}")
+                    print(f"[WARNING] Unable to set camera width and height: {e}")
 
-                # 创建并缓存转换器（如果 device_manager 支持）
+                # Create and cache an image converter when supported.
                 try:
                     self.converter = self.device_manager.create_image_format_convert()
                     self.converter.set_dest_format(gx.GxPixelFormatEntry.RGB8)
                 except Exception:
                     self.converter = None
 
-                # 启动流
+                # Start the camera stream.
                 try:
                     self.cam.stream_on()
                 except Exception as e:
-                    # 如果 stream_on 失败，确保释放并抛出
+                    # Release the device before propagating stream startup failures.
                     self._release_camera_locked()
                     raise e
 
-                print("[信息] 相机初始化成功")
+                print("[INFO] Camera initialized successfully")
 
             except Exception as e:
-                print(f"[错误] 相机初始化失败: {e}")
-                # 确保 cam 为 None（表示未打开）
+                print(f"[ERROR] Camera initialization failed: {e}")
+                # Ensure a failed initialization leaves no open camera reference.
                 try:
                     self._release_camera_locked()
                 except Exception:
@@ -98,17 +98,16 @@ class DahengCamera:
                 self.converter = None
 
     def _release_camera_locked(self):
-        """在持有 cam_lock 时释放相机资源（内部使用）"""
-        # 注意：调用stream_off、close_device 都必须在 cam_lock 下以避免 get_image 与释放并发
+        """Release camera resources while the caller holds cam_lock."""
+        # stream_off and close_device must not race with frame acquisition.
         try:
             if self.cam:
                 try:
-                    # 先停止流（若支持）
+                    # Stop streaming before closing the device.
                     try:
                         self.cam.stream_off()
                     except Exception:
                         pass
-                    # 再关闭设备
                     try:
                         self.cam.close_device()
                     except Exception:
@@ -117,15 +116,15 @@ class DahengCamera:
                     self.cam = None
             self.converter = None
         except Exception as e:
-            print(f"[警告] 相机释放失败 (locked): {e}")
+            print(f"[WARNING] Camera release failed while locked: {e}")
 
     def close(self):
-        """外部调用的关闭，停止线程并释放资源"""
+        """Stop the capture thread and release camera resources."""
         self.running = False
-        # 等待线程退出
+        # Wait briefly for the capture thread to exit.
         if self.thread and self.thread_started:
             self.thread.join(timeout=1.0)
-        # 释放相机
+        # Release the camera under its lock.
         with self.cam_lock:
             self._release_camera_locked()
         try:
@@ -134,17 +133,17 @@ class DahengCamera:
             pass
 
     def _signal_handler(self, sig, frame):
-        print("\n[信息] 收到退出信号，正在释放资源...")
+        print("\n[INFO] Exit signal received; releasing camera resources...")
         try:
             self.close()
         except Exception:
             pass
         sys.exit(0)
 
-    # ---------- 帧抓取与转换 ----------
+    # Frame acquisition and conversion
     def _convert_to_numpy(self, raw_image):
-        """把 raw_image 转换为 numpy RGB 图像。假定 raw_image 是有效帧"""
-        # 使用已缓存的 converter（如果存在），否则临时创建
+        """Convert a valid raw camera frame to a NumPy RGB image."""
+        # Use the cached converter or create a temporary one.
         converter = self.converter
         created_temp_conv = False
         if converter is None:
@@ -154,7 +153,7 @@ class DahengCamera:
             converter.set_dest_format(gx.GxPixelFormatEntry.RGB8)
             created_temp_conv = True
 
-        # 针对像素格式设置有效位
+        # Select valid bits for the source pixel format.
         try:
             pixel_format = raw_image.get_pixel_format()
             bit_map = {
@@ -172,20 +171,20 @@ class DahengCamera:
             buffer_ptr = addressof(buffer_array)
             converter.convert(raw_image, buffer_ptr, buffer_size, False)
 
-            # 注意 frame_data 的字段名（和你之前的写法一致）
+            # Read dimensions from the SDK frame metadata.
             h = raw_image.frame_data.height
             w = raw_image.frame_data.width
             img_np = np.frombuffer(buffer_array, dtype=np.uint8).reshape(h, w, 3)
-            # 若创建了临时 converter，手动释放/忽略（GC 处理）
+            # Temporary converter wrappers are released by Python's GC.
             return img_np
         finally:
             if created_temp_conv:
                 # nothing to explicitly free in python wrapper, just drop ref
                 pass
 
-    # ---------- 公开接口：启动/停止采集线程 ----------
+    # Public capture-thread interface
     def start(self):
-        """启动后台采集线程（可多次调用但只会真正启动一次）"""
+        """Start the background capture thread once."""
         if self.thread_started:
             return
         self.running = True
@@ -194,34 +193,34 @@ class DahengCamera:
         self.thread_started = True
 
     def _capture_loop(self):
-        """仅由后台线程执行：抓取、转换、缩放并缓存。"""
+        """Capture, convert, resize, and cache frames in the background."""
         SHORT_RETRY = 3
         while self.running:
-            # 如果 cam 尚未就绪，等待并重试
+            # Wait until both the camera and converter are ready.
             with self.cam_lock:
-                cam_local = self.cam  # 复制引用以减少锁保持时间
+                cam_local = self.cam
                 conv_local = self.converter
             if cam_local is None or conv_local is None:
                 time.sleep(0.1)
                 continue
 
-            # 尝试一次获取帧（带 timeout），失败则短重试几次，再触发重连
+            # Retry frame acquisition briefly before reconnecting.
             got_frame = False
             for attempt in range(SHORT_RETRY):
                 try:
                     with self.cam_lock:
-                        # 每次从 SDK 取帧都在 cam_lock 下
+                        # Serialize all SDK frame access with camera teardown.
                         if not self.cam:
-                            raise Exception("相机已关闭")
+                            raise Exception("Camera is closed")
                         raw_image = self.cam.data_stream[0].get_image(timeout=1000)
                         if raw_image is None:
-                            raise Exception("未获取到图像（raw_image is None）")
+                            raise Exception("Camera returned no image")
                         if raw_image.get_status() != gx.GxFrameStatusList.SUCCESS:
-                            raise Exception("图像状态无效（Incomplete frame）")
+                            raise Exception("Camera returned an incomplete frame")
 
                         frame = self._convert_to_numpy(raw_image)
 
-                    # 缩放和绘制参考线放到 SDK 锁外，减少相机阻塞时间。
+                    # Resize and draw guides outside the SDK lock.
                     resized_frame = self._resize_and_pad(frame)
                     with self.frame_lock:
                         self.latest_frame = resized_frame
@@ -230,34 +229,32 @@ class DahengCamera:
                 except Exception as e:
                     if not self.running:
                         break
-                    # 记录并短等待后重试
-                    print(f"[警告] 第 {attempt+1} 次取帧失败: {e}")
+                    print(f"[WARNING] Frame acquisition attempt {attempt + 1} failed: {e}")
                     time.sleep(0.1)
 
             if not self.running:
                 break
 
             if not got_frame:
-                # 短重试都失败 → 安全重连（在 _safe_reconnect 中也会获取 cam_lock）
-                print("[警告] 多次短重试取帧失败，尝试安全重连")
+                print("[WARNING] Frame retries exhausted; attempting a safe reconnect")
                 self._safe_reconnect()
-                # 重连后短暂等待
+                # Give the camera a moment after reconnecting.
                 time.sleep(0.1)
             else:
-                # 成功获取帧后按目标显示速率稍作 sleep（避免 100% 占用）
+                # Avoid a busy loop after successful acquisition.
                 time.sleep(0.01)
 
     def get_latest_frame(self):
-        """返回最近一帧（由后台线程填充）。可能为 None（尚未有帧）。"""
+        """Return a copy of the latest frame, or None before the first frame."""
         with self.frame_lock:
             if self.latest_frame is None:
                 return None
             return self.latest_frame.copy()
 
     def cv_show_image(self):
-        """显示 OpenCV 窗口，同时保持后台采集线程更新缓存。"""
+        """Display cached frames in an OpenCV window."""
         self.start()
-        print("[信息] 相机后台采集线程已启动...")
+        print("[INFO] Background camera capture started...")
         while self.running:
             frame = self.get_latest_frame()
             if frame is not None:
@@ -270,13 +267,13 @@ class DahengCamera:
             time.sleep(0.001)
 
     def cv_get_image(self):
-        """外部需要单帧时从缓存中非阻塞读取（不直接访问 SDK）。"""
+        """Read one cached frame without accessing the SDK directly."""
         return self.get_latest_frame()
 
     def _safe_reconnect(self):
-        """安全的重连流程：在 cam_lock 下释放并重新初始化"""
+        """Release the camera under lock and initialize it again."""
         with self.cam_lock:
-            # 释放（内部会 stream_off + close）
+            # Stop and close the existing device.
             try:
                 if self.cam:
                     try:
@@ -289,16 +286,16 @@ class DahengCamera:
                         pass
                 self.cam = None
             except Exception as e:
-                print(f"[警告] _safe_reconnect release 部分异常: {e}")
+                print(f"[WARNING] Camera release during reconnect failed: {e}")
 
-        # 给驱动时间释放资源
+        # Give the driver time to release resources.
         time.sleep(0.2)
 
-        # 重新初始化（内部再次获取 cam_lock）
+        # Reinitialize; the helper acquires cam_lock again.
         try:
             self._reinitialize_camera()
         except Exception as e:
-            print(f"[错误] _safe_reconnect 重新初始化异常: {e}")
+            print(f"[ERROR] Camera reinitialization failed: {e}")
     
     def _resize_and_pad(self, img):
         h, w = img.shape[:2]
@@ -318,48 +315,8 @@ class DahengCamera:
 
         return padded
     
-    # def _draw_l_shape(self, img):
-    #     """在图像上绘制六个点组成的L型封闭图案"""
-    #     h, w = img.shape[:2]
-
-    #     # L型参数（相对比例）
-    #     margin = int(min(w, h) * 0.2)
-    #     spacing = int(min(w, h) * 0.25)
-    #     radius = 2
-    #     color = (0, 0, 255)  # 绿色点
-    #     thickness = -1
-
-    #     # 从左上角开始绘制 L 形（共6个点）
-    #     # 例如：
-    #     # (0,0) (1,0) (2,0)
-    #     # (0,1)
-    #     # (0,2)
-    #     # (0,3)
-    #     pts = [
-    #         (360+margin, margin),
-    #         (360+margin + spacing, margin),
-    #         (360+margin + spacing, margin + 3 * spacing-45),
-    #         (360+margin - spacing+20, margin + 3 * spacing-45),
-    #         (360+margin - spacing+20, margin + 2 * spacing-35),
-    #         (360+margin, margin + 2 * spacing-35),
-    #         (360+margin, margin),
-    #     ]
-
-    #     # 绘制点
-    #     for (x, y) in pts:
-    #         cv2.circle(img, (x, y), radius, color, thickness)
-
-    #     # 封闭L形边框（可选：连线）
-    #     for i in range(len(pts) - 1):
-    #         cv2.line(img, pts[i], pts[i + 1], (0, 0, 255), 3)
-
-    #     return img
-
     def _draw_l_shape(self, img, style="dashed"):
-        """
-        在图像上绘制L型封闭图案
-        :param style: "solid" 实线 | "dashed" 虚线
-        """
+        """Draw a closed L-shaped guide using solid or dashed lines."""
         h, w = img.shape[:2]
         margin = int(min(w, h) * 0.2)
         spacing = int(min(w, h) * 0.25)
@@ -376,11 +333,11 @@ class DahengCamera:
             (360 + margin, margin),
         ]
 
-        # 画点
+        # Draw guide vertices.
         for (x, y) in pts:
             cv2.circle(img, (x, y), 2, color, -1)
 
-        # 根据 style 绘制不同线条
+        # Connect vertices using the selected line style.
         if style == "solid":
             for i in range(len(pts) - 1):
                 cv2.line(img, pts[i], pts[i + 1], color, 3)
@@ -391,11 +348,11 @@ class DahengCamera:
         return img
 
     def _draw_dashed_line(self, img, pt1, pt2, color, thickness=1, dash_length=10, gap_length=5):
-        """绘制虚线（由短线+间隔组成）"""
+        """Draw a dashed line as alternating segments and gaps."""
         x1, y1 = pt1
         x2, y2 = pt2
         dist = int(np.hypot(x2 - x1, y2 - y1))
-        # 沿线段方向逐段绘制
+        # Draw consecutive segments along the line direction.
         for i in range(0, dist, dash_length + gap_length):
             start_ratio = i / dist
             end_ratio = min((i + dash_length) / dist, 1.0)

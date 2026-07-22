@@ -5,7 +5,7 @@ import threading
 from pynput import keyboard
 import datetime
 from docs.VLA.Mircomanipulation_tool.utils.camera import DahengCamera
-# 用于存储按键按下时间的字典
+# Track key press times for motion-key release handling.
 key_press_times = {}
 lock = threading.Lock()
 
@@ -25,9 +25,9 @@ class Agent:
         self.should_exit = False
 
         self.stage_definitions = {
-            0: "approach",  # 接近阶段
-            1: "manipulate", # 操作阶段
-            2: "retract"    # 回撤阶段
+            0: "approach",
+            1: "manipulate",
+            2: "retract"
         }
         self.current_stage = 0
         self.stage_lock = threading.Lock()
@@ -40,9 +40,9 @@ class Agent:
         self.buffer = bytearray()
 
     def _synchronization_loop(self):
-        """后台同步读取相机缓存和机械臂位置，前台采集只读快照。"""
+        """Synchronize cached camera frames and robot positions in the background."""
         self.sync_thread_running = True
-        print("[信息] 同步线程已启动...")
+        print("[INFO] Synchronization thread started...")
         while self.sync_thread_running:
             with self.comm_lock:
                 current_pose = self.robot.get_pose()
@@ -61,16 +61,16 @@ class Agent:
                 self.latest_snapshot['qpos'] = current_pose
 
             time.sleep(0.01)
-        print("[信息] 同步线程已停止。")
+        print("[INFO] Synchronization thread stopped.")
 
     def open(self):
         self.robot.open()
-        # 打开相机
+        # Start camera display, keyboard listener, and synchronization threads.
         self.camera_thread.start()
         # self.camera_thread.daemon = True
         self.listen_thread.start()
         self.sync_thread.start()
-        print("等待初始同步快照...")
+        print("Waiting for the initial synchronized snapshot...")
         temp_pos = None
         while temp_pos is None and not self.should_exit:
             with self.snapshot_lock:
@@ -78,24 +78,24 @@ class Agent:
             if temp_pos is None:
                 time.sleep(0.1)
         self.ee_pos = temp_pos
-        print(f'初始化结束，初始位置: {temp_pos}')
+        print(f'Initialization complete; initial position: {temp_pos}')
 
     def close(self):
-        print("[INFO] 开始关闭 Agent...")
+        print("[INFO] Shutting down agent...")
         self.sync_thread_running = False
         self.camera.close()
-        print("[INFO] 相机已安全关闭")
+        print("[INFO] Camera closed safely")
         self.robot.close()
-        print("[INFO] 机器人已安全关闭")
+        print("[INFO] Robot closed safely")
         if hasattr(self, 'listener'):
             self.listener.stop()
-            print("[INFO] 监听器已安全关闭")
+            print("[INFO] Keyboard listener closed safely")
         if self.sync_thread.is_alive():
             self.sync_thread.join(timeout=0.5)
-        print("[INFO] 所有线程已安全关闭")
+        print("[INFO] All threads closed safely")
     
     def listen(self):
-        # 创建监听器对象
+        # Create the keyboard listener.
         self.listener = keyboard.Listener(on_press=self.on_key_press,
                                         on_release=self.on_key_release)
         self.listener.start()
@@ -122,7 +122,7 @@ class Agent:
     
     def get_current_stage(self):
         with self.stage_lock:
-            # 直接返回当前阶段编号，如果不在定义范围内则返回None或-1
+            # Return -1 for an invalid stage index.
             return self.current_stage if self.current_stage in self.stage_definitions else -1
 
     def get_current_stage_name(self):
@@ -130,20 +130,20 @@ class Agent:
             return self.stage_definitions.get(self.current_stage, "unknown")
 
     def on_key_press(self, key):
-        # 将按键对象转换为字符串名称
+        # Convert the pynput key object to a stable name.
         key_name = key.char if isinstance(key, keyboard.KeyCode) else key.name
             
-        # 记录按下时间
+        # Record the first press time for each key.
         if key_name not in key_press_times:
             key_press_times[key_name] = datetime.datetime.now()
 
-        # 方向键处理
+        # Arrow keys move the robot in the XY plane.
         if key_name in ['up', 'down', 'left', 'right']:
             self.robot.set_interrupt()
             current_pos = self.get_ee_pos()
-            print(f"当前位置: {current_pos if current_pos else '获取失败'}")
+            print(f"Current position: {current_pos if current_pos else 'unavailable'}")
             
-            # 计算新位置
+            # Compute the bounded target position.
             new_pos = copy.deepcopy(current_pos)
             if key_name == 'up':
                 new_pos[1] = max(-10000, new_pos[1] - step)
@@ -167,37 +167,37 @@ class Agent:
         elif key_name == 'space':
             if self.current_stage < len(self.stage_definitions) - 1:
                 self.current_stage = self.current_stage + 1
-                print(f'\n进入下一阶段: {self.get_current_stage_name()}')
+                print(f'\nEntered next stage: {self.get_current_stage_name()}')
             elif self.current_stage >= len(self.stage_definitions) - 1 :
                 self.current_stage = len(self.stage_definitions) - 1
-                print(f'\n已经是最后一阶段: {self.get_current_stage_name()}')
+                print(f'\nAlready at the final stage: {self.get_current_stage_name()}')
         elif key_name == "delete":
             self.delete_Flag = True
             print('delete last result of your collection')
         elif key_name == "esc":
-            print("[ESC] 收到退出指令")
+            print("[ESC] Exit requested")
             self.should_exit = True
         else:
             pass
 
     def on_key_release(self, key):
-        # 将按键对象转换为字符串名称
+        # Convert the pynput key object to a stable name.
         if isinstance(key, keyboard.KeyCode):
             key_name = key.char
         else:
             key_name = key.name
 
         if key_name in ['up', 'down', 'left', 'right']:
-            # 如果按键在字典中，计算持续时间
+            # Stop movement when an arrow key is released.
             if key_name in key_press_times:
                 self.robot.set_interrupt()
-                pressed_time = key_press_times.pop(key_name)  # 取出按下时间并移除
+                pressed_time = key_press_times.pop(key_name)
                 released_time = datetime.datetime.now()
                 duration = (released_time - pressed_time).total_seconds()
-                # print(f"方向键 {key_name} 被松开，时间: {released_time}, 持续时间: {duration:.3f} 秒")
+                # print(f"Arrow key {key_name} released at {released_time}; held for {duration:.3f} seconds")
                 # time.sleep(0.1)
                 self.get_ee_pos()
-                print(f"当前位置为{self.ee_pos}")
+                print(f"Current position: {self.ee_pos}")
 
 if __name__ == "__main__":
     agent = Agent('/dev/ttyUSB0', 115200, 0.1)
@@ -207,4 +207,4 @@ if __name__ == "__main__":
     #         time.sleep(0.01)
     # finally:
     #     agent.close()
-    #     print("[MAIN] 程序已退出")
+    #     print("[MAIN] Program exited")
