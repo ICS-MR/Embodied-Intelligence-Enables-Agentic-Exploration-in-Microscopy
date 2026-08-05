@@ -521,7 +521,6 @@ def assemble_runtime_tools(
             env_obj,
             executor,
             role="user_tool",
-            validate_role=False,
             expose_public_callables=False,
         )
 

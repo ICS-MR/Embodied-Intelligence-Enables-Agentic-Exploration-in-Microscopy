@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from tool.ports import validate_port_implementation
-
 
 @dataclass
 class ToolBinding:
@@ -26,14 +24,11 @@ class ToolRegistry:
         executor: Any,
         *,
         role: str = "",
-        validate_role: bool = False,
         expose_public_callables: bool = False,
     ) -> None:
         if name in self._bindings:
             raise ValueError(f"Platform '{name}' is already registered")
 
-        if validate_role and role:
-            validate_port_implementation(env, role)
         methods = env.get_public_methods() if hasattr(env, "get_public_methods") else []
         public_callables = {
             method_name: getattr(env, method_name)
@@ -60,7 +55,7 @@ class ToolRegistry:
         )
 
     def register_platform(self, name: str, env: Any, executor: Any, *, port_kind: str) -> None:
-        self.register_tool(name, env, executor, role=port_kind, validate_role=True, expose_public_callables=True)
+        self.register_tool(name, env, executor, role=port_kind, expose_public_callables=True)
 
     def list_tools(self) -> List[Dict[str, Any]]:
         return [
