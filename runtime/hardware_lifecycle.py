@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 import threading
 
+from bootstrap.microscope_semantics import resolve_channel_input, resolve_objective_input
 from bootstrap.config import StartupConfig, load_startup_config
 from runtime.config import _has_transmitted_light_brightness_control
 from runtime.models import RuntimeContext
@@ -17,6 +18,13 @@ def _check_cancelled(cancel_event: Optional[threading.Event]) -> None:
         raise RuntimeError("hardware operation cancelled")
 
 
+def _resolve_startup_label(value: str, system_config: Any, resolver: Any) -> str:
+    if system_config is None:
+        return value
+    resolved_label, _semantic_key, _entry = resolver(value, system_config)
+    return resolved_label
+
+
 def initialize_microscope(env_olympus: Any, cancel_event: Optional[threading.Event] = None) -> None:
     _check_cancelled(cancel_event)
     env_olympus.initialize()
@@ -29,17 +37,19 @@ def apply_startup_state(
     cancel_event: Optional[threading.Event] = None,
 ) -> None:
     startup = startup_config or load_startup_config()
+    system_config = getattr(env_olympus, "system_config", None)
+    objective_label = _resolve_startup_label(startup.objective, system_config, resolve_objective_input)
+    channel_label = _resolve_startup_label(startup.channel, system_config, resolve_channel_input)
     _check_cancelled(cancel_event)
-    _call_if_available(env_olympus, "set_objective", startup.objective)
+    _call_if_available(env_olympus, "set_objective", objective_label)
     _check_cancelled(cancel_event)
     if hasattr(env_olympus, "_user_brightness"):
         env_olympus._user_brightness = int(startup.brightness)
     _check_cancelled(cancel_event)
-    _call_if_available(env_olympus, "set_channel", startup.channel)
+    _call_if_available(env_olympus, "set_channel", channel_label)
     _check_cancelled(cancel_event)
     _call_if_available(env_olympus, "set_exposure", startup.exposure)
     _check_cancelled(cancel_event)
-    system_config = getattr(env_olympus, "system_config", None)
     if _has_transmitted_light_brightness_control(system_config):
         _call_if_available(env_olympus, "set_brightness", startup.brightness)
     _check_cancelled(cancel_event)

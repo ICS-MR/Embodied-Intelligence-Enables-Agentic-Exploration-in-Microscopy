@@ -1011,6 +1011,8 @@
                         <div class="field"><label for="maxZPosition">Max Z Position</label><input id="maxZPosition" type="number" step="any"></div>
                         <div class="field"><label for="minBrightness">Min Brightness</label><input id="minBrightness" type="number" step="1"></div>
                         <div class="field"><label for="maxBrightness">Max Brightness</label><input id="maxBrightness" type="number" step="1"></div>
+                        <div class="field"><label for="startupObjective">Startup Objective</label><select id="startupObjective"></select></div>
+                        <div class="field"><label for="startupChannel">Startup Channel</label><select id="startupChannel"></select></div>
                         <div class="field"><label for="startupXPosition">Startup X Position</label><input id="startupXPosition" type="number" step="any"></div>
                         <div class="field"><label for="startupYPosition">Startup Y Position</label><input id="startupYPosition" type="number" step="any"></div>
                         <div class="field"><label for="startupZPosition">Startup Z Position</label><input id="startupZPosition" type="number" step="any"></div>
@@ -1164,6 +1166,7 @@
             realHardwareConfigDraft: null,
             transmittedLightConfigDraft: {},
             demoManagedSystem: null,
+            demoManagedStartup: null,
             taskProgress: null,
             taskProgressClearTimer: null,
         };
@@ -1288,6 +1291,7 @@
             const system = data.system || {};
             const realSystemDraft = data.real_system_draft || {};
             uiState.demoManagedSystem = cloneJson(data.demo_system || {});
+            uiState.demoManagedStartup = cloneJson(data.demo_startup || {});
             const agent = data.agent || {};
             const startup = data.startup || {};
             if (Object.keys(realSystemDraft).length > 0) {
@@ -1304,9 +1308,9 @@
             $("transmittedIllumination").value = system.transmittedIllumination || "";
             $("focusDrive").value = system.focus_drive || "";
             $("dichroicDevice").value = system.Dichroic || "";
-            fillLimitFields(system);
-            fillStartupFields(startup);
             fillSemanticMappingFields(system);
+            fillLimitFields(system);
+            fillStartupFields(startup, currentSemanticMapping(system));
             $("microscopeMode").value = agent.microscope_mode || "demo";
             $("imageAnalysisMode").value = agent.image_analysis_mode || "mock";
             $("segmentationMode").value = agent.segmentation_mode || "mock";
@@ -1355,6 +1359,11 @@
                 fillLimitFields(draft);
             }
             fillSemanticMappingFields(draft);
+            refreshStartupMappingOptions();
+        }
+
+        function applyManagedStartupDraft(startup) {
+            fillStartupFields(startup || {}, collectSemanticMappingPayload());
         }
 
         function hasLimitFields(system) {
@@ -1396,8 +1405,46 @@
             };
         }
 
-        function fillStartupFields(startup) {
+        function formatMappingOptionLabel(key, entry) {
+            const displayName = String(entry?.display_name || key);
+            const label = String(entry?.label || "").trim();
+            return label ? `${displayName} (${label})` : `${displayName} (missing label)`;
+        }
+
+        function fillMappingSelect(elementId, entries, selectedKey) {
+            const select = $(elementId);
+            select.innerHTML = "";
+            const normalizedSelected = String(selectedKey || "").trim().toLowerCase();
+            let hasSelected = false;
+            for (const [key, entry] of Object.entries(entries || {})) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.textContent = formatMappingOptionLabel(key, entry);
+                if (key.toLowerCase() === normalizedSelected) {
+                    option.selected = true;
+                    hasSelected = true;
+                }
+                select.appendChild(option);
+            }
+            if (normalizedSelected && !hasSelected) {
+                const option = document.createElement("option");
+                option.value = selectedKey;
+                option.textContent = `${selectedKey} (not present in current mapping)`;
+                option.selected = true;
+                select.prepend(option);
+            }
+        }
+
+        function refreshStartupMappingOptions(startup = {}) {
+            const mapping = collectSemanticMappingPayload();
+            fillMappingSelect("startupObjective", mapping.objectives, startup.objective || $("startupObjective").value || "40x");
+            fillMappingSelect("startupChannel", mapping.channels, startup.channel || $("startupChannel").value || "brightfield");
+        }
+
+        function fillStartupFields(startup, mapping) {
             const cfg = startup || {};
+            fillMappingSelect("startupObjective", mapping?.objectives || {}, cfg.objective || "40x");
+            fillMappingSelect("startupChannel", mapping?.channels || {}, cfg.channel || "brightfield");
             setNumberValue("startupXPosition", cfg.x_position);
             setNumberValue("startupYPosition", cfg.y_position);
             setNumberValue("startupZPosition", cfg.z_position);
@@ -1411,8 +1458,9 @@
             if (demoModeEnabled) {
                 uiState.realHardwareConfigDraft = buildCurrentSystemDraft();
                 applyManagedSystemDraft(cloneJson(uiState.demoManagedSystem || {}));
+                applyManagedStartupDraft(cloneJson(uiState.demoManagedStartup || {}));
                 syncMicroscopeModeUi();
-                showFeedback("Microscope demo mode will use the managed Micro-Manager demo config and device mapping.", false);
+                showFeedback("Microscope demo mode will use the managed Micro-Manager demo config, device mapping, travel limits, and startup state.", false);
                 return;
             }
 
@@ -1449,6 +1497,22 @@
                     "transmittedIllumination",
                     "focusDrive",
                     "dichroicDevice",
+                    "minXPosition",
+                    "maxXPosition",
+                    "minYPosition",
+                    "maxYPosition",
+                    "minZPosition",
+                    "maxZPosition",
+                    "minBrightness",
+                    "maxBrightness",
+                    "startupObjective",
+                    "startupChannel",
+                    "startupXPosition",
+                    "startupYPosition",
+                    "startupZPosition",
+                    "startupBrightness",
+                    "startupExposure",
+                    "startupStartPreview",
                     "objective4x",
                     "objective10x",
                     "objective20x",
@@ -1564,6 +1628,24 @@
             const configPath = String(effectiveConfigPath || "").trim();
             if (!configPath) return baseMessage;
             return `${baseMessage} Active CONFIG_PATH: ${configPath}`;
+        }
+
+        function bindStartupMappingRefreshEvents() {
+            const mappingFieldIds = [
+                "objective4x",
+                "objective10x",
+                "objective20x",
+                "objective30x",
+                "objective40x",
+                "objective60x",
+                "channelBrightfield",
+                "channelDapi",
+                "channelFitc",
+                "channelTritc",
+            ];
+            for (const id of mappingFieldIds) {
+                $(id).addEventListener("input", () => refreshStartupMappingOptions());
+            }
         }
 
         function renderRuntimeReadySubtitle() {
@@ -1838,6 +1920,8 @@
                 showFeedback(data.status_message || "Runtime initialization failed.", true);
             } else if (uiState.systemPhase === "ready_to_start") {
                 showFeedback(data.status_message || "Configuration saved. Start the system when ready.", false);
+            } else if (uiState.systemPhase === "unconfigured") {
+                showFeedback(data.status_message || "Configuration is incomplete. Fill the required fields before starting the system.", true);
             }
             return data;
         }
@@ -1900,6 +1984,7 @@
             $("focusDrive").value = data.suggestions?.focus_drive?.value || "";
             $("dichroicDevice").value = data.suggestions?.Dichroic?.value || "";
             fillSemanticMappingFields(data);
+            refreshStartupMappingOptions();
             showFeedback("cfg parsed. Check the device fields and suggested mapping fields, then save configuration.");
             syncMicroscopeModeUi();
         }
@@ -1937,6 +2022,8 @@
                 objectives: semanticMapping.objectives,
                 channels: semanticMapping.channels,
                 transmitted_light: semanticMapping.transmitted_light,
+                startup_objective: $("startupObjective").value,
+                startup_channel: $("startupChannel").value,
                 startup_exposure: readNumberValue("startupExposure"),
                 startup_brightness: readNumberValue("startupBrightness"),
                 startup_x_position: readNumberValue("startupXPosition"),
@@ -2468,6 +2555,7 @@
         }
 
         function bindConfigEvents() {
+            bindStartupMappingRefreshEvents();
             $("chooseCfgBtn").addEventListener("click", () => {
                 $("cfgFile").click();
             });

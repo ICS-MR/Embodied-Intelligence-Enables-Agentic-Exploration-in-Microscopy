@@ -151,6 +151,7 @@ class ConfigStatusResponse(BaseModel):
     system: Dict[str, Any]
     real_system_draft: Dict[str, Any] = Field(default_factory=dict)
     demo_system: Dict[str, Any] = Field(default_factory=dict)
+    demo_startup: Dict[str, Any] = Field(default_factory=dict)
     agent: AgentConfigView
     startup: StartupConfigView
 

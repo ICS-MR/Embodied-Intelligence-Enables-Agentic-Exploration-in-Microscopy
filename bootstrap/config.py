@@ -243,6 +243,27 @@ def build_demo_system_overrides() -> Dict[str, Any]:
         "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
+        "Min_X_position": 0.0,
+        "Max_X_position": 100000.0,
+        "Min_Y_position": 0.0,
+        "Max_Y_position": 70000.0,
+        "Min_Z_position": -300.0,
+        "Max_Z_position": 300.0,
+        "Min_brightness": 0,
+        "Max_brightness": 250,
+    }
+
+
+def build_demo_startup_overrides() -> Dict[str, Any]:
+    return {
+        "objective": "40x",
+        "channel": "brightfield",
+        "exposure": 10.0,
+        "brightness": 100,
+        "z_position": 0.0,
+        "x_position": 50000.0,
+        "y_position": 50000.0,
+        "start_preview": True,
     }
 
 
@@ -334,6 +355,10 @@ def _normalize_system_semantics(system_config: SystemConfig) -> None:
 def _apply_demo_system_overrides(system_config: SystemConfig) -> None:
     _update_dataclass(system_config, build_demo_system_overrides())
     _normalize_system_semantics(system_config)
+
+
+def _apply_demo_startup_overrides(startup_config: StartupConfig) -> None:
+    _update_dataclass(startup_config, build_demo_startup_overrides())
 
 
 def _objectives_from_legacy_labels(objective_labels: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -551,6 +576,7 @@ def load_runtime_settings(
         _normalize_system_semantics(settings.system)
     if apply_demo_overlay and is_demo_mode_settings(settings):
         _apply_demo_system_overrides(settings.system)
+        _apply_demo_startup_overrides(settings.startup)
     return settings
 
 

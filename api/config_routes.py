@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from api.dependencies import get_runtime_manager
 from api.models import ConfigSaveRequest, ConfigSaveResponse, ConfigStatusResponse, ConfigUploadResponse
 from bootstrap.config import (
+    build_demo_startup_overrides,
     build_demo_system_overrides,
     is_demo_mapping_payload,
     read_public_config_snapshot,
@@ -68,6 +69,7 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         system=snapshot["system"],
         real_system_draft=persisted_snapshot["system"],
         demo_system=build_demo_system_overrides(),
+        demo_startup=build_demo_startup_overrides(),
         agent=snapshot["agent"],
         startup=snapshot["startup"],
     )
@@ -194,9 +196,34 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         "clarify_enabled": req.clarify_enabled,
         "checker_enabled": req.checker_enabled,
     }
+    effective_system = (
+        build_demo_system_overrides()
+        if microscope_mode == "demo"
+        else {**system_current, **system_updates}
+    )
+    startup_objective = coalesce_text(req.startup_objective, startup_current["objective"])
+    startup_channel = coalesce_text(req.startup_channel, startup_current["channel"])
+    if microscope_mode == "demo":
+        demo_startup = build_demo_startup_overrides()
+        startup_objective = str(demo_startup["objective"])
+        startup_channel = str(demo_startup["channel"])
+    objectives = effective_system.get("objectives", {})
+    channels = effective_system.get("channels", {})
+    objective_entry = objectives.get(startup_objective, {}) if isinstance(objectives, dict) else {}
+    channel_entry = channels.get(startup_channel, {}) if isinstance(channels, dict) else {}
+    if not isinstance(objective_entry, dict) or not str(objective_entry.get("label") or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail=f"Startup objective '{startup_objective}' is not present in the current objective mapping.",
+        )
+    if not isinstance(channel_entry, dict) or not str(channel_entry.get("label") or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail=f"Startup channel '{startup_channel}' is not present in the current channel mapping.",
+        )
     startup_updates = {
-        "objective": coalesce_text(req.startup_objective, startup_current["objective"]),
-        "channel": coalesce_text(req.startup_channel, startup_current["channel"]),
+        "objective": startup_objective,
+        "channel": startup_channel,
         "exposure": coalesce_number(req.startup_exposure, startup_current["exposure"]),
         "brightness": coalesce_number(req.startup_brightness, startup_current["brightness"]),
         "z_position": coalesce_number(req.startup_z_position, startup_current["z_position"]),
@@ -204,6 +231,8 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         "y_position": coalesce_number(req.startup_y_position, startup_current["y_position"]),
         "start_preview": coalesce_number(req.startup_start_preview, startup_current["start_preview"]),
     }
+    if microscope_mode == "demo":
+        startup_updates.update(build_demo_startup_overrides())
     runtime_manager.update_settings(
         system_updates=system_updates,
         model_updates=model_updates,
