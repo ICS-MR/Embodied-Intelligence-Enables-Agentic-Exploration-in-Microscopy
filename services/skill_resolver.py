@@ -1,10 +1,11 @@
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
 from adapters.llm_clients import create_chat_completion
-from utils.planning_skills import (
+from skill_runtime.planning import (
     PlanningSkill,
     build_active_template_metadata,
     find_skills_by_name,
@@ -12,6 +13,9 @@ from utils.planning_skills import (
     format_selected_skills_for_prompt,
     load_planning_skills,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -97,14 +101,20 @@ class SkillResolver:
         try:
             payload = json.loads(raw_text)
             return payload if isinstance(payload, dict) else None
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             match = re.search(r"\{[\s\S]*\}", raw_text)
             if not match:
+                logger.warning("Skill resolver JSON parsing failed: %s. Raw response: %s", exc, raw_text[:1000])
                 return None
             try:
                 payload = json.loads(match.group(0))
                 return payload if isinstance(payload, dict) else None
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as fallback_exc:
+                logger.warning(
+                    "Skill resolver JSON object extraction failed: %s. Raw response: %s",
+                    fallback_exc,
+                    raw_text[:1000],
+                )
                 return None
 
     def _serialize_state_text(self, state: Any) -> str:
@@ -115,6 +125,7 @@ class SkillResolver:
                 return json.dumps(state.__dict__, indent=2)
             return str(state)
         except Exception:
+            logger.debug("Failed to serialize system state for skill resolver prompt.", exc_info=True)
             return str(state)
 
     def _wrap_prompt_section(self, title: str, content: str) -> str:
@@ -176,7 +187,34 @@ class SkillResolver:
             temperature=self._skill_route_temperature,
             max_tokens=self._skill_route_max_tokens,
         )
-        payload = self._parse_json_object(raw_response) or {}
+        payload = self._parse_json_object(raw_response)
+        if payload is None:
+            error = "Skill routing returned invalid JSON; refusing to continue with implicit no-skill fallback."
+            logger.error("%s Raw response: %s", error, raw_response[:1000])
+            if self._history_manager:
+                self._history_manager.record_interaction(
+                    agent_name="Task_manager",
+                    event_type="skill_routing_failed",
+                    message="Skill resolver failed to parse the routing response.",
+                    payload={
+                        "query": user_request,
+                        "clarification_history": clarification_history,
+                        "catalog_size": len(all_skills),
+                        "system_prompt": routing_system_prompt,
+                        "raw_response": raw_response,
+                        "usage": usage or {},
+                        "error": error,
+                    },
+                )
+            return SkillResolutionResult(
+                status="error",
+                resolved_task_instruction="",
+                usage=usage,
+                routing_raw_response=raw_response,
+                raw_response=raw_response,
+                error=error,
+            )
+
         selected_skills = find_skills_by_name(
             all_skills,
             payload.get("selected_skills") or [],
@@ -285,7 +323,38 @@ class SkillResolver:
             temperature=0,
             max_tokens=self._resolution_max_tokens,
         )
-        payload = self._parse_json_object(raw_response) or {}
+        payload = self._parse_json_object(raw_response)
+        if payload is None:
+            error = "Skill resolver returned invalid JSON; refusing to continue with implicit planner fallback."
+            logger.error("%s Raw response: %s", error, raw_response[:1000])
+            if self._history_manager:
+                self._history_manager.record_interaction(
+                    agent_name="Task_manager",
+                    event_type="skill_resolution_failed",
+                    message="Skill resolver failed to parse the selected-skill resolution response.",
+                    payload={
+                        "query": user_request,
+                        "clarification_history": clarification_history,
+                        "selected_skills": [skill.name for skill in selected_skills],
+                        "reason": reason,
+                        "active_templates": list(active_templates),
+                        "system_prompt": resolution_system_prompt,
+                        "prompt": prompt,
+                        "raw_response": raw_response,
+                        "usage": usage or {},
+                        "error": error,
+                    },
+                )
+            return SkillResolutionResult(
+                status="error",
+                selected_skills=[skill.name for skill in selected_skills],
+                reason=reason,
+                active_templates=list(active_templates),
+                usage=usage,
+                raw_response=raw_response,
+                error=error,
+            )
+
         status = str(payload.get("status") or "").strip().lower()
         question = str(payload.get("question") or "").strip()
         resolved_task_instruction = str(payload.get("resolved_task_instruction") or "").strip()

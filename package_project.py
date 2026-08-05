@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Iterable
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from utils.tool_manifest import default_tool_manifest_payload
+from tooling.manifest import default_tool_manifest_payload
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -25,17 +25,20 @@ INCLUDE_DIRS = [
     "configs",
     "core_tool",
     "docs",
-    "evaluation",
     "experiments",
     "front",
     "PSF",
     "prompts",
     "scripts",
     "services",
+    "simulation",
+    "storage",
     "tests",
     "tool",
+    "tooling",
+    "interfaces",
+    "planning",
     "user_skills",
-    "utils",
 ]
 
 INCLUDE_FILES = [
@@ -43,9 +46,7 @@ INCLUDE_FILES = [
     "app_mock.py",
     "main.py",
     "system_config_wizard.py",
-    "Empty_function.py",
     "create_tool.py",
-    "tool_generation.py",
     "package_project.py",
     "README.md",
     "Hardware-Free-Demo.ipynb",
@@ -94,7 +95,7 @@ DEFAULT_EXCLUDE_GLOBS = [
 
 RUNTIME_ONLY_EXCLUDES = [
     "tests",
-    "evaluation",
+    "docs/mitosis_detector_evaluation",
     "Hardware-Free-Demo.ipynb",
     "scripts/test_cellpose_api.py",
     "scripts/test_cellpose_real_workflow.py",
@@ -148,7 +149,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--runtime-only",
         action="store_true",
-        help="Exclude validation, evaluation, and feasibility-test files to produce a lean runtime package.",
+        help="Exclude validation, paper-model tests, and feasibility-test files to produce a lean runtime package.",
     )
     return parser.parse_args()
 
@@ -326,9 +327,9 @@ def build_transfer_readme(package_name: str) -> str:
         "## What Is Included",
         "",
         "- Core project source code, prompts, frontend assets, docs, tests, and runtime startup scripts",
-        "- User planning skills under `user_skills/`, detector model configuration files under `detector_configs/`, and lightweight evaluation/demo resources",
+        "- User planning skills under `user_skills/`, detector model configuration files under `detector_configs/`, and lightweight paper/demo resources",
         "- Packaged PSF resources under `PSF/` for supported deconvolution workflows",
-        "- Tool onboarding scripts such as `create_tool.py` and the `tool_generation.py` compatibility wrapper",
+        "- Tool onboarding scripts such as `create_tool.py` and the `tooling/` package",
         "- The hardware-free walkthrough notebook `Hardware-Free-Demo.ipynb`",
         "- Dependency manifests: `pyproject.toml`, `requirements.txt`, and `uv.lock`",
         "- A template `config/runtime_config.json` generated from `config/runtime_config.example.json`",
@@ -364,8 +365,8 @@ def build_transfer_readme(package_name: str) -> str:
         "",
         "The packaged source supports both runtime chains:",
         "",
-        "- Real hardware chain: `utils/runtime_factory.py` loads `core_tool.microscope`, `core_tool.fiji`, and `core_tool.cellpose_tool` when `Simulation_mode` is disabled.",
-        "- Virtual hardware chain: `utils/runtime_factory.py` loads `Empty_function.py` when `Simulation_mode` is enabled.",
+        "- Microscope chain: `runtime/factory.py` always uses `core_tool.microscope`, with `microscope_mode=demo` selecting the managed Micro-Manager demo configuration.",
+        "- Image-analysis and segmentation chains: `runtime/factory.py` picks `core_tool.*` or `simulation.*` by subsystem mode.",
         "- Tool registration is driven by `config/tool_manifest.json`; only enabled manifest entries are loaded into the runtime.",
         "- The checker in `agent/experiment_checker.py` is mock-aware: deterministic placeholder files that begin with `mock microscope acquisition` are treated as mock outputs rather than parsed as real TIFF images.",
         "",
@@ -373,7 +374,9 @@ def build_transfer_readme(package_name: str) -> str:
         "",
         "Before running the project on the target machine, update `config/runtime_config.json`:",
         "",
-        "- `model.Simulation_mode`: set `true` for the virtual hardware chain, `false` for the real hardware chain",
+        "- `model.microscope_mode`: `demo` or `real`",
+        "- `model.image_analysis_mode`: `mock` or `real`",
+        "- `model.segmentation_mode`: `mock` or `real`",
         "- `system.MM_DIR`: local Micro-Manager install path",
         "- `system.CONFIG_PATH`: local microscope `.cfg` path",
         "- `system.FIJI_PATH`: local Fiji install path",
@@ -383,7 +386,7 @@ def build_transfer_readme(package_name: str) -> str:
         "- `config/tool_manifest.json` if you want to enable additional user tools or adjust manifest overrides beyond the default package template",
         "",
         "If you need real microscope control or image analysis, you must also install and configure Micro-Manager, Fiji, MMDetection-compatible dependencies, and any required model weights separately.",
-        "If you only need the virtual hardware chain, you can keep `Simulation_mode` enabled and skip Micro-Manager / Fiji installation, subject to the Python packages needed by your workflow.",
+        "If you only need microscope demo plus mock analysis and segmentation, keep the default `demo/mock/mock` combination and install only the dependencies required by the selected real subsystems.",
         "The included `app_mock.py` entrypoint is a lightweight mock demo UI that shares the same runtime config but does not run the full planner/executor/checker stack.",
         "This package intentionally omits local experiment outputs, private environment files, and heavyweight local assets so it stays suitable for open-source sharing.",
         "",
@@ -398,7 +401,7 @@ def build_transfer_readme_runtime_only(package_name: str) -> str:
         "## Runtime-Only Packaging Notes",
         "",
         "This archive was created with `--runtime-only`.",
-        "It intentionally excludes feasibility and validation assets such as `tests/`, `evaluation/`,",
+        "It intentionally excludes feasibility and validation assets such as `tests/`, `docs/mitosis_detector_evaluation/`,",
         "the notebook demo, and dedicated smoke-test / exploratory scripts.",
         "",
     ]

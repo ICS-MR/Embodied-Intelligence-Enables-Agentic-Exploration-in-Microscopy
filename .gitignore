@@ -29,15 +29,11 @@ scripts/*
 !scripts/download_detector_weights.ps1
 !scripts/package_vla_act_assets.ps1
 !scripts/run_generated_imagej_code.py
-model/*
-!model/Download link.txt
-!model/README.md
+embedding_model/
 third_party/wheels/
 third_party/mmcv_repack/
 docs/VLA/Mircomanipulation_tool/.codex
-weights/2Dcell.pth
-weights/organoid.pth
-weights/mitosis_best.pth
+detector_models/*/weights.pth
 docs/VLA/ACT_for_microscopy/*
 !docs/VLA/ACT_for_microscopy/README.md
 

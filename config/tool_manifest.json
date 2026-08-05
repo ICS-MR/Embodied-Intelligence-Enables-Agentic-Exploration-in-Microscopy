@@ -2,25 +2,39 @@
   "system_tools": {
     "microscope": {
       "real_class_path": "core_tool.microscope:MicroscopeController",
-      "simulation_class_path": "Empty_function:MicroscopeController",
-      "prompt_source": "prompts.micro_control_prompt_full:prompt_olympus",
+      "prompt_source": "prompts.executor.microscope_with_brightness:prompt_olympus",
       "constructor_kind": "microscope",
       "validate_real_stack": true
     },
     "image_analysis": {
       "real_class_path": "core_tool.fiji:ImageJProcessor",
-      "simulation_class_path": "Empty_function:ImageJProcessor",
-      "prompt_source": "prompts.ansis_platform_prompt_full:prompt_imagej",
+      "mock_class_path": "simulation.imagej:ImageJProcessor",
+      "prompt_source": "prompts.executor.image_analysis:prompt_imagej",
       "constructor_kind": "storage_output",
       "validate_real_stack": true
     },
     "segmentation": {
       "real_class_path": "core_tool.cellpose_tool:Cellpose2D",
-      "simulation_class_path": "Empty_function:Cellpose2D",
-      "prompt_source": "prompts.cell_seg_prompt_full:prompt_cellpose",
+      "mock_class_path": "simulation.cellpose:Cellpose2D",
+      "prompt_source": "prompts.executor.segmentation:prompt_cellpose",
       "constructor_kind": "storage_output",
       "validate_real_stack": true
     }
   },
-  "user_tools": []
+  "user_tools": [
+    {
+      "tool_id": "frap",
+      "class_path": "tool.frap:Frap",
+      "enabled": true,
+      "planning_hint": "Use for local GUI-driven FRAP workflows through a commercial external application window. This tool supports laser enable or disable actions, stage-coordinate-to-window coordinate mapping, and contour-derived targeting from the latest local image.",
+      "execution_hint": "This tool is a local GUI adapter, not a hardware SDK. It requires a visible FRAP application window and a valid frap_ui_profile.json in the output directory. Use laser_position only when the laser is off."
+    },
+    {
+      "tool_id": "mp285_controller",
+      "class_path": "tool.mp285:MP285Tool",
+      "enabled": true,
+      "planning_hint": "Use for direct MP-285A USB-VCP manipulator control on COM3. Positions are in microns and the tool manages the underlying microstep conversion.",
+      "execution_hint": "Connect before motion, prefer absolute moves, and reconfigure soft limits if the origin is changed."
+    }
+  ]
 }

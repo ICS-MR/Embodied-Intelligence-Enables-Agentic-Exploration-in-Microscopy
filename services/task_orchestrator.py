@@ -1,11 +1,25 @@
 ﻿import time
 import uuid
-from dataclasses import dataclass, field
+import json
+import logging
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from config.system_config import objective_labels
+from bootstrap.microscope_semantics import (
+    channel_display_name,
+    channel_semantic_for_label,
+    objective_display_name,
+    objective_semantic_for_label,
+)
+from runtime.config import _has_transmitted_light_brightness_control
 from services.skill_resolver import SkillResolutionRequest, SkillResolver
-from utils.runtime_text import format_planner_failure_message
+from runtime.config import build_skill_resolver_config
+from runtime.text import StepSummaryResult, format_planner_failure_message
+from agent.code_repair import CodeRepairContext
+from agent.plan_trace_checker import PlanTraceContext
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -55,6 +69,43 @@ class StepExecutionReport:
     step: Dict[str, Any]
     spoken_messages: List[str] = field(default_factory=list)
     summary: str = ""
+    summary_used_fallback: bool = False
+    summary_error: str = ""
+
+
+class StepExecutionError(RuntimeError):
+    def __init__(
+        self,
+        *,
+        step: Dict[str, Any],
+        original_exception: Exception,
+        executor: Any = None,
+        saved_documents: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(str(original_exception))
+        self.step = step
+        self.original_exception = original_exception
+        self.executor = executor
+        self.saved_documents = saved_documents or {}
+
+
+@dataclass
+class ExecutionTrace:
+    task_id: str
+    attempt: int
+    step: Dict[str, Any]
+    module: str
+    command: str
+    exception_type: str
+    exception_message: str
+    generated_code: str = ""
+    executor_query: str = ""
+    saved_documents: Dict[str, Any] = field(default_factory=dict)
+    cache_documents: Dict[str, Any] = field(default_factory=dict)
+    executor_record: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -65,21 +116,6 @@ class CheckResult:
     has_no_target_error: bool = False
 
 
-CHANNEL_SEMANTICS = {
-    "1-NONE": "Brightfield",
-    "2-U-FUNA": "DAPI / 405 nm",
-    "3-U-FBNA": "FITC / 488 nm",
-    "4-U-FGNA": "TRITC / 640 nm",
-}
-
-
-def format_objective_semantic(objective_label: str) -> str:
-    magnification = objective_labels.get(str(objective_label).strip())
-    if magnification is None:
-        return "Unknown"
-    return f"{magnification}x objective"
-
-
 class TaskOrchestrator:
     def __init__(
         self,
@@ -87,7 +123,7 @@ class TaskOrchestrator:
         *,
         summarize_spoken_messages: Callable[[Any, str, List[str]], str],
         summarize_my_spoken_messages: Callable[[Any, str, List[str]], str],
-        summarize_step_completion: Callable[[Any, str, Dict[str, Any], List[str]], str],
+        summarize_step_completion: Callable[[Any, str, Dict[str, Any], List[str]], StepSummaryResult],
         summarize_checker_issue: Callable[..., str],
         summarize_checker_success: Callable[[Any, str, str], str],
         summarize_task_execution: Callable[[Any, str, str, List[Dict[str, Any]]], str],
@@ -109,10 +145,7 @@ class TaskOrchestrator:
         raw_skill_mode = str(getattr(agent_module, "skill_mode", "") or "").strip().lower()
         self._skill_mode = raw_skill_mode if raw_skill_mode in {"enabled", "disabled"} else "disabled"
         self._skill_enabled = self._skill_mode == "enabled"
-        if hasattr(agent_module, "build_skill_resolver_config"):
-            skill_resolver_cfg = agent_module.build_skill_resolver_config()
-        else:
-            skill_resolver_cfg = {}
+        skill_resolver_cfg = build_skill_resolver_config()
         self._skill_resolver = None
         if self._skill_enabled:
             self._skill_resolver = SkillResolver(
@@ -133,14 +166,19 @@ class TaskOrchestrator:
     def _capture_microscope_state(self) -> Dict[str, Any]:
         channel = self.runtime_context.env_olympus.get_channel()
         objective = self.runtime_context.env_olympus.get_objective()
-        return {
+        system_config = self.runtime_context.runtime["system"]
+        state = {
             "objective": objective,
-            "objective_semantic": format_objective_semantic(objective),
+            "objective_semantic": objective_semantic_for_label(objective, system_config),
+            "objective_display": objective_display_name(objective, system_config),
             "channel": channel,
-            "channel_semantic": CHANNEL_SEMANTICS.get(channel, "Unknown"),
+            "channel_semantic": channel_semantic_for_label(channel, system_config),
+            "channel_display": channel_display_name(channel, system_config),
             "exposure": self.runtime_context.env_olympus.get_exposure(),
-            "brightness": self.runtime_context.env_olympus.get_brightness(),
         }
+        if _has_transmitted_light_brightness_control(system_config):
+            state["brightness"] = self.runtime_context.env_olympus.get_brightness()
+        return state
 
     def _resolved_planner_context(self) -> str:
         return (
@@ -311,8 +349,8 @@ class TaskOrchestrator:
             )
             if rewritten and rewritten.strip():
                 return rewritten.strip()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Plan presentation rewrite failed; using structured plan fallback: %s", exc, exc_info=True)
 
         lines = ["I have prepared a brief plan:"]
         for index, step in enumerate(plan.steps, start=1):
@@ -389,7 +427,102 @@ class TaskOrchestrator:
                 )
                 step_summaries.extend(report.summary for report in reports if report.summary)
             except Exception as exc:
+                logger.exception(
+                    "Task step execution attempt failed. attempt=%s max_attempts=%s",
+                    retry_count,
+                    runtime_task.MAX_RETRY_TIMES,
+                )
+                execution_trace = self._build_execution_trace(
+                    task_id=plan.task_id,
+                    attempt=retry_count,
+                    exc=exc,
+                    fallback_steps=current_steps,
+                )
+                self.runtime_context.storage_manager.clear_cache()
+
+                code_advice = self._diagnose_code_repair(execution_trace)
+                if code_advice is not None and getattr(code_advice, "checked", False):
+                    advice_payload = code_advice.to_dict() if hasattr(code_advice, "to_dict") else {}
+                    if bool(advice_payload.get("recoverable")) and bool(advice_payload.get("retry_same_step")):
+                        repair_instruction = str(
+                            advice_payload.get("repair_instruction")
+                            or advice_payload.get("reason")
+                            or ""
+                        ).strip()
+                        if repair_instruction:
+                            checker_warnings.append(repair_instruction)
+                            if on_checker_warning is not None:
+                                on_checker_warning(repair_instruction)
+                        current_steps = [step.copy() for step in current_steps]
+                        if retry_count >= runtime_task.MAX_RETRY_TIMES:
+                            break
+                        time.sleep(runtime_task.RETRY_INTERVAL)
+                        continue
+
+                plan_diagnosis = self._diagnose_plan_trace(
+                    plan=plan,
+                    current_steps=current_steps,
+                    execution_trace=execution_trace,
+                )
+                if plan_diagnosis is not None and getattr(plan_diagnosis, "checked", False):
+                    diagnosis_payload = plan_diagnosis.to_dict() if hasattr(plan_diagnosis, "to_dict") else {}
+                    planner_feedback = str(
+                        diagnosis_payload.get("planner_feedback")
+                        or diagnosis_payload.get("reason")
+                        or ""
+                    ).strip()
+                    if planner_feedback:
+                        checker_warnings.append(planner_feedback)
+                        if on_checker_warning is not None:
+                            on_checker_warning(planner_feedback)
+
+                    if not bool(diagnosis_payload.get("recoverable")):
+                        detail = f"{execution_trace.exception_type}: {execution_trace.exception_message}"
+                        return TaskResult(
+                            task_id=plan.task_id,
+                            session_id=plan.session_id,
+                            user_command=plan.user_command,
+                            steps=current_steps,
+                            success=False,
+                            retry_times=retry_count,
+                            summary=f"Task execution failed and plan trace checker marked it unrecoverable: {planner_feedback or detail}",
+                            step_summaries=step_summaries,
+                            checker_warnings=checker_warnings,
+                            checker_summary="\n".join(checker_warnings),
+                            error=detail,
+                        )
+
+                    replanned_steps = self._replan_after_trace_failure(
+                        plan=plan,
+                        current_steps=current_steps,
+                        execution_trace=execution_trace,
+                        planner_feedback=planner_feedback,
+                    )
+                    if replanned_steps:
+                        current_steps = [step.copy() for step in replanned_steps]
+                    else:
+                        detail = f"{execution_trace.exception_type}: {execution_trace.exception_message}"
+                        return TaskResult(
+                            task_id=plan.task_id,
+                            session_id=plan.session_id,
+                            user_command=plan.user_command,
+                            steps=current_steps,
+                            success=False,
+                            retry_times=retry_count,
+                            summary=f"Task execution failed and replanning did not produce executable steps: {planner_feedback or detail}",
+                            step_summaries=step_summaries,
+                            checker_warnings=checker_warnings,
+                            checker_summary="\n".join(checker_warnings),
+                            error=detail,
+                        )
+                    if retry_count >= runtime_task.MAX_RETRY_TIMES:
+                        break
+                    time.sleep(runtime_task.RETRY_INTERVAL)
+                    continue
+
                 if retry_count >= runtime_task.MAX_RETRY_TIMES:
+                    original_exception = exc.original_exception if isinstance(exc, StepExecutionError) else exc
+                    detail = f"{type(original_exception).__name__}: {original_exception}"
                     return TaskResult(
                         task_id=plan.task_id,
                         session_id=plan.session_id,
@@ -397,11 +530,11 @@ class TaskOrchestrator:
                         steps=current_steps,
                         success=False,
                         retry_times=retry_count,
-                        summary=f"Task execution failed: {exc}",
+                        summary=f"Task execution failed: {detail}",
                         step_summaries=step_summaries,
                         checker_warnings=checker_warnings,
                         checker_summary="\n".join(checker_warnings),
-                        error=str(exc),
+                        error=detail,
                     )
                 time.sleep(runtime_task.RETRY_INTERVAL)
                 current_steps = [step.copy() for step in original_steps]
@@ -515,35 +648,61 @@ class TaskOrchestrator:
 
             if module_name == "Microscope Operation Platform":
                 current_objective = env_olympus.get_objective()
-                env_info = (
+                system_config = self.runtime_context.runtime["system"]
+                current_channel = env_olympus.get_channel()
+                env_parts = [
                     f"Current xy_position:{env_olympus.get_x_y_position()}, "
                     f"z_position:{env_olympus.get_z_position()}, "
                     f"exposure_time:{env_olympus.get_exposure()}, "
                     f"objective:{current_objective} "
-                    f"({format_objective_semantic(current_objective)}), "
-                    f"dichroic:{env_olympus.get_channel()} "
-                    f"({CHANNEL_SEMANTICS.get(env_olympus.get_channel(), 'Unknown')}), "
-                    f"brightness:{env_olympus.get_brightness()}"
-                )
+                    f"({objective_display_name(current_objective, system_config)}; "
+                    f"semantic={objective_semantic_for_label(current_objective, system_config) or 'unknown'}), "
+                    f"dichroic:{current_channel} "
+                    f"({channel_display_name(current_channel, system_config)}; "
+                    f"semantic={channel_semantic_for_label(current_channel, system_config) or 'unknown'})",
+                ]
+                if _has_transmitted_light_brightness_control(system_config):
+                    env_parts.append(f"brightness:{env_olympus.get_brightness()}")
+                env_info = ", ".join(env_parts)
                 context += f"\n# Current environment:{env_info}"
 
             module_instance = self.runtime_context.tool_registry.get_executor(module_name)
             if module_instance is None:
-                raise ValueError(f"Unknown module: {module_name}")
+                raise StepExecutionError(
+                    step=step.copy(),
+                    original_exception=ValueError(f"Unknown module: {module_name}"),
+                    executor=None,
+                    saved_documents=meta_file,
+                )
 
             self.runtime_context.say_capture.set_listener(on_robot_action)
             try:
                 module_instance.run(command, context)
+            except Exception as exc:
+                raise StepExecutionError(
+                    step=step.copy(),
+                    original_exception=exc,
+                    executor=module_instance,
+                    saved_documents=meta_file,
+                ) from exc
             finally:
                 self.runtime_context.say_capture.set_listener(None)
 
             spoken_messages = self.runtime_context.say_capture.get_messages()
-            step_summary = self._summarize_step_completion(
+            step_summary_result = self._summarize_step_completion(
                 self.runtime_context.llm_client,
                 runtime_agent.model_name,
                 step,
                 spoken_messages,
             )
+            step_summary = step_summary_result.text
+            if step_summary_result.used_fallback:
+                logger.warning(
+                    "Step summary used fallback. module=%s subtask_index=%s reason=%s",
+                    step.get("module", "Unknown"),
+                    step.get("subtask_index", "?"),
+                    step_summary_result.error or "unknown",
+                )
             if step_summary and on_step_summary is not None:
                 on_step_summary(step_summary)
             step_reports.append(
@@ -551,10 +710,232 @@ class TaskOrchestrator:
                     step=step.copy(),
                     spoken_messages=spoken_messages,
                     summary=step_summary,
+                    summary_used_fallback=step_summary_result.used_fallback,
+                    summary_error=step_summary_result.error,
                 )
             )
 
         return step_reports
+
+    def _build_execution_trace(
+        self,
+        *,
+        task_id: str,
+        attempt: int,
+        exc: Exception,
+        fallback_steps: List[Dict[str, Any]],
+    ) -> ExecutionTrace:
+        if isinstance(exc, StepExecutionError):
+            failed_step = dict(exc.step)
+            original_exception = exc.original_exception
+            executor = exc.executor
+            saved_documents = dict(exc.saved_documents)
+        else:
+            failed_step = dict(fallback_steps[-1]) if fallback_steps else {}
+            original_exception = exc
+            executor = None
+            saved_documents = self._safe_read_saved_documents(include_temp=True)
+
+        executor_record = {}
+        if executor is not None:
+            record = getattr(executor, "last_execution_record", {})
+            if isinstance(record, dict):
+                executor_record = dict(record)
+
+        cache_documents = self._safe_read_cache_documents()
+        trace = ExecutionTrace(
+            task_id=task_id,
+            attempt=attempt,
+            step=failed_step,
+            module=str(failed_step.get("module") or ""),
+            command=str(failed_step.get("command") or ""),
+            exception_type=type(original_exception).__name__,
+            exception_message=str(original_exception),
+            generated_code=str(executor_record.get("generated_code") or ""),
+            executor_query=str(executor_record.get("query") or ""),
+            saved_documents=saved_documents,
+            cache_documents=cache_documents,
+            executor_record=executor_record,
+        )
+        history_manager = getattr(self.runtime_context, "history_manager", None)
+        if history_manager is not None:
+            history_manager.record_interaction(
+                agent_name="Runtime",
+                event_type="step_execution_failed",
+                message="A task step failed during execution.",
+                payload=trace.to_dict(),
+            )
+        return trace
+
+    def _diagnose_code_repair(self, execution_trace: ExecutionTrace) -> Any:
+        code_repair_agent = getattr(self.runtime_context, "code_repair_agent", None)
+        diagnose = getattr(code_repair_agent, "diagnose", None)
+        if not callable(diagnose):
+            return None
+        try:
+            return diagnose(
+                CodeRepairContext(
+                    step=dict(execution_trace.step),
+                    exception_type=execution_trace.exception_type,
+                    exception_message=execution_trace.exception_message,
+                    generated_code=execution_trace.generated_code,
+                    executor_query=execution_trace.executor_query,
+                    executor_context=str(execution_trace.executor_record.get("context") or ""),
+                    executor_record=dict(execution_trace.executor_record),
+                )
+            )
+        except Exception:
+            logger.exception("Code repair advisor failed while diagnosing generated-code error.")
+            return None
+
+    def _diagnose_plan_trace(
+        self,
+        *,
+        plan: TaskPlan,
+        current_steps: List[Dict[str, Any]],
+        execution_trace: ExecutionTrace,
+    ) -> Any:
+        plan_trace_checker = getattr(self.runtime_context, "plan_trace_checker", None)
+        diagnose = getattr(plan_trace_checker, "diagnose", None)
+        if not callable(diagnose):
+            return None
+        try:
+            return diagnose(
+                PlanTraceContext(
+                    user_request=plan.user_command,
+                    current_plan=self._summarize_plan_steps(current_steps, execution_trace.step),
+                    failed_step=dict(execution_trace.step),
+                    exception_type=execution_trace.exception_type,
+                    exception_message=execution_trace.exception_message,
+                    saved_documents=dict(execution_trace.saved_documents),
+                    cache_documents=dict(execution_trace.cache_documents),
+                    detection_targets=dict(self.runtime_context.runtime.get("detection_targets", {})),
+                )
+            )
+        except Exception:
+            logger.exception("Plan trace checker failed while diagnosing planning trajectory error.")
+            return None
+
+    def _summarize_plan_steps(
+        self,
+        current_steps: List[Dict[str, Any]],
+        failed_step: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        failed_index = failed_step.get("subtask_index")
+        summary: List[Dict[str, Any]] = []
+        for step in current_steps:
+            step_index = step.get("subtask_index")
+            if step_index == failed_index:
+                status = "failed"
+            elif failed_index is not None and step_index is not None and step_index < failed_index:
+                status = "success"
+            else:
+                status = "not_started"
+            summary.append(
+                {
+                    "subtask_index": step_index,
+                    "module": step.get("module"),
+                    "command": step.get("command"),
+                    "status": status,
+                }
+            )
+        return summary
+
+    def _replan_after_trace_failure(
+        self,
+        *,
+        plan: TaskPlan,
+        current_steps: List[Dict[str, Any]],
+        execution_trace: ExecutionTrace,
+        planner_feedback: str,
+    ) -> List[Dict[str, Any]]:
+        context = self._build_repair_planner_context(
+            current_steps=current_steps,
+            execution_trace=execution_trace,
+            planner_feedback=planner_feedback,
+        )
+        planner_result = self.runtime_context.task_manager(
+            plan.user_command,
+            self._capture_microscope_state(),
+            context,
+        )
+        if getattr(planner_result, "ready", False) and getattr(planner_result, "steps", None):
+            return [step.copy() for step in planner_result.steps]
+        logger.warning(
+            "Planner did not produce executable steps after trace repair feedback. error=%s",
+            getattr(planner_result, "error", ""),
+        )
+        return []
+
+    def _build_repair_planner_context(
+        self,
+        *,
+        current_steps: List[Dict[str, Any]],
+        execution_trace: ExecutionTrace,
+        planner_feedback: str,
+    ) -> str:
+        payload = {
+            "repair_reason": planner_feedback,
+            "failed_step": {
+                "subtask_index": execution_trace.step.get("subtask_index"),
+                "module": execution_trace.module,
+                "command": execution_trace.command,
+            },
+            "failure_summary": {
+                "exception_type": execution_trace.exception_type,
+                "exception_message": execution_trace.exception_message,
+            },
+            "current_plan": self._summarize_plan_steps(current_steps, execution_trace.step),
+            "artifact_summary": {
+                "saved_documents": self._summarize_artifacts(execution_trace.saved_documents),
+                "cache_documents": self._summarize_artifacts(execution_trace.cache_documents),
+            },
+        }
+        return (
+            "The previous execution attempt failed because the plan or instruction trajectory was incomplete. "
+            "Revise the task steps to satisfy the feedback below. Do not debug generated Python code here.\n"
+            f"{json.dumps(payload, indent=2, ensure_ascii=False)}"
+        )
+
+    def _summarize_artifacts(self, documents: Dict[str, Any]) -> List[Dict[str, Any]]:
+        artifacts: List[Dict[str, Any]] = []
+        for name, info in documents.items():
+            if not isinstance(info, dict):
+                artifacts.append({"name": name})
+                continue
+            artifacts.append(
+                {
+                    "name": name,
+                    "file_type": info.get("file_type"),
+                    "created_by": info.get("created_by"),
+                    "description": info.get("description"),
+                }
+            )
+        return artifacts
+
+    def _safe_read_saved_documents(self, *, include_temp: bool) -> Dict[str, Any]:
+        storage_manager = self.runtime_context.storage_manager
+        read_log = getattr(storage_manager, "read_log", None)
+        if not callable(read_log):
+            return {}
+        try:
+            result = read_log(include_temp)
+        except Exception:
+            logger.warning("Failed to read saved documents for execution trace.", exc_info=True)
+            return {}
+        return dict(result) if isinstance(result, dict) else {}
+
+    def _safe_read_cache_documents(self) -> Dict[str, Any]:
+        storage_manager = self.runtime_context.storage_manager
+        read_cache = getattr(storage_manager, "read_cache", None)
+        if not callable(read_cache):
+            return {}
+        try:
+            result = read_cache()
+        except Exception:
+            logger.warning("Failed to read cache documents for execution trace.", exc_info=True)
+            return {}
+        return dict(result) if isinstance(result, dict) else {}
 
     def _check_results(
         self,

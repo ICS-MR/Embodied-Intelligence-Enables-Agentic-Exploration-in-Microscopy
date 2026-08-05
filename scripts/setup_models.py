@@ -6,7 +6,7 @@ from typing import Iterable
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-MODEL_DIR = ROOT_DIR / "model"
+MODEL_DIR = ROOT_DIR / "embedding_model"
 BGE_DIR = MODEL_DIR / "bge-m3"
 HF_REPO_ID = "BAAI/bge-m3"
 
@@ -72,7 +72,7 @@ def download_bge_m3(*, force: bool) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Download required local model assets into ./model")
+    parser = argparse.ArgumentParser(description="Download required local model assets into ./embedding_model")
     parser.add_argument("--force", action="store_true", help="Download even if the target model already exists.")
     return parser.parse_args()
 

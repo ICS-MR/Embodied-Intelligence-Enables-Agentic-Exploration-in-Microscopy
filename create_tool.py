@@ -8,8 +8,8 @@ from typing import Any, Callable, Iterable, Optional, Sequence, Set
 
 from config.agent_config import base_url, model_name, openai_api_key
 from tool.base import BaseTool
-from utils.tool_doc_paths import DEFAULT_USER_TOOL_DOCS_DIR, DEFAULT_USER_TOOL_DOCS_RELATIVE
-from utils.tool_manifest import (
+from tooling.doc_paths import DEFAULT_USER_TOOL_DOCS_DIR, DEFAULT_USER_TOOL_DOCS_RELATIVE
+from tooling.manifest import (
     DEFAULT_TOOL_MANIFEST_PATH,
     ToolManifestError,
     default_tool_manifest_payload,
@@ -698,7 +698,7 @@ def run_generate_docs_command(args: argparse.Namespace, *, print_func: Callable[
         print_func("[INFO] No user tools were selected for prompt artifact generation.")
         return 0
 
-    from utils.tool_generation import ToolProcessingPipeline
+    from tooling.generation import ToolProcessingPipeline
 
     if not openai_api_key or openai_api_key == "your-openai-api-key":
         print_func(

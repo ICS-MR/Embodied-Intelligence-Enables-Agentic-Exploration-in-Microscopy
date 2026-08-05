@@ -5,7 +5,7 @@ microscopy. It connects natural-language experimental intent with microscope con
 image analysis, segmentation, validation, and iterative correction.
 
 EIMS is not only a hardware-control script. It is organized as a runtime system with a
-Web interface, CLI entry point, simulation mode, real-hardware mode, tool registration,
+Web interface, CLI entry point, subsystem runtime modes, tool registration,
 planner skills, session history, and structured runtime configuration.
 
 ## Highlights
@@ -14,7 +14,7 @@ planner skills, session history, and structured runtime configuration.
 - Confirm-before-execute workflow before microscope actions run
 - Web runtime with configuration, initialization, preview, execution updates, and summaries
 - CLI runtime for direct research and debugging workflows
-- Hardware-free simulation mode for safe workflow testing
+- Micro-Manager demo mode for hardware-free runtime validation on the real MMCore path
 - Real microscope runtime through Micro-Manager and `pymmcore-plus`
 - Fiji/ImageJ integration for image processing and analysis
 - Cellpose and MMDetection integration for segmentation and target detection
@@ -45,11 +45,11 @@ Tool platforms
   |
   v
 Checker and history
-  validate outputs, record artifacts, support correction
+  image quality checks, plan-trace checks, code repair routing, history
 ```
 
 The main runtime path is managed by `services/runtime_manager.py` and
-`services/task_orchestrator.py`. Tool environments are built in `utils/runtime_factory.py`
+`services/task_orchestrator.py`. Tool environments are built in `runtime/tool_factory.py`
 from the runtime configuration and `config/tool_manifest.json`.
 
 ## Architecture
@@ -61,29 +61,67 @@ from the runtime configuration and `config/tool_manifest.json`.
 |-- main.py                        # CLI runtime
 |-- api/                           # API routes and response models
 |-- services/                      # runtime manager and task orchestration
-|-- agent/                         # planner, executor, checker, clarifier
+|-- runtime/                       # runtime config, asset checks, tools, agents, context assembly
+|-- agent/                         # planner, executor, image checker, plan checker, code repair, clarifier
 |-- core_tool/                     # real microscope, Fiji, Cellpose tools
 |-- tool/                          # user-defined BaseTool extensions
+|-- tooling/                       # tool manifest and user-tool prompt generation
+|-- storage/                       # session history and artifact metadata storage
+|-- interfaces/                    # CLI interaction, logging, and local preview glue
+|-- skill_runtime/                 # skill parsing and prompt formatting
 |-- adapters/                      # tool registry and LLM client adapters
 |-- bootstrap/                     # runtime configuration loading and saving
-|-- config/                        # runtime example, tool manifest, static task config
+|-- config/                        # runtime example and tool manifest
 |-- prompts/                       # planner and executor prompts
 |-- user_skills/                   # planning skills
-|-- evaluation/                    # model evaluation helpers
-|-- weights/                       # model checkpoints
+|-- docs/                          # paper materials, model tests, and supplementary scripts
+|-- embedding_model/               # local download target for semantic retrieval model assets
+|-- detector_models/               # per-detector configs and local checkpoints
 `-- history/                       # per-run runtime history and outputs
 ```
 
 ## Runtime Modes
 
-EIMS has two runtime modes:
+EIMS separates runtime mode by subsystem:
 
-- `Simulation_mode=true`: runs EIMS in simulation mode without real microscope hardware.
-- `Simulation_mode=false`: runs EIMS against the real microscope and related tool stack.
+- `microscope_mode=demo|real`
+- `image_analysis_mode=mock|real`
+- `segmentation_mode=mock|real`
 
-Use simulation mode when developing prompts, tools, and task plans. Switch to real mode
-only after Micro-Manager, hardware limits, Fiji, model paths, and API credentials are
-configured.
+The default local development profile is:
+
+- `microscope_mode=demo`
+- `image_analysis_mode=mock`
+- `segmentation_mode=mock`
+
+This means the microscope still runs through the real Micro-Manager MMCore chain using the
+built-in demo configuration, while Fiji and Cellpose can stay mocked until you need their
+real runtimes.
+
+Startup validation is mode-scoped: demo/mock subsystems are checked against their own
+required assets and do not require real Fiji, Cellpose, or hardware-only dependencies.
+The single validation entry point is `runtime.asset_check`; startup, config save, and
+status APIs all derive readiness from `AssetCheckResult.ready`.
+
+Micro-Manager demo mode uses the official `DemoCamera` adapter. Its `DStage`
+focus device is limited by the adapter implementation to `-300..300` um, so
+demo-mode Z limits and startup Z positions should stay within that range. This
+range is not controlled by EIMS and cannot be expanded by editing
+`runtime_config.json`; use real hardware mode or a custom Micro-Manager device
+adapter if you need a larger virtual Z travel range.
+
+EIMS demo mode relies on the original DemoCamera instance names
+`DCam/DXYStage/DStage/DObjective/DStateDevice`. Do not rename those devices to
+generic aliases inside the `.cfg`; on the current DemoCamera build, renaming
+breaks `Fluorescent Beads` XY image coupling. In demo mode, `XY/Z/brightness`
+come from Micro-Manager directly, while `objective/channel` image differences
+are applied by EIMS software postprocessing.
+
+Current `.cfg` directory roles:
+
+- `demo_cfg/`: managed built-in demo configuration used by `microscope_mode=demo`
+- `uploaded_cfg/`: runtime landing area for user-uploaded Micro-Manager `.cfg` files
+- `docs/cfg/`: local reference or experimental `.cfg` files that are not part of the upload flow
 
 ## Installation
 
@@ -100,8 +138,8 @@ cd Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy
 - Windows 10/11 is recommended for real Micro-Manager hardware integration.
 - Python `>=3.10,<3.11`
 - `uv`
-- Micro-Manager 2.0 for real hardware mode
-- Fiji/ImageJ for real image-analysis mode
+- Micro-Manager 2.0 for microscope `demo` and `real` modes
+- Fiji/ImageJ for image-analysis `real` mode
 - NVIDIA GPU with CUDA is recommended for Cellpose and MMDetection
 
 ### Install Dependencies
@@ -116,9 +154,7 @@ automatically falls back to the project GitHub Release if needed.
 
 ### Download Model Weights
 
-Some detector checkpoints are too large for normal git storage. Detector weights are
-distributed through the `detector-weights` prerelease rather than stored in the main git
-tree.
+Detector weights are distributed through the `detector-weights` prerelease.
 
 Restore the detector weights locally with:
 
@@ -129,10 +165,14 @@ powershell -ExecutionPolicy Bypass -File scripts/download_detector_weights.ps1
 This installs the current checkpoints to:
 
 ```text
-weights/2Dcell.pth
-weights/organoid.pth
-weights/mitosis_best.pth
+detector_models/cell2d/weights.pth
+detector_models/organoid/weights.pth
+detector_models/mitosis/weights.pth
 ```
+
+Only the detector `config.py` files are intended to live in the repository.
+The `weights.pth` files are local runtime assets restored by the download script
+and are ignored by git.
 
 ### Configure Micro-Manager
 
@@ -142,9 +182,8 @@ Install a compatible Micro-Manager build:
 uv run python system_config_wizard.py --install-mmcore
 ```
 
-If the default install destination already contains `Micro-Manager*` directories,
-the installer now cleans them and reinstalls by default. To reuse the latest existing
-install instead, run:
+If the default install destination contains `Micro-Manager*` directories, the installer
+cleans them and reinstalls by default. To reuse the latest existing install, run:
 
 ```bash
 uv run python system_config_wizard.py --install-mmcore --reuse-existing
@@ -160,44 +199,75 @@ If you already have Micro-Manager installed, set `MM_DIR` and `system.CONFIG_PAT
 in `config/runtime_config.json`, or select the same `.cfg` through the Web
 configuration page.
 
-#### Configure Micro-Manager Labels
+#### Configure EIMS To Match Micro-Manager
 
-To keep EIMS compatible with the current project configuration, make sure the
-objective labels and fluorescence channel labels in your `.cfg` match the
-naming used by this project.
+Do not rename labels in a working Micro-Manager `.cfg` just to match EIMS
+defaults. Treat the `.cfg` as the hardware source of truth, then update
+`config/runtime_config.json` so EIMS maps stable semantic keys to your existing
+Micro-Manager labels.
 
-If they do not match:
+EIMS uses stable semantic keys such as `"40x"`, `"brightfield"`, and `"fitc"`
+in `runtime_config.json`, then injects the mapped real Micro-Manager labels into
+the microscope prompt at runtime. The microscope controller executes those
+confirmed real labels directly at execution time.
 
-1. Open the hardware configuration in Micro-Manager Configurator.
-2. Rename the relevant state labels under `Objective` and the dichroic device
-   used by your `.cfg`.
-3. Save the updated `.cfg` file.
-4. Make sure EIMS loads that saved `.cfg` through `system.CONFIG_PATH`.
+Example:
 
-Objective labels:
+```json
+{
+  "system": {
+    "objectives": {
+      "40x": {
+        "label": "Your-40x-Objective-Label",
+        "magnification": 40,
+        "display_name": "40x objective"
+      }
+    },
+    "channels": {
+      "brightfield": {
+        "label": "Your-Brightfield-Preset",
+        "display_name": "Brightfield",
+        "color": [128, 128, 128],
+        "illumination": "transmitted"
+      },
+      "fitc": {
+        "label": "Your-FITC-Preset",
+        "display_name": "FITC / 488 nm",
+        "color": [0, 255, 0],
+        "illumination": "fluorescence"
+      }
+    }
+  },
+  "startup": {
+    "objective": "40x",
+    "channel": "brightfield"
+  }
+}
+```
 
-- `1-UPLFLN4XPH`: 4x objective
-- `2-SOB`: 10x objective
-- `3-LUCPLFLN20XRC`: 20x objective
-- `6-UPLSAPO30XS`: 30x objective
-- `4-LUCPLFLN40X`: 40x objective
-- `5-LUCPLFLN60X`: 60x objective
+If your transmitted-light illuminator exposes a device-specific intensity
+property, configure it explicitly. In Micro-Manager demo mode, EIMS uses
+`Camera.BeadBrightness` as a managed brightness surrogate so brightness changes
+still affect the generated bead images. In real hardware mode,
+`transmitted_light.device` and `transmitted_light.intensity_property` must point
+to the real illuminator property; otherwise EIMS falls back to a no-brightness
+microscope prompt.
 
-Fluorescence channel labels:
+```json
+{
+  "system": {
+    "transmitted_light": {
+      "device": "Your-Transmitted-Light-Device",
+      "intensity_property": "Your-Intensity-Property",
+      "min": 0,
+      "max": 250
+    }
+  }
+}
+```
 
-- `1-NONE`: brightfield / transmitted-light channel
-- `2-U-FUNA`: blue fluorescence channel, typically used for DAPI/Hoechst-style imaging
-- `3-U-FBNA`: green fluorescence channel, typically used for GFP/FITC-style imaging
-- `4-U-FGNA`: red fluorescence channel, typically used for TRITC/Texas Red-style imaging
-
-Also make sure:
-
-- `startup.objective` matches one objective label in your current `Objective` list
-- `startup.channel` matches one channel label under the dichroic device used by your `.cfg`
-
-If `startup.objective` or `startup.channel` does not match the labels in your
-current Micro-Manager configuration, EIMS may fail during startup when it
-applies the initial objective or channel.
+Use the Micro-Manager GUI or the Web configuration page to inspect the existing
+device names and state labels, then copy those names into the EIMS mapping.
 
 ### Configure Fiji
 
@@ -253,7 +323,7 @@ uv run python scripts/setup_models.py
 By default, EIMS uses:
 
 ```text
-model/bge-m3
+embedding_model/bge-m3
 ```
 
 If the download helper dependency is missing, install it first and rerun the setup:
@@ -271,16 +341,16 @@ https://huggingface.co/BAAI/bge-m3
 
 Notes:
 
-- Some local capabilities expect model assets under the `model/` directory.
+- `embedding_model/` is a local download directory, not a repository asset bundle.
+- The semantic similarity model is expected under `embedding_model/`.
 - The setup helper downloads only the files required by the current semantic similarity path.
 - Optional ONNX/OpenVINO artifacts are skipped to reduce download size and timeout risk.
 
 ### Optional: Restore VLA ACT Assets
 
 The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
-repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy)
-rather than stored in the main git tree. Download or clone that repository separately and
-place its contents under:
+repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy).
+Download or clone that repository separately and place its contents under:
 
 ```text
 docs/VLA/ACT_for_microscopy
@@ -293,7 +363,7 @@ Before the first real run on a machine:
 - Confirm `config/runtime_config.json` contains valid local paths for this machine.
 - Confirm `FIJI_PATH`, `MM_DIR`, model paths, and other local dependency paths exist and are accessible.
 - If your workflow calls external APIs, confirm the required keys are configured in `.env`.
-- If configuration or hardware state is uncertain, start with simulation mode instead of connecting to real hardware immediately.
+- If configuration or hardware state is uncertain, start with Micro-Manager demo mode instead of connecting to real hardware immediately.
 
 Before each real microscope execution:
 
@@ -360,11 +430,9 @@ uv run python main.py
 Hardware-Free-Demo.ipynb
 ```
 
-This notebook is primarily a hardware-free conceptual demo built around an earlier
-EIMS runtime/configuration flow. Use it as a reference example rather than the
-authoritative setup guide. For current configuration and execution steps, follow this
-README, `.env.example`, `config/runtime_config.example.json`, and
-`system_config_wizard.py`.
+This notebook is a hardware-free conceptual demo. For current configuration and
+execution steps, follow this README, `.env.example`,
+`config/runtime_config.example.json`, and `system_config_wizard.py`.
 
 ## Configuration Reference
 
@@ -372,17 +440,15 @@ Configuration is intentionally layered:
 
 1. `bootstrap/config.py` defines schema and safe defaults.
 2. `config/runtime_config.json` stores local runtime settings written by the UI or helper scripts.
-3. `.env` and process environment variables provide runtime-only overrides, especially secrets.
+3. `.env` and process environment variables provide secrets and a small number of runtime-only switches.
 
-Environment variable overrides are applied when the runtime loads settings, but they are not
-written back into `config/runtime_config.json` when settings are saved.
+`config/runtime_config.json` and the configuration page are the only source of truth for
+hardware paths, device mappings, and the three subsystem mode fields.
 
 The intended split is:
 
-- `config/runtime_config.json`: model selection and endpoint settings such as `base_url`, `model_name`, `vlm_base_url`, and `vlm_model_name`
-- `.env`: secrets and a small set of runtime-only overrides such as `EIMS_OPENAI_API_KEY`, `EIMS_VLM_API_KEY`, and optional `EIMS_SKILL_MODE`
-
-To avoid ambiguous precedence, `.env` no longer overrides `base_url`, `model_name`, `vlm_base_url`, or `vlm_model_name`.
+- `config/runtime_config.json`: hardware paths, device mappings, startup defaults, mode fields, and model endpoint settings
+- `.env`: secrets and a small set of runtime-only switches such as `EIMS_OPENAI_API_KEY`, `EIMS_VLM_API_KEY`, optional `EIMS_SKILL_MODE`, and `EIMS_CHECKER_ENABLED`
 
 `config/runtime_config.json` is ignored by git. Use
 `config/runtime_config.example.json` as the template for a new machine.
@@ -393,7 +459,6 @@ Important environment variables:
 EIMS_OPENAI_API_KEY=your-api-key
 EIMS_VLM_API_KEY=your-vlm-api-key
 EIMS_SKILL_MODE=disabled
-EIMS_SIMULATION_MODE=true
 EIMS_CHECKER_ENABLED=true
 ```
 
@@ -415,33 +480,32 @@ define its own model paths and confidence threshold:
       "target_class_name": "2Dcell",
       "score_thr": 0.2,
       "output_filename": "2Dcell_locations_list.json",
-      "model_config": "detector_configs/2dcell.py",
-      "model_checkpoint": "weights/2Dcell.pth"
+      "model_config": "detector_models/cell2d/config.py",
+      "model_checkpoint": "detector_models/cell2d/weights.pth"
     },
     "organoid": {
       "target_class_id": 0,
       "target_class_name": "organoid",
       "score_thr": 0.2,
       "output_filename": "organoid_locations_list.json",
-      "model_config": "detector_configs/organoid.py",
-      "model_checkpoint": "weights/organoid.pth"
+      "model_config": "detector_models/organoid/config.py",
+      "model_checkpoint": "detector_models/organoid/weights.pth"
     },
     "mitosis": {
       "target_class_id": 0,
       "target_class_name": "mitosis",
       "score_thr": 0.2,
       "output_filename": "mitosis_locations_list.json",
-      "model_config": "",
-      "model_checkpoint": ""
+      "model_config": "detector_models/mitosis/config.py",
+      "model_checkpoint": "detector_models/mitosis/weights.pth"
     }
   }
 }
 ```
 
-The `model_checkpoint` path remains a local runtime path. Large model weights such as
-`weights/2Dcell.pth` are intended to be distributed through GitHub Releases rather than
-stored directly in the git history. Download the release asset and place it at the path
-referenced by `model_checkpoint`.
+The `model_checkpoint` path is a local runtime path. Large model weights such as
+`detector_models/cell2d/weights.pth` are distributed through GitHub Releases. Download the release asset
+and place it at the path referenced by `model_checkpoint`.
 
 ## Runtime History
 
@@ -455,8 +519,9 @@ history/
     `-- output/
 ```
 
-The session records generated plans, generated executor code, execution results, checker
-feedback, registered output files, and cache metadata.
+The session records generated plans, generated executor code, execution results, image
+checker feedback, plan-trace/code-repair diagnostics, registered output files, and cache
+metadata.
 
 ## Extending EIMS
 
@@ -552,7 +617,7 @@ Before running in real hardware mode:
 - validate Fiji and model checkpoint paths
 
 Generated code execution is constrained, but it should still be treated as experimental
-automation. Use simulation mode for new workflows before running on hardware.
+automation. Use `microscope_mode=demo` for new workflows before running on hardware.
 
 ## Acknowledgements
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,6 +12,9 @@ from openai import OpenAI
 
 from adapters.llm_clients import create_chat_completion
 from agent.utils import _parse_json_object_response, _parse_json_response, extract_task_steps, merge_module_tasks
+
+
+logger = logging.getLogger(__name__)
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -43,7 +47,17 @@ class ClarifyPlanningDecision:
 
 
 class Clarify:
-    def __init__(self, client: OpenAI, base_prompt: str, model_name: str, semantic_model_dir, threshold, historymanager=None):
+    def __init__(
+        self,
+        client: OpenAI,
+        base_prompt: str,
+        model_name: str,
+        semantic_model_dir,
+        threshold,
+        historymanager=None,
+        *,
+        has_brightness_control: bool = True,
+    ):
         self._base_prompt = base_prompt
         self._model_name = model_name
         self.threshold = threshold
@@ -51,6 +65,7 @@ class Clarify:
         self._client = client
         self._semantic_model = self._load_semantic_model(semantic_model_dir)
         self._historyManager = historymanager
+        self._has_brightness_control = bool(has_brightness_control)
 
         self._GENERIC_CLARIFY_PATTERNS = (
             "please clarify",
@@ -70,6 +85,34 @@ class Clarify:
             )
 
     def _microscope_rules_context(self) -> str:
+        if not self._has_brightness_control:
+            return """
+Microscope Operation and System Module Notes:
+    3D samples such as organoids or cell clusters require Z-stack scanning parameters.
+    There is no independent hardware autofocus; all focusing must be done through software based on image feedback.
+
+    Plans may rely on the current system state when it already matches the required objective, imaging mode, or parameter. Do not add redundant set-operations unless a previous step changes that state.
+    If the user request already contains resolved clarification items or explicitly specified parameters, treat them as authoritative and do not ask to revisit them.
+
+    Parameter settings:
+        Brightfield imaging uses the brightfield filter and appropriate low exposure for transmitted-light imaging.
+        Fluorescence imaging uses the matching fluorescence channel and appropriate exposure while avoiding saturation.
+        If the task requires brightfield autofocus, exposure and illumination mode should already be suitable before focusing; do not ask the user to specify a separate brightness-control strategy when the system has no configurable transmitted-light brightness capability.
+
+    Focusing rules:
+        Switching between brightfield and fluorescence generally requires refocusing.
+        Changing objectives generally requires refocusing.
+        Brightfield focusing requires valid transmitted-light illumination conditions appropriate for the current objective and sample.
+        In fluorescence imaging, autofocus should be evaluated after the final fluorescence configuration is in place.
+        Once focus has been established in one fluorescence channel, that focus should be reused for other fluorescence channels unless the task explicitly requires separate channel-specific focusing.
+        Multiple fluorescence channels may be acquired either sequentially with the same preserved focus or in one multi-channel acquisition step.
+        Switching between fluorescence channels alone should not be treated as requiring refocusing or clarification unless the task explicitly says so.
+
+    Positioning rules:
+        If the task is target-specific and a valid target location or centering check is available, reposition before the final focusing step.
+        Objective switching and repositioning do not require a fixed order unless the task explicitly specifies one.
+        If the task is not target-specific, repositioning is not required by default.
+"""
         return """
 Microscope Operation and System Module Notes:
     3D samples such as organoids or cell clusters require Z-stack scanning parameters.
@@ -569,12 +612,25 @@ User-provided plans:
             if not isinstance(result["clarification_question"], str):
                 raise TypeError("clarification_question must be str")
             return result
-        except Exception:
-            return self._get_default_analysis_response(analysis_type)
+        except Exception as exc:
+            logger.warning(
+                "Clarify %s analysis response parsing failed; using clarification fallback. error=%s raw_response=%s",
+                analysis_type,
+                exc,
+                response_text[:1000],
+                exc_info=True,
+            )
+            fallback = self._get_default_analysis_response(analysis_type)
+            fallback["parse_error"] = f"{type(exc).__name__}: {exc}"
+            return fallback
 
     def _parse_violation_response(self, response_text: str) -> Dict[str, Any]:
         result = _parse_json_object_response(response_text)
         if not isinstance(result, dict):
+            logger.warning(
+                "Clarify violation response parsing failed; using clarification fallback. raw_response=%s",
+                response_text[:1000],
+            )
             return {
                 "has_violation": True,
                 "clarification_question": (
@@ -582,6 +638,7 @@ User-provided plans:
                     "Do you wish to perform any operations beyond the functionality of the standard microscope module? "
                     "For example, manual focusing, custom Z-scanning, etc.?"
                 ),
+                "parse_error": "Expected a JSON object with has_violation and clarification_question.",
             }
         has_violation = bool(result.get("has_violation", False))
         clarification_question = str(result.get("clarification_question", "")).strip() if has_violation else ""

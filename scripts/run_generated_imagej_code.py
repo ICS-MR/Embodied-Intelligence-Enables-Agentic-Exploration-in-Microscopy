@@ -14,7 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from agent.utils import SAFE_BUILTIN_CALLS, exec_safe
-from utils.memory_manager import StorageManager
+from storage.managers import StorageManager
 
 
 _SAY_MESSAGES: list[str] = []
@@ -85,7 +85,7 @@ def _build_imagej_env(*, real: bool, output_dir: Path, session_dir: Path):
     if real:
         from core_tool.fiji import ImageJProcessor
     else:
-        from Empty_function import ImageJProcessor
+        from simulation.imagej import ImageJProcessor
 
     return ImageJProcessor(storage_manager, str(output_dir))
 
@@ -118,11 +118,15 @@ def _storage_snapshot(env: Any) -> dict[str, Any]:
     try:
         storage = storage_manager.read_log(False)
     except Exception:
+        print("[runner] warning: failed to read storage log snapshot")
+        traceback.print_exc()
         storage = {}
 
     try:
         cache = storage_manager.read_cache()
     except Exception:
+        print("[runner] warning: failed to read storage cache snapshot")
+        traceback.print_exc()
         cache = {}
 
     return {"storage": storage, "cache": cache}

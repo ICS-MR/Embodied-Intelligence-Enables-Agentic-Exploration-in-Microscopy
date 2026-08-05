@@ -1,5 +1,0 @@
-HISTORY_DIR = r'history'
-OUTPUT_DIR = r'output'
-
-MAX_RETRY_TIMES = 3
-RETRY_INTERVAL = 3 

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set
 from openai import OpenAI
 
 from adapters.llm_clients import create_chat_completion
-from utils.cli_logging import get_cli_logger
+from interfaces.cli_logging import get_cli_logger
 
 
 logger = get_cli_logger("PLANNER")

@@ -1,12 +1,89 @@
 {
   "system": {
     "MM_DIR": "C:/Path/To/Micro-Manager",
-    "CONFIG_PATH": "uploaded_cfg/MMConfig_demo2.cfg",
+    "CONFIG_PATH": "demo_cfg/MMConfig_demo.cfg",
     "FIJI_PATH": "C:/Path/To/Fiji.app",
+    "objectives": {
+      "4x": {
+        "label": "1-UPLFLN4XPH",
+        "magnification": 4,
+        "display_name": "4x objective"
+      },
+      "10x": {
+        "label": "2-SOB",
+        "magnification": 10,
+        "display_name": "10x objective"
+      },
+      "20x": {
+        "label": "3-LUCPLFLN20XRC",
+        "magnification": 20,
+        "display_name": "20x objective"
+      },
+      "30x": {
+        "label": "6-UPLSAPO30XS",
+        "magnification": 30,
+        "display_name": "30x objective"
+      },
+      "40x": {
+        "label": "4-LUCPLFLN40X",
+        "magnification": 40,
+        "display_name": "40x objective"
+      },
+      "60x": {
+        "label": "5-LUCPLFLN60X",
+        "magnification": 60,
+        "display_name": "60x objective"
+      }
+    },
+    "channels": {
+      "brightfield": {
+        "label": "1-NONE",
+        "display_name": "Brightfield",
+        "color": [128, 128, 128],
+        "illumination": "transmitted"
+      },
+      "dapi": {
+        "label": "2-U-FUNA",
+        "display_name": "DAPI / 405 nm",
+        "color": [0, 0, 255],
+        "illumination": "fluorescence"
+      },
+      "fitc": {
+        "label": "3-U-FBNA",
+        "display_name": "FITC / 488 nm",
+        "color": [0, 255, 0],
+        "illumination": "fluorescence"
+      },
+      "tritc": {
+        "label": "4-U-FGNA",
+        "display_name": "TRITC / 640 nm",
+        "color": [255, 0, 0],
+        "illumination": "fluorescence"
+      }
+    },
+    "transmitted_light": {
+      "device": "Camera",
+      "intensity_property": "BeadBrightness",
+      "min": 0,
+      "max": 250,
+      "control_kind": "demo_camera_bead_brightness",
+      "surrogate_min_property_value": 0.5,
+      "surrogate_scale": 100.0
+    },
+    "Min_X_position": 0.0,
+    "Max_X_position": 500.0,
+    "Min_Y_position": 0.0,
+    "Max_Y_position": 500.0,
+    "Min_Z_position": -300.0,
+    "Max_Z_position": 300.0,
+    "Min_brightness": 0,
+    "Max_brightness": 250,
     "fiji_executor_timeout_seconds": 300.0
   },
   "model": {
-    "Simulation_mode": true,
+    "microscope_mode": "demo",
+    "image_analysis_mode": "mock",
+    "segmentation_mode": "mock",
     "clarify_enabled": false,
     "checker_enabled": true,
     "skill_mode": "disabled",
@@ -20,9 +97,9 @@
     "channel": "1-NONE",
     "exposure": 10.0,
     "brightness": 100,
-    "z_position": 3500.0,
-    "x_position": 50000.0,
-    "y_position": 50000.0,
+    "z_position": 50.0,
+    "x_position": 50.0,
+    "y_position": 50.0,
     "start_preview": true
   },
   "detection_targets": {
@@ -31,24 +108,24 @@
       "target_class_name": "2Dcell",
       "score_thr": 0.2,
       "output_filename": "2Dcell_locations_list.json",
-      "model_config": "detector_configs/2dcell.py",
-      "model_checkpoint": "weights/2Dcell.pth"
+      "model_config": "detector_models/cell2d/config.py",
+      "model_checkpoint": "detector_models/cell2d/weights.pth"
     },
     "organoid": {
       "target_class_id": 0,
       "target_class_name": "organoid",
       "score_thr": 0.2,
       "output_filename": "organoid_locations_list.json",
-      "model_config": "detector_configs/organoid.py",
-      "model_checkpoint": "weights/organoid.pth"
+      "model_config": "detector_models/organoid/config.py",
+      "model_checkpoint": "detector_models/organoid/weights.pth"
     },
     "mitosis": {
       "target_class_id": 0,
       "target_class_name": "mitosis",
       "score_thr": 0.2,
       "output_filename": "mitosis_locations_list.json",
-      "model_config": "",
-      "model_checkpoint": ""
+      "model_config": "detector_models/mitosis/config.py",
+      "model_checkpoint": "detector_models/mitosis/weights.pth"
     }
   }
 }

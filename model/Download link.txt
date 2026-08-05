@@ -1,2 +1,0 @@
-Hugging Face repo
-https://huggingface.co/BAAI/bge-m3

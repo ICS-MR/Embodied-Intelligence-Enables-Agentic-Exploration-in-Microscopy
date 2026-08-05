@@ -18,7 +18,7 @@ from agent.utils import (
     merge_dicts,
     remove_all_imports,
 )
-from utils.cli_logging import get_cli_logger
+from interfaces.cli_logging import get_cli_logger
 
 
 logger = get_cli_logger("EXECUTOR")
@@ -49,6 +49,7 @@ class ExperimentExecuteAgent:
         self._variable_vars = variable_vars or {}
         self._client = client  # Cache: Save global client instance
         self._execution_context = execution_context or {}
+        self.last_execution_record: Dict[str, Any] = {}
 
     def clear_exec_hist(self):
         """Clear code execution history"""
@@ -69,7 +70,23 @@ class ExperimentExecuteAgent:
         return self._base_prompt, "\n".join(prompt_parts), query
 
     def run(self, query: str, context: str = '', **kwargs) -> Optional[Dict[str, int]]:
+        self.last_execution_record = {
+            "query": query,
+            "context": context,
+            "formatted_query": "",
+            "generated_code": "",
+            "error_type": "",
+            "error": "",
+            "execution_backend": "not_started",
+        }
         base_prompt, prompt, use_query = self.build_prompt(query, context)
+        self.last_execution_record.update(
+            {
+                "formatted_query": use_query,
+                "prompt": prompt,
+                "system_prompt": base_prompt,
+            }
+        )
 
         # Core change 1: disable streaming and request a complete response.
         response = call_openai_generic(
@@ -105,6 +122,14 @@ class ExperimentExecuteAgent:
         code_str = extract_python_code(answer_content)
         code_str = remove_all_imports(code_str)
         to_log = f"{use_query}\n# Reasoning:\n{reasoning_content}\n# Code:\n{code_str}"
+        self.last_execution_record.update(
+            {
+                "raw_response": answer_content,
+                "generated_code": code_str,
+                "usage": usage_dict or {},
+                "execution_backend": "generated",
+            }
+        )
 
         # Log the generated code in one block instead of streaming it.
         logger.info("Generated code:\n%s", highlight(code_str, PythonLexer(), TerminalFormatter()).rstrip())
@@ -134,9 +159,17 @@ class ExperimentExecuteAgent:
                     execution_payload = self._run_fiji_subprocess(code_str)
                 else:
                     self._run_in_process(code_str, kwargs)
+                    execution_payload = {"execution_backend": "in_process"}
                 if self._cfg.get('maintain_session'):
                     self._variable_vars.update(kwargs)
                 self.code_history += f"\n{code_str}"
+                self.last_execution_record.update(
+                    {
+                        "error_type": "",
+                        "error": "",
+                        **execution_payload,
+                    }
+                )
                 if self._historyManager:
                     self._historyManager.record_interaction(
                         agent_name=self._name,
@@ -145,19 +178,35 @@ class ExperimentExecuteAgent:
                         payload={"query": query, "generated_code": code_str, **execution_payload},
                     )
             except Exception as e:
-                logger.error("Code execution failed: %s", e)
+                logger.exception("Code execution failed: %s: %s", type(e).__name__, e)
+                failure_payload = {
+                    "query": query,
+                    "generated_code": code_str,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
+                if isinstance(e, FijiSubprocessError):
+                    failure_payload.update(e.payload)
+                self.last_execution_record.update(
+                    {
+                        "error": failure_payload["error"],
+                        "error_type": failure_payload["error_type"],
+                        "execution_backend": failure_payload.get(
+                            "execution_backend",
+                            self.last_execution_record.get("execution_backend", "failed"),
+                        ),
+                    }
+                )
+                if isinstance(e, FijiSubprocessError):
+                    self.last_execution_record.update(e.payload)
                 if self._historyManager:
-                    failure_payload = {"query": query, "generated_code": code_str, "error": str(e)}
-                    if isinstance(e, FijiSubprocessError):
-                        failure_payload.update(e.payload)
                     self._historyManager.record_interaction(
                         agent_name=self._name,
                         event_type="executor_execution_failed",
                         message="Executor failed while running generated code.",
                         payload=failure_payload,
                     )
-                if isinstance(e, FijiSubprocessError):
-                    raise
+                raise
 
         return usage_dict
 

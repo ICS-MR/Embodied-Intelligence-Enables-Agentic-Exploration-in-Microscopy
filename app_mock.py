@@ -14,12 +14,14 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from Empty_function import MicroscopeController
+from core_tool.microscope import MicroscopeController
 from api.models import ConfigSaveRequest
-from bootstrap.config import config_is_complete, read_config_snapshot, read_public_config_snapshot, save_env_secrets, save_runtime_settings
+from bootstrap.config import read_config_snapshot, read_public_config_snapshot, save_env_secrets, save_runtime_settings
+from runtime.asset_check import AssetCheckResult, check_snapshot_assets
 from system_config_wizard import (
-    build_dichroic_colors,
-    build_objective_labels,
+    build_channels,
+    build_objectives,
+    build_transmitted_light_mapping,
     parse_mm_config,
     suggest_values,
 )
@@ -99,7 +101,7 @@ def set_system_status(
     if initialized is None:
         initialized = phase == "ready"
     if initializing is None:
-        initializing = phase in {"initializing", "resetting"}
+        initializing = phase in {"initializing", "releasing"}
     session.system_status.update(
         {
             "initialized": initialized,
@@ -110,6 +112,13 @@ def set_system_status(
             "failure_step": failure_step if error else "",
         }
     )
+
+
+def asset_blocking_message(result: AssetCheckResult, prefix: str = "Please complete configuration first") -> str:
+    detail = result.blocking_summary()
+    if not detail:
+        return prefix
+    return f"{prefix} for {result.mode_summary}: {detail}"
 
 
 def reset_preview_state() -> None:
@@ -287,8 +296,9 @@ def build_preview_status() -> Dict[str, Any]:
 def generate_status_payload() -> Dict[str, Any]:
     snapshot = read_public_config_snapshot()
     preview_phase = build_preview_status()["preview_phase"]
+    asset_check = check_snapshot_assets(read_config_snapshot())
     return {
-        "configured": config_is_complete(read_config_snapshot()),
+        "configured": asset_check.ready,
         "initialized": session.system_status["initialized"],
         "initializing": session.system_status["initializing"],
         "error": bool(session.system_status["error"]),
@@ -304,13 +314,17 @@ def generate_status_payload() -> Dict[str, Any]:
 
 def refresh_status_after_config_save() -> Dict[str, Any]:
     snapshot = read_config_snapshot()
-    if not config_is_complete(snapshot):
+    asset_check = check_snapshot_assets(snapshot)
+    if not asset_check.ready:
         set_system_status(
             phase="unconfigured",
             initialized=False,
             initializing=False,
             error=None,
-            message="Configuration saved. Please complete all required fields before starting the system.",
+            message=(
+                "Configuration saved. Before starting the system, resolve these blocking asset issues "
+                f"for {asset_check.mode_summary}: {asset_check.blocking_summary()}."
+            ),
         )
     elif mock_runtime.get("microscope") is not None and session.system_status["initialized"]:
         set_system_status(
@@ -339,13 +353,14 @@ def refresh_status_after_config_save() -> Dict[str, Any]:
 
 async def initialize_runtime_once() -> Dict[str, Any]:
     snapshot = read_config_snapshot()
-    if not config_is_complete(snapshot):
+    asset_check = check_snapshot_assets(snapshot)
+    if not asset_check.ready:
         set_system_status(
             phase="unconfigured",
             initialized=False,
             initializing=False,
             error=None,
-            message="Please complete configuration first",
+            message=asset_blocking_message(asset_check),
         )
         return {
             "initialized": False,
@@ -370,7 +385,7 @@ async def initialize_runtime_once() -> Dict[str, Any]:
     except Exception as exc:
         await release_mock_runtime()
         set_system_status(
-            phase="init_failed",
+            phase="failed",
             initialized=False,
             initializing=False,
             error=str(exc),
@@ -394,7 +409,7 @@ async def initialize_runtime_once() -> Dict[str, Any]:
         message="Mock system ready (simulated hardware)" if simulation_mode else "Mock system ready",
     )
     await robot_say(
-        "Mock system initialization completed. Empty_function simulated hardware is active. Live preview will start automatically after entering the runtime page."
+        "Mock system initialization completed. Simulation package hardware is active. Live preview will start automatically after entering the runtime page."
         if simulation_mode
         else "Mock system initialization completed. Live preview will start automatically after entering the runtime page."
     )
@@ -427,13 +442,14 @@ async def initialize_runtime() -> Dict[str, Any]:
 
 def start_runtime_initialization() -> Dict[str, Any]:
     snapshot = read_config_snapshot()
-    if not config_is_complete(snapshot):
+    asset_check = check_snapshot_assets(snapshot)
+    if not asset_check.ready:
         set_system_status(
             phase="unconfigured",
             initialized=False,
             initializing=False,
             error=None,
-            message="Please complete configuration first",
+            message=asset_blocking_message(asset_check),
         )
         return {
             "initialized": False,
@@ -494,13 +510,14 @@ async def restart_runtime() -> Dict[str, Any]:
         }
 
     snapshot = read_config_snapshot()
-    if not config_is_complete(snapshot):
+    asset_check = check_snapshot_assets(snapshot)
+    if not asset_check.ready:
         set_system_status(
             phase="unconfigured",
             initialized=False,
             initializing=False,
             error=None,
-            message="Please complete configuration first",
+            message=asset_blocking_message(asset_check),
         )
         return {
             "initialized": False,
@@ -511,7 +528,7 @@ async def restart_runtime() -> Dict[str, Any]:
         }
 
     set_system_status(
-        phase="resetting",
+            phase="releasing",
         initialized=False,
         initializing=True,
         error=None,
@@ -596,13 +613,14 @@ def _generate_mock_frame() -> np.ndarray:
 async def startup_event() -> None:
     reset_preview_state()
     snapshot = read_config_snapshot()
-    if config_is_complete(snapshot):
+    asset_check = check_snapshot_assets(snapshot)
+    if asset_check.ready:
         set_system_status(
             phase="ready_to_start",
             initialized=False,
             initializing=False,
             error=None,
-            message="Configuration loaded. Start the system when ready.",
+            message=f"Configuration loaded. Start the system when ready. ({asset_check.mode_summary})",
         )
     else:
         set_system_status(
@@ -610,7 +628,7 @@ async def startup_event() -> None:
             initialized=False,
             initializing=False,
             error=None,
-            message="Please complete configuration first",
+            message=asset_blocking_message(asset_check),
         )
 
 
@@ -636,23 +654,16 @@ async def upload_cfg(file: UploadFile = File(...)) -> Dict[str, Any]:
 
     suggestions = suggest_values(saved_path)
     cfg_data = parse_mm_config(saved_path)
-    existing = read_config_snapshot(apply_env=False)["system"]
-    objective_labels = build_objective_labels(cfg_data, suggestions["objective_device"]["value"], existing["objective_labels"])
-    dichroic_colors = build_dichroic_colors(cfg_data, suggestions["Dichroic"]["value"], existing["dichroic_colors"])
-
-    system_updates = {field: info["value"] for field, info in suggestions.items() if info["value"]}
-    system_updates["CONFIG_PATH"] = str(saved_path)
-    if objective_labels:
-        system_updates["objective_labels"] = objective_labels
-    if dichroic_colors:
-        system_updates["dichroic_colors"] = dichroic_colors
-    save_runtime_settings(system_updates=system_updates)
+    objectives = build_objectives(cfg_data, suggestions["objective_device"]["value"], {})
+    channels = build_channels(cfg_data, suggestions["Dichroic"]["value"], {})
+    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
 
     return {
         "config_path": str(saved_path),
         "suggestions": suggestions,
-        "objective_labels": objective_labels,
-        "dichroic_colors": dichroic_colors,
+        "objectives": objectives,
+        "channels": channels,
+        "transmitted_light": transmitted_light,
     }
 
 
@@ -674,6 +685,12 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
         "focus_drive": coalesce_text(req.focus_drive, system_current["focus_drive"]),
         "Dichroic": coalesce_text(req.Dichroic, system_current["Dichroic"]),
     }
+    if req.objectives:
+        system_updates["objectives"] = req.objectives
+    if req.channels:
+        system_updates["channels"] = req.channels
+    if req.transmitted_light:
+        system_updates["transmitted_light"] = req.transmitted_light
     model_updates = {
         "Simulation_mode": req.simulation_mode,
         "base_url": coalesce_text(req.base_url, agent_current["base_url"]),
@@ -755,8 +772,9 @@ async def start_preview_api() -> Dict[str, Any]:
 @app.get("/api/system/status")
 async def get_system_status() -> Dict[str, Any]:
     snapshot = read_config_snapshot()
+    asset_check = check_snapshot_assets(snapshot)
     return {
-        "configured": config_is_complete(snapshot),
+        "configured": asset_check.ready,
         "initialized": session.system_status["initialized"],
         "initializing": session.system_status["initializing"],
         "error": bool(session.system_status["error"]),

@@ -17,8 +17,9 @@ from agent.utils import (
     extract_task_steps,
     merge_module_tasks,
 )
+from runtime.config import _has_transmitted_light_brightness_control
 from config.agent_config import cross_encoder_model_path, task_similarity_threshold
-from utils.cli_logging import get_cli_logger
+from interfaces.cli_logging import get_cli_logger
 
 
 logger = get_cli_logger("PLANNER")
@@ -70,7 +71,8 @@ def explain_planned_execution(client, model_name, lmp_steps: list) -> str:
             max_tokens=80,
         )
         return response.choices[0].message.content.strip()
-    except Exception:
+    except Exception as exc:
+        logger.warning("Planned execution preview used fallback after LLM failure: %s", exc, exc_info=True)
         return "I'll execute the planned steps. Ready to proceed?"
 
 
@@ -99,6 +101,7 @@ class ExperimentPlanAgent:
         self._clarify_method = "clarify"
         if self._clarify_enabled:
             try:
+                system_config = self._cfg.get("system_config")
                 self.clarify = Clarify(
                     self._client,
                     self._base_prompt,
@@ -106,6 +109,7 @@ class ExperimentPlanAgent:
                     cross_encoder_model_path,
                     task_similarity_threshold,
                     historymanager=self._historyManager,
+                    has_brightness_control=_has_transmitted_light_brightness_control(system_config),
                 )
             except Exception as e:
                 raise RuntimeError(f"Clarify initialization failed: {e}") from e
@@ -225,10 +229,7 @@ class ExperimentPlanAgent:
         temperature: float,
         max_tokens: Optional[int] = None,
         stop_tokens: Optional[List[str]] = None,
-        allow_clarify: bool = False,
     ) -> Tuple[str, Optional[Dict[str, int]]]:
-        del allow_clarify
-
         response = create_chat_completion(
             self._client,
             model=self._cfg.get("engine", "gpt-3.5-turbo"),
@@ -594,7 +595,6 @@ class ExperimentPlanAgent:
             temperature=self._cfg.get("temperature", 0.7),
             max_tokens=self._cfg.get("max_tokens"),
             stop_tokens=self._stop_tokens,
-            allow_clarify=False,
         )
 
         if self._historyManager:
@@ -640,7 +640,8 @@ class ExperimentPlanAgent:
                     item = json.dumps(item, indent=2)
                     lexer = get_lexer_by_name("json")
                 parts.append(highlight(item, lexer, TerminalFormatter()))
-            except Exception:
+            except Exception as exc:
+                logger.debug("Planner CLI highlighting failed; using plain text fallback: %s", exc, exc_info=True)
                 parts.append(str(item))
         return "\n".join(parts)
 
@@ -667,7 +668,6 @@ class ExperimentPlanAgent:
                 temperature=0.0,
                 max_tokens=128,
                 stop_tokens=[],
-                allow_clarify=False,
             )
             raw_content = raw_content.strip()
 
@@ -689,11 +689,22 @@ class ExperimentPlanAgent:
                         fixed_json = json_str.replace("'", '"')
                         parsed = json.loads(fixed_json)
                         self.observation_object = parsed.get("object", "").strip() or None
-                    except Exception:
+                    except Exception as exc:
+                        logger.warning(
+                            "Observation object JSON repair failed; continuing without extracted object: %s",
+                            exc,
+                            exc_info=True,
+                        )
                         self.observation_object = None
+            if self.observation_object is None:
+                logger.warning(
+                    "Observation object extraction produced no usable object. raw_response=%s",
+                    raw_content[:500],
+                )
 
             return self.observation_object, command
-        except Exception:
+        except Exception as exc:
+            logger.warning("Observation object extraction failed; continuing without extracted object: %s", exc, exc_info=True)
             self.observation_object = None
             return None, command
 

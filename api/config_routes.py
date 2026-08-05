@@ -7,8 +7,21 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from api.dependencies import get_runtime_manager
 from api.models import ConfigSaveRequest, ConfigSaveResponse, ConfigStatusResponse, ConfigUploadResponse
-from bootstrap.config import config_is_complete, read_public_config_snapshot, save_env_secrets
-from system_config_wizard import build_dichroic_colors, build_objective_labels, parse_mm_config, suggest_values
+from bootstrap.config import (
+    build_demo_system_overrides,
+    is_demo_mapping_payload,
+    read_public_config_snapshot,
+    save_env_secrets,
+)
+from runtime.asset_check import check_snapshot_assets
+from services.runtime_manager import LifecycleConflictError
+from system_config_wizard import (
+    build_channels,
+    build_objectives,
+    build_transmitted_light_mapping,
+    parse_mm_config,
+    suggest_values,
+)
 
 
 router = APIRouter()
@@ -24,6 +37,11 @@ def coalesce_number(new_value: Any, current_value: Any) -> Any:
     return current_value if new_value is None else new_value
 
 
+def maybe_number_update(updates: dict[str, Any], key: str, new_value: Any) -> None:
+    if new_value is not None:
+        updates[key] = new_value
+
+
 def normalize_config_path(new_value: str, current_value: str) -> str:
     value = new_value.strip()
     if not value:
@@ -35,9 +53,11 @@ def normalize_config_path(new_value: str, current_value: str) -> str:
 @router.get("/api/config/status", response_model=ConfigStatusResponse)
 async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> ConfigStatusResponse:
     snapshot = read_public_config_snapshot()
+    persisted_snapshot = read_public_config_snapshot(apply_env=False, apply_demo_overlay=False)
     preview_phase = runtime_manager.get_preview_status().get("preview_phase", "idle")
+    asset_check = check_snapshot_assets(runtime_manager.current_snapshot())
     return ConfigStatusResponse(
-        configured=config_is_complete(runtime_manager.current_snapshot()),
+        configured=asset_check.ready,
         initialized=runtime_manager.system_status.initialized,
         initializing=runtime_manager.system_status.initializing,
         error=bool(runtime_manager.system_status.error),
@@ -46,6 +66,8 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         preview_phase=preview_phase,
         failure_step=runtime_manager.system_status.failure_step,
         system=snapshot["system"],
+        real_system_draft=persisted_snapshot["system"],
+        demo_system=build_demo_system_overrides(),
         agent=snapshot["agent"],
         startup=snapshot["startup"],
     )
@@ -53,6 +75,10 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
 
 @router.post("/api/config/upload-cfg", response_model=ConfigUploadResponse)
 async def upload_cfg(file: UploadFile = File(...), runtime_manager=Depends(get_runtime_manager)) -> ConfigUploadResponse:
+    try:
+        await runtime_manager.ensure_configuration_mutable()
+    except LifecycleConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not file.filename.lower().endswith(".cfg"):
         raise HTTPException(status_code=400, detail="Please upload a .cfg file.")
 
@@ -63,47 +89,104 @@ async def upload_cfg(file: UploadFile = File(...), runtime_manager=Depends(get_r
 
     suggestions = suggest_values(saved_path)
     cfg_data = parse_mm_config(saved_path)
-    existing = runtime_manager.current_snapshot()["system"]
-    objective_labels = build_objective_labels(cfg_data, suggestions["objective_device"]["value"], existing["objective_labels"])
-    dichroic_colors = build_dichroic_colors(cfg_data, suggestions["Dichroic"]["value"], existing["dichroic_colors"])
-
-    updates = {field: info["value"] for field, info in suggestions.items() if info["value"]}
-    updates["CONFIG_PATH"] = str(saved_path)
-    if objective_labels:
-        updates["objective_labels"] = objective_labels
-    if dichroic_colors:
-        updates["dichroic_colors"] = dichroic_colors
-    runtime_manager.update_settings(system_updates=updates)
+    objectives = build_objectives(cfg_data, suggestions["objective_device"]["value"], {})
+    channels = build_channels(cfg_data, suggestions["Dichroic"]["value"], {})
+    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
 
     return ConfigUploadResponse(
         config_path=str(saved_path),
         stored_config_path=str(saved_path),
         original_filename=Path(file.filename).name,
         suggestions=suggestions,
-        objective_labels=objective_labels,
-        dichroic_colors=dichroic_colors,
+        objectives=objectives,
+        channels=channels,
+        transmitted_light=transmitted_light,
     )
 
 
 @router.post("/api/config/save", response_model=ConfigSaveResponse)
 async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtime_manager)) -> ConfigSaveResponse:
-    snapshot = runtime_manager.current_snapshot(apply_env=False)
+    try:
+        await runtime_manager.ensure_configuration_mutable()
+    except LifecycleConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    snapshot = runtime_manager.current_snapshot(apply_env=False, apply_demo_overlay=False)
     agent_current = snapshot["agent"]
     system_current = snapshot["system"]
     startup_current = snapshot["startup"]
+    microscope_mode = str(req.microscope_mode or "demo").strip().lower()
+    preserve_persisted_hardware_fields = (
+        microscope_mode != "demo"
+        and is_demo_mapping_payload(
+            config_path=req.config_path,
+            camera_device=req.camera_device,
+            xy_stage_device=req.xy_stage_device,
+            objective_device=req.objective_device,
+            transmitted_illumination=req.transmittedIllumination,
+            focus_drive=req.focus_drive,
+            dichroic=req.Dichroic,
+            objectives=req.objectives,
+            channels=req.channels,
+            transmitted_light=req.transmitted_light,
+        )
+    )
     system_updates = {
         "MM_DIR": coalesce_text(req.mm_dir, system_current["MM_DIR"]),
-        "CONFIG_PATH": normalize_config_path(req.config_path, system_current["CONFIG_PATH"]),
+        "CONFIG_PATH": (
+            system_current["CONFIG_PATH"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else normalize_config_path(req.config_path, system_current["CONFIG_PATH"])
+        ),
         "FIJI_PATH": coalesce_text(req.fiji_path, system_current["FIJI_PATH"]),
-        "camera_device": coalesce_text(req.camera_device, system_current["camera_device"]),
-        "xy_stage_device": coalesce_text(req.xy_stage_device, system_current["xy_stage_device"]),
-        "objective_device": coalesce_text(req.objective_device, system_current["objective_device"]),
-        "transmittedIllumination": coalesce_text(req.transmittedIllumination, system_current["transmittedIllumination"]),
-        "focus_drive": coalesce_text(req.focus_drive, system_current["focus_drive"]),
-        "Dichroic": coalesce_text(req.Dichroic, system_current["Dichroic"]),
+        "camera_device": (
+            system_current["camera_device"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.camera_device, system_current["camera_device"])
+        ),
+        "xy_stage_device": (
+            system_current["xy_stage_device"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.xy_stage_device, system_current["xy_stage_device"])
+        ),
+        "objective_device": (
+            system_current["objective_device"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.objective_device, system_current["objective_device"])
+        ),
+        "transmittedIllumination": (
+            system_current["transmittedIllumination"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.transmittedIllumination, system_current["transmittedIllumination"])
+        ),
+        "focus_drive": (
+            system_current["focus_drive"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.focus_drive, system_current["focus_drive"])
+        ),
+        "Dichroic": (
+            system_current["Dichroic"]
+            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            else coalesce_text(req.Dichroic, system_current["Dichroic"])
+        ),
     }
+    maybe_number_update(system_updates, "Max_X_position", req.Max_X_position)
+    maybe_number_update(system_updates, "Min_X_position", req.Min_X_position)
+    maybe_number_update(system_updates, "Max_Y_position", req.Max_Y_position)
+    maybe_number_update(system_updates, "Min_Y_position", req.Min_Y_position)
+    maybe_number_update(system_updates, "Max_Z_position", req.Max_Z_position)
+    maybe_number_update(system_updates, "Min_Z_position", req.Min_Z_position)
+    maybe_number_update(system_updates, "Max_brightness", req.Max_brightness)
+    maybe_number_update(system_updates, "Min_brightness", req.Min_brightness)
+    if req.objectives and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+        system_updates["objectives"] = req.objectives
+    if req.channels and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+        system_updates["channels"] = req.channels
+    if req.transmitted_light and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+        system_updates["transmitted_light"] = req.transmitted_light
     model_updates = {
-        "Simulation_mode": req.simulation_mode,
+        "microscope_mode": microscope_mode,
+        "image_analysis_mode": req.image_analysis_mode,
+        "segmentation_mode": req.segmentation_mode,
         "base_url": coalesce_text(req.base_url, agent_current["base_url"]),
         "model_name": coalesce_text(req.model_name, agent_current["model_name"]),
         "vlm_base_url": coalesce_text(req.vlm_base_url, agent_current["vlm_base_url"]),
@@ -116,7 +199,10 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         "channel": coalesce_text(req.startup_channel, startup_current["channel"]),
         "exposure": coalesce_number(req.startup_exposure, startup_current["exposure"]),
         "brightness": coalesce_number(req.startup_brightness, startup_current["brightness"]),
-        "start_preview": req.startup_start_preview,
+        "z_position": coalesce_number(req.startup_z_position, startup_current["z_position"]),
+        "x_position": coalesce_number(req.startup_x_position, startup_current["x_position"]),
+        "y_position": coalesce_number(req.startup_y_position, startup_current["y_position"]),
+        "start_preview": coalesce_number(req.startup_start_preview, startup_current["start_preview"]),
     }
     runtime_manager.update_settings(
         system_updates=system_updates,

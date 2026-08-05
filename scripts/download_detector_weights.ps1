@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $TargetRoot) {
-    $TargetRoot = Join-Path $repoRoot "weights"
+    $TargetRoot = Join-Path $repoRoot "detector_models"
 }
 
 $downloadDir = if ($AssetDir) { $AssetDir } else { Join-Path $repoRoot ".runtime/downloads/detector-weights" }
@@ -21,15 +21,15 @@ $downloadDir = if ($AssetDir) { $AssetDir } else { Join-Path $repoRoot ".runtime
 $modelAssets = @{
     "2Dcell" = @{
         AssetName = "2Dcell.pth"
-        RelativePath = "2Dcell.pth"
+        RelativePath = "cell2d\\weights.pth"
     }
     "organoid" = @{
         AssetName = "organoid.pth"
-        RelativePath = "organoid.pth"
+        RelativePath = "organoid\\weights.pth"
     }
     "mitosis" = @{
         AssetName = "mitosis_best.pth"
-        RelativePath = "mitosis_best.pth"
+        RelativePath = "mitosis\\weights.pth"
     }
 }
 
@@ -46,6 +46,59 @@ function Get-AssetUrl {
     return "https://github.com/$Repo/releases/download/$ReleaseTag/$AssetName"
 }
 
+function Invoke-AssetDownload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Uri,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
+
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($curl) {
+        $curlArguments = @(
+            "--location",
+            "--fail",
+            "--retry", "5",
+            "--retry-delay", "2",
+            "--retry-all-errors"
+        )
+
+        if (Test-Path -LiteralPath $Destination) {
+            $existingLength = (Get-Item -LiteralPath $Destination).Length
+            if ($existingLength -gt 0) {
+                Write-Host "Resuming partial download ($existingLength bytes already received) ..."
+                $curlArguments += @("--continue-at", "-")
+            }
+        }
+
+        $curlArguments += @("--output", $Destination, $Uri)
+        & $curl.Source @curlArguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "curl failed to download '$Uri' (exit code $LASTEXITCODE). Re-run the script to resume the partial download."
+        }
+        return
+    }
+
+    Write-Warning "curl.exe is unavailable; falling back to a non-resumable PowerShell download."
+    $maximumAttempts = 5
+    for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $Destination
+            return
+        }
+        catch {
+            if ($attempt -eq $maximumAttempts) {
+                throw
+            }
+
+            Write-Warning "Download attempt $attempt failed: $($_.Exception.Message)"
+            Start-Sleep -Seconds 2
+        }
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $TargetRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
 
@@ -59,6 +112,8 @@ foreach ($modelName in $Models) {
     $targetPath = Join-Path $TargetRoot $asset.RelativePath
     $localDownloadPath = Join-Path $downloadDir $assetName
 
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetPath) | Out-Null
+
     if ((Test-Path $targetPath) -and (-not $Force)) {
         Write-Host "Using existing detector weight: $targetPath"
         continue
@@ -66,7 +121,7 @@ foreach ($modelName in $Models) {
 
     $assetUrl = Get-AssetUrl -AssetName $assetName
     Write-Host "Downloading $assetName from release '$ReleaseTag' ..."
-    Invoke-WebRequest -Uri $assetUrl -OutFile $localDownloadPath
+    Invoke-AssetDownload -Uri $assetUrl -Destination $localDownloadPath
 
     Copy-Item -LiteralPath $localDownloadPath -Destination $targetPath -Force
     Write-Host "Installed detector weight to $targetPath"

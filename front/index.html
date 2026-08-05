@@ -359,6 +359,25 @@
             line-height: 1.5;
         }
 
+        .mapping-preview {
+            margin-top: 18px;
+            padding: 14px;
+            border-radius: var(--radius-lg);
+            background: rgba(247, 250, 252, 0.92);
+            border: 1px solid rgba(18, 24, 40, 0.08);
+            color: #2d3748;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .mapping-section-title {
+            margin-top: 18px;
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+
         .app-shell {
             min-height: 100dvh;
             display: flex;
@@ -695,6 +714,103 @@
             background: #fff;
         }
 
+        .task-progress-card {
+            display: none;
+            margin: 0 24px 16px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: linear-gradient(145deg, rgba(255, 248, 240, 0.96), rgba(255, 255, 255, 0.98));
+            border: 1px solid rgba(217, 119, 6, 0.16);
+            box-shadow: 0 14px 32px rgba(148, 163, 184, 0.16);
+        }
+
+        .task-progress-card.is-visible {
+            display: block;
+        }
+
+        .task-progress-card[data-status="failed"],
+        .task-progress-card[data-status="timeout"],
+        .task-progress-card[data-status="cancelled"] {
+            border-color: rgba(190, 24, 93, 0.24);
+            background: linear-gradient(145deg, rgba(255, 241, 242, 0.98), rgba(255, 255, 255, 0.98));
+        }
+
+        .task-progress-card[data-status="completed"] {
+            border-color: rgba(5, 150, 105, 0.24);
+            background: linear-gradient(145deg, rgba(236, 253, 245, 0.98), rgba(255, 255, 255, 0.98));
+        }
+
+        .task-progress-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .task-progress-title {
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #7c2d12;
+        }
+
+        .task-progress-status {
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #9a3412;
+        }
+
+        .task-progress-stage {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+
+        .task-progress-detail {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #4b5563;
+            margin-bottom: 12px;
+        }
+
+        .task-progress-bar-track {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.2);
+            overflow: hidden;
+        }
+
+        .task-progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #f59e0b, #ea580c);
+            transition: width 180ms ease;
+        }
+
+        .task-progress-card[data-status="completed"] .task-progress-bar-fill {
+            background: linear-gradient(90deg, #10b981, #059669);
+        }
+
+        .task-progress-card[data-status="failed"] .task-progress-bar-fill,
+        .task-progress-card[data-status="timeout"] .task-progress-bar-fill,
+        .task-progress-card[data-status="cancelled"] .task-progress-bar-fill {
+            background: linear-gradient(90deg, #f43f5e, #be123c);
+        }
+
+        .task-progress-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
         .cursor::after {
             content: "|";
             animation: blink 1s infinite;
@@ -829,7 +945,7 @@
                     <span class="eyebrow">Configuration Gateway</span>
                     <h1>Complete configuration to access the runtime interface</h1>
                     <div class="meta-grid">
-                        <div class="meta-card"><strong>1</strong><span>Import `.cfg` to auto-detect device names & label
+                        <div class="meta-card"><strong>1</strong><span>Import `.cfg` to suggest EIMS device and label
                                 mappings</span></div>
                         <div class="meta-card"><strong>2</strong><span>Enter system paths & LLM / VLM API
                                 information</span></div>
@@ -842,8 +958,7 @@
                         <span class="status-chip"><span class="status-dot"></span><span id="configStatusBadge">Waiting
                                 for Configuration</span></span>
                         <h2>Status Overview</h2>
-                        <p id="configStatusText">The page is loading the current configuration. You can upload a .cfg to
-                            auto-fill device names or edit all fields manually.</p>
+                        <p id="configStatusText">The page is loading the current configuration. Demo mode uses the managed demo configuration. Real mode accepts your Micro-Manager .cfg and hardware mappings.</p>
                     </div>
                     <div id="configSummary" class="status-summary">Not initialized yet.</div>
                 </div>
@@ -852,8 +967,9 @@
             <div class="config-grid">
                 <section class="panel">
                     <h3>Microscope System Configuration</h3>
-                    <p class="panel-subtitle">We recommend importing a Micro-Manager config file first, then verify the
-                        detected device names match your actual hardware.</p>
+                    <p id="microscopeConfigSubtitle" class="panel-subtitle">We recommend importing your existing Micro-Manager config first, then
+                        configure EIMS to match its device names and state labels. Do not rename a working .cfg just for
+                        EIMS.</p>
                     <div class="upload-box">
                         <label for="cfgFile">Import Micro-Manager `.cfg`</label>
                         <input id="cfgFile" class="visually-hidden-file" type="file" accept=".cfg">
@@ -862,7 +978,7 @@
                             <span id="cfgFileName" class="file-name">No file selected</span>
                         </div>
                         <div class="actions">
-                            <button id="uploadCfgBtn" class="btn-secondary">Import & Auto-Detect</button>
+                            <button id="uploadCfgBtn" class="btn-secondary">Import & Suggest Mapping</button>
                         </div>
                     </div>
                     <div class="field-grid">
@@ -872,18 +988,53 @@
                                 placeholder="Micro-Manager installation directory"></div>
                         <div class="field full"><label for="fijiPath">FIJI_PATH</label><input id="fijiPath" type="text"
                                 placeholder="Fiji.app or Fiji installation directory"></div>
-                        <div class="field"><label for="cameraDevice">camera_device</label><input id="cameraDevice"
+                        <div class="field"><label for="cameraDevice">Camera Device</label><input id="cameraDevice"
                                 type="text"></div>
-                        <div class="field"><label for="xyStageDevice">xy_stage_device</label><input id="xyStageDevice"
+                        <div class="field"><label for="xyStageDevice">XY Stage Device</label><input id="xyStageDevice"
                                 type="text"></div>
-                        <div class="field"><label for="objectiveDevice">objective_device</label><input
+                        <div class="field"><label for="objectiveDevice">Objective Switcher Device</label><input
                                 id="objectiveDevice" type="text"></div>
-                        <div class="field"><label for="transmittedIllumination">transmittedIllumination</label><input
+                        <div class="field"><label for="transmittedIllumination">Transmitted Light Device</label><input
                                 id="transmittedIllumination" type="text"></div>
-                        <div class="field"><label for="focusDrive">focus_drive</label><input id="focusDrive"
+                        <div class="field"><label for="focusDrive">Focus Drive Device</label><input id="focusDrive"
                                 type="text"></div>
-                        <div class="field"><label for="dichroicDevice">Dichroic</label><input id="dichroicDevice"
+                        <div class="field"><label for="dichroicDevice">Channel Selector Device</label><input id="dichroicDevice"
                                 type="text"></div>
+                    </div>
+                    <div class="mapping-section-title">Motion, Brightness & Startup Limits</div>
+                    <div class="field-grid">
+                        <div class="field"><label for="minXPosition">Min X Position</label><input id="minXPosition" type="number" step="any"></div>
+                        <div class="field"><label for="maxXPosition">Max X Position</label><input id="maxXPosition" type="number" step="any"></div>
+                        <div class="field"><label for="minYPosition">Min Y Position</label><input id="minYPosition" type="number" step="any"></div>
+                        <div class="field"><label for="maxYPosition">Max Y Position</label><input id="maxYPosition" type="number" step="any"></div>
+                        <div class="field"><label for="minZPosition">Min Z Position</label><input id="minZPosition" type="number" step="any"></div>
+                        <div class="field"><label for="maxZPosition">Max Z Position</label><input id="maxZPosition" type="number" step="any"></div>
+                        <div class="field"><label for="minBrightness">Min Brightness</label><input id="minBrightness" type="number" step="1"></div>
+                        <div class="field"><label for="maxBrightness">Max Brightness</label><input id="maxBrightness" type="number" step="1"></div>
+                        <div class="field"><label for="startupXPosition">Startup X Position</label><input id="startupXPosition" type="number" step="any"></div>
+                        <div class="field"><label for="startupYPosition">Startup Y Position</label><input id="startupYPosition" type="number" step="any"></div>
+                        <div class="field"><label for="startupZPosition">Startup Z Position</label><input id="startupZPosition" type="number" step="any"></div>
+                        <div class="field"><label for="startupBrightness">Startup Brightness</label><input id="startupBrightness" type="number" step="1"></div>
+                        <div class="field"><label for="startupExposure">Startup Exposure</label><input id="startupExposure" type="number" step="any"></div>
+                        <div class="field"><label for="startupStartPreview">Startup Preview</label><select id="startupStartPreview">
+                                <option value="true">Start preview after initialization</option>
+                                <option value="false">Do not start preview automatically</option>
+                            </select></div>
+                    </div>
+                    <div class="mapping-section-title">Suggested Label Mapping</div>
+                    <div class="field-grid">
+                        <div class="field"><label for="objective4x">4x Objective Label</label><input id="objective4x" type="text"></div>
+                        <div class="field"><label for="objective10x">10x Objective Label</label><input id="objective10x" type="text"></div>
+                        <div class="field"><label for="objective20x">20x Objective Label</label><input id="objective20x" type="text"></div>
+                        <div class="field"><label for="objective30x">30x Objective Label</label><input id="objective30x" type="text"></div>
+                        <div class="field"><label for="objective40x">40x Objective Label</label><input id="objective40x" type="text"></div>
+                        <div class="field"><label for="objective60x">60x Objective Label</label><input id="objective60x" type="text"></div>
+                        <div class="field"><label for="channelBrightfield">Brightfield Channel Label</label><input id="channelBrightfield" type="text"></div>
+                        <div class="field"><label for="channelDapi">DAPI Channel Label</label><input id="channelDapi" type="text"></div>
+                        <div class="field"><label for="channelFitc">FITC Channel Label</label><input id="channelFitc" type="text"></div>
+                        <div class="field"><label for="channelTritc">TRITC Channel Label</label><input id="channelTritc" type="text"></div>
+                        <div class="field"><label for="transmittedLightDevice">Transmitted Light Control Device</label><input id="transmittedLightDevice" type="text"></div>
+                        <div class="field"><label for="transmittedLightProperty">Transmitted Light Intensity Property</label><input id="transmittedLightProperty" type="text"></div>
                     </div>
                 </section>
 
@@ -891,10 +1042,20 @@
                     <h3>Model & API Configuration</h3>
                     <p class="panel-subtitle">Save configuration first. The runtime will only initialize after you click Start System. Cellpose will use its default model resolution and cache behavior.</p>
                     <div class="field-grid">
-                        <div class="field full"><label for="simulationMode">Simulation Mode</label><select
-                                id="simulationMode">
-                                <option value="true">Enabled - Use simulated hardware</option>
-                                <option value="false">Disabled - Connect to real hardware</option>
+                        <div class="field full"><label for="microscopeMode">Microscope Mode</label><select
+                                id="microscopeMode">
+                                <option value="demo">Demo - Use Micro-Manager demo hardware</option>
+                                <option value="real">Real - Connect to microscope hardware</option>
+                            </select></div>
+                        <div class="field full"><label for="imageAnalysisMode">Image Analysis Mode</label><select
+                                id="imageAnalysisMode">
+                                <option value="mock">Mock - Reuse simulation/imagej.py</option>
+                                <option value="real">Real - Use Fiji / ImageJ runtime</option>
+                            </select></div>
+                        <div class="field full"><label for="segmentationMode">Segmentation Mode</label><select
+                                id="segmentationMode">
+                                <option value="mock">Mock - Reuse simulation/cellpose.py</option>
+                                <option value="real">Real - Use Cellpose runtime</option>
                             </select></div>
                         <div class="field full"><label for="clarifyEnabled">Clarify Agent</label><select
                                 id="clarifyEnabled">
@@ -956,6 +1117,21 @@
                         </div>
                     </div>
                     <div class="chat-console-status" id="consoleStatus">Awaiting Command</div>
+                    <div class="task-progress-card" id="taskProgressCard" data-status="idle">
+                        <div class="task-progress-header">
+                            <div class="task-progress-title" id="taskProgressTitle">Long-running Task</div>
+                            <div class="task-progress-status" id="taskProgressStatus">Idle</div>
+                        </div>
+                        <div class="task-progress-stage" id="taskProgressStage">Waiting</div>
+                        <div class="task-progress-detail" id="taskProgressDetail">No active long-running task.</div>
+                        <div class="task-progress-bar-track">
+                            <div class="task-progress-bar-fill" id="taskProgressBar"></div>
+                        </div>
+                        <div class="task-progress-meta">
+                            <span id="taskProgressFraction">0 / 0</span>
+                            <span id="taskProgressPercent">0%</span>
+                        </div>
+                    </div>
                     <div class="chat-messages" id="chatMessages"></div>
                     <div class="chat-input">
                         <input type="text" id="userInput" placeholder="Enter experiment command..." autocomplete="off"
@@ -985,9 +1161,25 @@
             previewStatus: null,
             systemPhase: "unconfigured",
             previewAutoRetried: false,
+            realHardwareConfigDraft: null,
+            transmittedLightConfigDraft: {},
+            demoManagedSystem: null,
+            taskProgress: null,
+            taskProgressClearTimer: null,
         };
 
         function $(id) { return document.getElementById(id); }
+
+        function setNumberValue(id, value) {
+            const element = $(id);
+            if (!element) return;
+            element.value = value === undefined || value === null ? "" : String(value);
+        }
+
+        function readNumberValue(id) {
+            const value = $(id).value.trim();
+            return value === "" ? null : Number(value);
+        }
 
         function buildVideoStreamUrl() {
             return `${VIDEO_STREAM_PATH}?t=${Date.now()}`;
@@ -1094,7 +1286,15 @@
 
         function fillConfigForm(data) {
             const system = data.system || {};
+            const realSystemDraft = data.real_system_draft || {};
+            uiState.demoManagedSystem = cloneJson(data.demo_system || {});
             const agent = data.agent || {};
+            const startup = data.startup || {};
+            if (Object.keys(realSystemDraft).length > 0) {
+                uiState.realHardwareConfigDraft = JSON.parse(JSON.stringify(realSystemDraft));
+            } else if ((agent.microscope_mode ?? "demo") !== "demo") {
+                uiState.realHardwareConfigDraft = JSON.parse(JSON.stringify(system));
+            }
             $("mmDir").value = system.MM_DIR || "";
             $("configPath").value = system.CONFIG_PATH || "";
             $("fijiPath").value = system.FIJI_PATH || "";
@@ -1104,7 +1304,12 @@
             $("transmittedIllumination").value = system.transmittedIllumination || "";
             $("focusDrive").value = system.focus_drive || "";
             $("dichroicDevice").value = system.Dichroic || "";
-            $("simulationMode").value = String(agent.Simulation_mode ?? true);
+            fillLimitFields(system);
+            fillStartupFields(startup);
+            fillSemanticMappingFields(system);
+            $("microscopeMode").value = agent.microscope_mode || "demo";
+            $("imageAnalysisMode").value = agent.image_analysis_mode || "mock";
+            $("segmentationMode").value = agent.segmentation_mode || "mock";
             $("clarifyEnabled").value = String(agent.clarify_enabled ?? false);
             $("checkerEnabled").value = String(agent.checker_enabled ?? true);
             $("baseUrl").value = agent.base_url || "";
@@ -1113,6 +1318,245 @@
             $("vlmModelName").value = agent.vlm_model_name || "";
             $("openaiApiKey").placeholder = agent.masked?.openai_api_key || "sk-...";
             $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
+            syncMicroscopeModeUi();
+        }
+
+        function cloneJson(value) {
+            return JSON.parse(JSON.stringify(value));
+        }
+
+        function buildCurrentSystemDraft() {
+            const mapping = collectSemanticMappingPayload();
+            return {
+                CONFIG_PATH: $("configPath").value.trim(),
+                camera_device: $("cameraDevice").value.trim(),
+                xy_stage_device: $("xyStageDevice").value.trim(),
+                objective_device: $("objectiveDevice").value.trim(),
+                transmittedIllumination: $("transmittedIllumination").value.trim(),
+                focus_drive: $("focusDrive").value.trim(),
+                Dichroic: $("dichroicDevice").value.trim(),
+                ...collectLimitPayload(),
+                objectives: mapping.objectives,
+                channels: mapping.channels,
+                transmitted_light: mapping.transmitted_light,
+            };
+        }
+
+        function applyManagedSystemDraft(system) {
+            const draft = system || {};
+            $("configPath").value = draft.CONFIG_PATH || "";
+            $("cameraDevice").value = draft.camera_device || "";
+            $("xyStageDevice").value = draft.xy_stage_device || "";
+            $("objectiveDevice").value = draft.objective_device || "";
+            $("transmittedIllumination").value = draft.transmittedIllumination || "";
+            $("focusDrive").value = draft.focus_drive || "";
+            $("dichroicDevice").value = draft.Dichroic || "";
+            if (hasLimitFields(draft)) {
+                fillLimitFields(draft);
+            }
+            fillSemanticMappingFields(draft);
+        }
+
+        function hasLimitFields(system) {
+            const cfg = system || {};
+            return [
+                "Min_X_position",
+                "Max_X_position",
+                "Min_Y_position",
+                "Max_Y_position",
+                "Min_Z_position",
+                "Max_Z_position",
+                "Min_brightness",
+                "Max_brightness",
+            ].some((key) => cfg[key] !== undefined && cfg[key] !== null);
+        }
+
+        function fillLimitFields(system) {
+            const cfg = system || {};
+            setNumberValue("minXPosition", cfg.Min_X_position);
+            setNumberValue("maxXPosition", cfg.Max_X_position);
+            setNumberValue("minYPosition", cfg.Min_Y_position);
+            setNumberValue("maxYPosition", cfg.Max_Y_position);
+            setNumberValue("minZPosition", cfg.Min_Z_position);
+            setNumberValue("maxZPosition", cfg.Max_Z_position);
+            setNumberValue("minBrightness", cfg.Min_brightness);
+            setNumberValue("maxBrightness", cfg.Max_brightness);
+        }
+
+        function collectLimitPayload() {
+            return {
+                Min_X_position: readNumberValue("minXPosition"),
+                Max_X_position: readNumberValue("maxXPosition"),
+                Min_Y_position: readNumberValue("minYPosition"),
+                Max_Y_position: readNumberValue("maxYPosition"),
+                Min_Z_position: readNumberValue("minZPosition"),
+                Max_Z_position: readNumberValue("maxZPosition"),
+                Min_brightness: readNumberValue("minBrightness"),
+                Max_brightness: readNumberValue("maxBrightness"),
+            };
+        }
+
+        function fillStartupFields(startup) {
+            const cfg = startup || {};
+            setNumberValue("startupXPosition", cfg.x_position);
+            setNumberValue("startupYPosition", cfg.y_position);
+            setNumberValue("startupZPosition", cfg.z_position);
+            setNumberValue("startupBrightness", cfg.brightness);
+            setNumberValue("startupExposure", cfg.exposure);
+            $("startupStartPreview").value = String(cfg.start_preview ?? true);
+        }
+
+        function handleMicroscopeModeChange() {
+            const demoModeEnabled = $("microscopeMode").value === "demo";
+            if (demoModeEnabled) {
+                uiState.realHardwareConfigDraft = buildCurrentSystemDraft();
+                applyManagedSystemDraft(cloneJson(uiState.demoManagedSystem || {}));
+                syncMicroscopeModeUi();
+                showFeedback("Microscope demo mode will use the managed Micro-Manager demo config and device mapping.", false);
+                return;
+            }
+
+            if (uiState.realHardwareConfigDraft) {
+                applyManagedSystemDraft(cloneJson(uiState.realHardwareConfigDraft));
+                syncMicroscopeModeUi();
+                showFeedback("Restored the last known real hardware configuration draft.", false);
+                return;
+            }
+
+            syncMicroscopeModeUi();
+            showFeedback("Microscope real mode selected. Save configuration to restore the persisted real hardware settings.", false);
+        }
+
+        function setElementsDisabled(elementIds, disabled) {
+            for (const id of elementIds) {
+                const el = $(id);
+                if (!el) continue;
+                el.disabled = disabled;
+            }
+        }
+
+        function syncMicroscopeModeUi() {
+            const demoModeEnabled = $("microscopeMode").value === "demo";
+            setElementsDisabled(
+                [
+                    "cfgFile",
+                    "chooseCfgBtn",
+                    "uploadCfgBtn",
+                    "configPath",
+                    "cameraDevice",
+                    "xyStageDevice",
+                    "objectiveDevice",
+                    "transmittedIllumination",
+                    "focusDrive",
+                    "dichroicDevice",
+                    "objective4x",
+                    "objective10x",
+                    "objective20x",
+                    "objective30x",
+                    "objective40x",
+                    "objective60x",
+                    "channelBrightfield",
+                    "channelDapi",
+                    "channelFitc",
+                    "channelTritc",
+                    "transmittedLightDevice",
+                    "transmittedLightProperty",
+                ],
+                demoModeEnabled
+            );
+            $("microscopeConfigSubtitle").textContent = demoModeEnabled
+                ? "Demo mode is locked to the managed Micro-Manager demo configuration and verified device mapping. Switch to real mode to import a .cfg and edit hardware mappings."
+                : "Import your existing Micro-Manager config first, then configure EIMS to match its device names and state labels. Do not rename a working .cfg just for EIMS.";
+            $("configStatusText").textContent = demoModeEnabled
+                ? "Demo mode uses the managed Micro-Manager demo configuration. Hardware path and API fields can still be edited, but demo device mapping is locked."
+                : "Real mode accepts your Micro-Manager .cfg and hardware mappings. Import a .cfg or edit the fields manually, then save configuration.";
+            if (demoModeEnabled) {
+                $("cfgFileName").textContent = "Managed by demo mode";
+            } else if (!$("cfgFile").files[0]) {
+                $("cfgFileName").textContent = "No file selected";
+            }
+        }
+
+        function currentSemanticMapping(system) {
+            return {
+                objectives: system?.objectives || {},
+                channels: system?.channels || {},
+                transmitted_light: system?.transmitted_light || {},
+            };
+        }
+
+        function fillSemanticMappingFields(system) {
+            const mapping = currentSemanticMapping(system);
+            const objectives = mapping.objectives || {};
+            const channels = mapping.channels || {};
+            const transmittedLight = mapping.transmitted_light || {};
+            uiState.transmittedLightConfigDraft = cloneJson(transmittedLight);
+
+            $("objective4x").value = objectives["4x"]?.label || "";
+            $("objective10x").value = objectives["10x"]?.label || "";
+            $("objective20x").value = objectives["20x"]?.label || "";
+            $("objective30x").value = objectives["30x"]?.label || "";
+            $("objective40x").value = objectives["40x"]?.label || "";
+            $("objective60x").value = objectives["60x"]?.label || "";
+
+            $("channelBrightfield").value = channels["brightfield"]?.label || "";
+            $("channelDapi").value = channels["dapi"]?.label || "";
+            $("channelFitc").value = channels["fitc"]?.label || "";
+            $("channelTritc").value = channels["tritc"]?.label || "";
+
+            $("transmittedLightDevice").value = transmittedLight.device || "";
+            $("transmittedLightProperty").value = transmittedLight.intensity_property || "";
+        }
+
+        function collectSemanticMappingPayload() {
+            const objectives = {};
+            const objectiveFields = [
+                ["4x", "objective4x"],
+                ["10x", "objective10x"],
+                ["20x", "objective20x"],
+                ["30x", "objective30x"],
+                ["40x", "objective40x"],
+                ["60x", "objective60x"],
+            ];
+            for (const [key, elementId] of objectiveFields) {
+                const label = $(elementId).value.trim();
+                if (!label) continue;
+                objectives[key] = {
+                    label,
+                    magnification: Number.parseInt(key, 10),
+                    display_name: `${key} objective`,
+                };
+            }
+
+            const channelDefinitions = [
+                ["brightfield", "channelBrightfield", "Brightfield", "transmitted", [128, 128, 128]],
+                ["dapi", "channelDapi", "DAPI / 405 nm", "fluorescence", [0, 0, 255]],
+                ["fitc", "channelFitc", "FITC / 488 nm", "fluorescence", [0, 255, 0]],
+                ["tritc", "channelTritc", "TRITC / 640 nm", "fluorescence", [255, 0, 0]],
+            ];
+            const channels = {};
+            for (const [key, elementId, displayName, illumination, color] of channelDefinitions) {
+                const label = $(elementId).value.trim();
+                if (!label) continue;
+                channels[key] = {
+                    label,
+                    display_name: displayName,
+                    illumination,
+                    color,
+                };
+            }
+
+            const transmittedLightDraft = cloneJson(uiState.transmittedLightConfigDraft || {});
+            transmittedLightDraft.device = $("transmittedLightDevice").value.trim();
+            transmittedLightDraft.intensity_property = $("transmittedLightProperty").value.trim();
+            if (transmittedLightDraft.min === undefined) transmittedLightDraft.min = 0;
+            if (transmittedLightDraft.max === undefined) transmittedLightDraft.max = 250;
+
+            return {
+                objectives,
+                channels,
+                transmitted_light: transmittedLightDraft,
+            };
         }
 
         function buildConfigSavedMessage(message, effectiveConfigPath) {
@@ -1120,6 +1564,15 @@
             const configPath = String(effectiveConfigPath || "").trim();
             if (!configPath) return baseMessage;
             return `${baseMessage} Active CONFIG_PATH: ${configPath}`;
+        }
+
+        function renderRuntimeReadySubtitle() {
+            const status = uiState.previewStatus || {};
+            const modeSummary = status.mode_summary || "Microscope: demo | Fiji: mock | Cellpose: mock";
+            const hardware = status.microscope_mode === "real"
+                ? "Preview source: real hardware"
+                : "Preview source: Micro-Manager demo hardware";
+            return `${modeSummary} | ${hardware}`;
         }
         const STARTUP_RETRY_ATTEMPTS = 10;
         const STARTUP_RETRY_DELAY_MS = 1200;
@@ -1166,7 +1619,21 @@
             const phase = data?.system_phase || "unconfigured";
             const configured = Boolean(data?.configured);
             button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
-            button.disabled = !configured || phase === "initializing" || phase === "resetting";
+            button.disabled = !configured || ["initializing", "executing", "releasing"].includes(phase);
+        }
+
+        function setLifecycleControlsDisabled(disabled) {
+            if (disabled) {
+                $("startSystemBtn").disabled = true;
+            } else if (uiState.systemPhase === "ready") {
+                $("startSystemBtn").disabled = false;
+            }
+            $("shutdownServerBtn").disabled = disabled;
+            $("shutdownServerRuntimeBtn").disabled = disabled;
+            $("restartPreviewBtn").disabled = disabled;
+            $("saveConfigBtn").disabled = disabled;
+            $("chooseCfgBtn").disabled = disabled;
+            $("uploadCfgBtn").disabled = disabled;
         }
 
         function setStartupConnectingState() {
@@ -1204,11 +1671,15 @@
                 updateConfigStatus("System Ready", data.status_message || "System ready.", true, true);
                 return;
             }
-            if (phase === "initializing" || phase === "resetting") {
+            if (phase === "initializing" || phase === "releasing") {
                 updateConfigStatus("System Initializing", data.status_message || "System initialization in progress.", true, false, true);
                 return;
             }
-            if (phase === "init_failed") {
+            if (phase === "executing") {
+                updateConfigStatus("Task Executing", data.status_message || "The microscope is executing a task.", true, true);
+                return;
+            }
+            if (phase === "failed") {
                 updateConfigStatus("Initialization Failed", data.status_message || "Runtime initialization failed.", true, false);
                 return;
             }
@@ -1240,7 +1711,9 @@
             if (!uiState.isTaskRunning && !uiState.isWaitingForUserInput) {
                 if (phase === "live") {
                     $("videoModeBadge").textContent = "Preview Live";
-                    $("runtimeSubtitle").textContent = "Connected | Ready";
+                    $("runtimeSubtitle").textContent = status?.microscope_mode === "demo"
+                        ? `${status?.mode_summary || "Microscope: demo | Fiji: mock | Cellpose: mock"} | Preview source: Micro-Manager demo hardware`
+                        : `${status?.mode_summary || "Microscope: real | Fiji: mock | Cellpose: mock"} | Preview source: real hardware`;
                 } else if (phase === "starting") {
                     $("videoModeBadge").textContent = "Preview Starting";
                     $("runtimeSubtitle").textContent = status?.detail || "Starting live preview";
@@ -1342,6 +1815,7 @@
             fillConfigForm(data);
             uiState.systemPhase = data?.system_phase || "unconfigured";
             updateStartSystemButton(data);
+            setLifecycleControlsDisabled(["initializing", "executing", "releasing"].includes(uiState.systemPhase));
             updateConfigStatusFromPhase(data);
 
             const { allowEnterRuntime = true } = options;
@@ -1353,14 +1827,14 @@
             }
 
             setActiveScreen("config");
-            if (uiState.systemPhase === "initializing" || uiState.systemPhase === "resetting") {
+            if (uiState.systemPhase === "initializing" || uiState.systemPhase === "releasing") {
                 showFeedback(data.status_message || "System initializing, page will auto-switch to console.", false);
                 scheduleConfigStatusRefresh();
                 return data;
             }
 
             clearConfigStatusPolling();
-            if (uiState.systemPhase === "init_failed") {
+            if (uiState.systemPhase === "failed") {
                 showFeedback(data.status_message || "Runtime initialization failed.", true);
             } else if (uiState.systemPhase === "ready_to_start") {
                 showFeedback(data.status_message || "Configuration saved. Start the system when ready.", false);
@@ -1400,12 +1874,16 @@
         }
 
         async function uploadCfgFile() {
+            if ($("microscopeMode").value === "demo") {
+                showFeedback("Demo mode uses the managed Micro-Manager demo configuration. Switch to real mode to import a .cfg.", true);
+                return;
+            }
             const file = $("cfgFile").files[0];
             if (!file) {
                 showFeedback("Please select a .cfg file first.", true);
                 return;
             }
-            showFeedback("Importing cfg and detecting device names...");
+            showFeedback("Importing cfg and suggesting EIMS device mappings...");
             const formData = new FormData();
             formData.append("file", file);
             const res = await fetch("/api/config/upload-cfg", { method: "POST", body: formData });
@@ -1413,9 +1891,17 @@
                 const error = await res.json().catch(() => ({}));
                 throw new Error(error.detail || "cfg import failed");
             }
-            await res.json();
-            await refreshConfigStatus();
-            showFeedback("cfg imported successfully, device names and label mappings synced automatically.");
+            const data = await res.json();
+            $("configPath").value = data.config_path || "";
+            $("cameraDevice").value = data.suggestions?.camera_device?.value || "";
+            $("xyStageDevice").value = data.suggestions?.xy_stage_device?.value || "";
+            $("objectiveDevice").value = data.suggestions?.objective_device?.value || "";
+            $("transmittedIllumination").value = data.suggestions?.transmittedIllumination?.value || "";
+            $("focusDrive").value = data.suggestions?.focus_drive?.value || "";
+            $("dichroicDevice").value = data.suggestions?.Dichroic?.value || "";
+            fillSemanticMappingFields(data);
+            showFeedback("cfg parsed. Check the device fields and suggested mapping fields, then save configuration.");
+            syncMicroscopeModeUi();
         }
 
         function updateSelectedCfgFileName() {
@@ -1424,6 +1910,8 @@
         }
 
         function collectConfigPayload() {
+            const semanticMapping = collectSemanticMappingPayload();
+            const limitPayload = collectLimitPayload();
             return {
                 mm_dir: $("mmDir").value.trim(),
                 config_path: $("configPath").value.trim(),
@@ -1434,6 +1922,7 @@
                 transmittedIllumination: $("transmittedIllumination").value.trim(),
                 focus_drive: $("focusDrive").value.trim(),
                 Dichroic: $("dichroicDevice").value.trim(),
+                ...limitPayload,
                 openai_api_key: $("openaiApiKey").value.trim(),
                 base_url: $("baseUrl").value.trim(),
                 model_name: $("modelName").value.trim(),
@@ -1442,7 +1931,18 @@
                 vlm_model_name: $("vlmModelName").value.trim(),
                 clarify_enabled: $("clarifyEnabled").value === "true",
                 checker_enabled: $("checkerEnabled").value === "true",
-                simulation_mode: $("simulationMode").value === "true"
+                microscope_mode: $("microscopeMode").value,
+                image_analysis_mode: $("imageAnalysisMode").value,
+                segmentation_mode: $("segmentationMode").value,
+                objectives: semanticMapping.objectives,
+                channels: semanticMapping.channels,
+                transmitted_light: semanticMapping.transmitted_light,
+                startup_exposure: readNumberValue("startupExposure"),
+                startup_brightness: readNumberValue("startupBrightness"),
+                startup_x_position: readNumberValue("startupXPosition"),
+                startup_y_position: readNumberValue("startupYPosition"),
+                startup_z_position: readNumberValue("startupZPosition"),
+                startup_start_preview: $("startupStartPreview").value === "true",
             };
         }
 
@@ -1465,7 +1965,7 @@
             showFeedback(phase === "ready" ? "Resetting runtime and restarting system..." : "Starting system...");
             const data = await fetchJson("/api/system/restart", { method: "POST" });
             const status = await refreshConfigStatus();
-            if (data.initializing || status.initializing || ["initializing", "resetting"].includes(status.system_phase)) {
+            if (data.initializing || status.initializing || ["initializing", "releasing"].includes(status.system_phase)) {
                 showFeedback(data.message || status.status_message || "Runtime initialization started.", false);
                 scheduleConfigStatusRefresh();
                 return;
@@ -1700,11 +2200,12 @@
             $("sendBtn").textContent = "Send";
             $("userInput").placeholder = "Enter experiment command...";
             $("consoleStatus").textContent = "Awaiting Next Command";
-            $("runtimeSubtitle").textContent = "Connected • Ready";
+            $("runtimeSubtitle").textContent = renderRuntimeReadySubtitle();
             $("videoModeBadge").textContent = "Runtime Online";
         }
 
         function setAwaitingUserInput(mode = "general") {
+            setLifecycleControlsDisabled(true);
             $("userInput").disabled = false;
             $("sendBtn").disabled = false;
             $("sendBtn").textContent = "Reply";
@@ -1722,6 +2223,7 @@
         }
 
         function disableInput() {
+            setLifecycleControlsDisabled(true);
             $("userInput").disabled = true;
             $("sendBtn").disabled = true;
             $("sendBtn").textContent = "Executing...";
@@ -1733,7 +2235,65 @@
         function resetTaskState() {
             uiState.isTaskRunning = false;
             uiState.isWaitingForUserInput = false;
+            uiState.systemPhase = "ready";
+            setLifecycleControlsDisabled(false);
             enableInput();
+            scheduleTaskProgressClear();
+        }
+
+        function clearTaskProgressTimer() {
+            if (uiState.taskProgressClearTimer) {
+                clearTimeout(uiState.taskProgressClearTimer);
+                uiState.taskProgressClearTimer = null;
+            }
+        }
+
+        function hideTaskProgressCard() {
+            clearTaskProgressTimer();
+            uiState.taskProgress = null;
+            const card = $("taskProgressCard");
+            card.classList.remove("is-visible");
+            card.dataset.status = "idle";
+            $("taskProgressTitle").textContent = "Long-running Task";
+            $("taskProgressStatus").textContent = "Idle";
+            $("taskProgressStage").textContent = "Waiting";
+            $("taskProgressDetail").textContent = "No active long-running task.";
+            $("taskProgressFraction").textContent = "0 / 0";
+            $("taskProgressPercent").textContent = "0%";
+            $("taskProgressBar").style.width = "0%";
+        }
+
+        function scheduleTaskProgressClear(delayMs = 2800) {
+            const status = uiState.taskProgress?.status || "";
+            if (!["completed", "failed", "timeout", "cancelled"].includes(status)) {
+                return;
+            }
+            clearTaskProgressTimer();
+            uiState.taskProgressClearTimer = setTimeout(() => {
+                hideTaskProgressCard();
+            }, delayMs);
+        }
+
+        function renderTaskProgress(progress) {
+            clearTaskProgressTimer();
+            uiState.taskProgress = progress;
+            const card = $("taskProgressCard");
+            const status = String(progress.status || "running");
+            const current = Number(progress.progress_current || 0);
+            const total = Number(progress.progress_total || 0);
+            const percent = Number(progress.progress_percent || 0);
+            card.classList.add("is-visible");
+            card.dataset.status = status;
+            $("taskProgressTitle").textContent = String(progress.title || "Long-running Task");
+            $("taskProgressStatus").textContent = status;
+            $("taskProgressStage").textContent = String(progress.stage_label || progress.stage_key || "Running");
+            $("taskProgressDetail").textContent = String(progress.detail || "");
+            $("taskProgressFraction").textContent = `${current} / ${total}`;
+            $("taskProgressPercent").textContent = `${percent}%`;
+            $("taskProgressBar").style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            if (["completed", "failed", "timeout", "cancelled"].includes(status)) {
+                scheduleTaskProgressClear();
+            }
         }
 
         // Backend requests and SSE processing
@@ -1802,6 +2362,14 @@
             }
             if (msg.type === "robot_action") {
                 await appendTypedMessage("robot-action", msg.text, shouldSkipAnimation);
+                return;
+            }
+            if (msg.type === "task_progress") {
+                renderTaskProgress(msg);
+                return;
+            }
+            if (msg.type === "step_summary") {
+                await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
                 return;
             }
             if (msg.type === "artifact") {
@@ -1907,6 +2475,8 @@
             $("cfgFile").addEventListener("change", () => {
                 updateSelectedCfgFileName();
             });
+
+            $("microscopeMode").addEventListener("change", handleMicroscopeModeChange);
 
             $("uploadCfgBtn").addEventListener("click", async () => {
                 try {

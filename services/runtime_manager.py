@@ -2,50 +2,35 @@
 import json
 import logging
 import re
-import subprocess
-import sys
-import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 from urllib.parse import quote
 
-import cv2
-import numpy as np
 from openai import APIStatusError
 
 from api.models import RuntimeInitializationResponse, TaskExecutionResponse, UserInputResponse
 from api.state import AppState
 from bootstrap.config import (
-    config_is_complete,
     load_runtime_settings,
-    missing_required_fields,
     read_config_snapshot,
     save_runtime_settings,
 )
+from runtime.asset_check import AssetCheckResult, check_snapshot_assets
 from services.runtime_state import SystemStatus
-from services.task_orchestrator import TaskRequest
-from utils.interaction_flow import interpret_plan_feedback, is_debug_plan_request, pick_text, prefers_chinese
-from utils.runtime_core import (
-    RuntimeContext,
-    apply_startup_state,
-    initialize_microscope,
-    initialize_system_components,
-    release_resources,
-)
-from utils.runtime_text import format_raw_planner_debug
+from services.preview_stream import PreviewStreamService
+from services.runtime_lifecycle import RuntimeLifecyclePorts, RuntimeLifecycleService
+from services.task_interaction import InteractionOutcome, TaskInteractionPorts, TaskInteractionSession
+from interfaces.interaction_flow import pick_text, prefers_chinese
+from runtime.models import RuntimeContext
 
 
 logger = logging.getLogger(__name__)
 
 
-PREVIEW_STALE_FRAME_SEC = 2.0
-PREVIEW_STARTUP_GRACE_SEC = 3.0
-PREVIEW_START_REQUEST_GRACE_SEC = 5.0
-PREVIEW_START_COMMAND_TIMEOUT_SEC = 10.0
-PREVIEW_FALLBACK_LOG_INTERVAL_SEC = 5.0
-INIT_COMPONENT_TIMEOUT_SEC = 90.0
-MICROSCOPE_SETUP_TIMEOUT_SEC = 30.0
+class LifecycleConflictError(RuntimeError):
+    pass
 
 
 def _summarize_api_status_error(exc: APIStatusError) -> str:
@@ -67,34 +52,6 @@ def _summarize_api_status_error(exc: APIStatusError) -> str:
     return f"Upstream model API returned HTTP {status_code}."
 
 
-def _normalize_stream_frame(frame: Any) -> Optional[np.ndarray]:
-    if frame is None:
-        return None
-
-    array = np.asarray(frame)
-    if array.size == 0:
-        return None
-
-    if array.ndim == 2:
-        if array.dtype != np.uint8:
-            array = cv2.normalize(array, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        return cv2.cvtColor(array, cv2.COLOR_GRAY2BGR)
-
-    if array.ndim == 3:
-        if array.shape[2] == 1:
-            base = array[:, :, 0]
-            if base.dtype != np.uint8:
-                base = cv2.normalize(base, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-            return cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
-
-        color = array[:, :, :3]
-        if color.dtype != np.uint8:
-            color = cv2.normalize(color, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        return np.ascontiguousarray(color)
-
-    return None
-
-
 class RuntimeManager:
     def __init__(self, root_dir: Path) -> None:
         self.root_dir = root_dir
@@ -103,42 +60,31 @@ class RuntimeManager:
         self.orchestrator = None
         self.server_loop: Optional[asyncio.AbstractEventLoop] = None
         self.system_status = SystemStatus()
-        self._last_preview_fallback_log_at = 0.0
         self._initialization_lock = asyncio.Lock()
+        self._lifecycle_lock = asyncio.Lock()
         self._initialization_task: Optional[asyncio.Task[dict[str, Any]]] = None
-        self._preview_phase = "idle"
-        self._preview_start_requested_at: Optional[float] = None
-        self._preview_starting = False
-        self._preview_started_once = False
-        self._artifact_preview_window_name = "Fiji Detection Result"
-
-    def _show_local_artifact_preview(self, artifact_path: str, *, title: str, display_seconds: float) -> None:
-        display_seconds = max(0.0, float(display_seconds))
-        if display_seconds <= 0:
-            return
-        preview_script = (self.root_dir / "scripts" / "show_timed_image_preview.py").resolve()
-        if not preview_script.exists():
-            logger.warning("Timed preview script not found: %s", preview_script)
-            return
-
-        try:
-            subprocess.Popen(
-                [
-                    sys.executable,
-                    str(preview_script),
-                    "--image",
-                    str(Path(artifact_path).expanduser().resolve()),
-                    "--title",
-                    str(title or self._artifact_preview_window_name),
-                    "--seconds",
-                    str(display_seconds),
-                ],
-                cwd=str(self.root_dir),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+        self._execution_task: Optional[asyncio.Task[dict[str, Any]]] = None
+        self._preview_task: Optional[asyncio.Task[dict[str, Any]]] = None
+        self.runtime_lifecycle = RuntimeLifecycleService(
+            RuntimeLifecyclePorts(
+                current_snapshot=self.current_snapshot,
+                make_init_response=self._make_init_response,
+                set_system_status=self._set_system_status,
+                send_message=self._send_message,
+                clear_runtime_context=self._clear_runtime_context,
+                set_runtime_context=self._set_runtime_context,
+                bind_interaction_artifact_listener=self._bind_interaction_artifact_listener,
+                reset_preview_state=self._reset_preview_state,
+                build_failure_message=self._build_failure_message,
             )
-        except Exception:
-            logger.exception("Failed to launch timed local artifact preview for %s", artifact_path)
+        )
+        self.preview_stream = PreviewStreamService(
+            get_runtime_context=lambda: self.runtime_context,
+            is_system_initialized=lambda: self.system_status.initialized,
+            run_blocking_step=self.runtime_lifecycle.run_initialization_step,
+            emit_error=lambda message: self._send_message("error", message),
+        )
+        self._latest_task_progress: Optional[dict[str, Any]] = None
 
     def bind_event_loop(self) -> None:
         try:
@@ -146,8 +92,34 @@ class RuntimeManager:
         except RuntimeError:
             self.server_loop = None
 
-    def current_snapshot(self, *, apply_env: bool = True) -> dict[str, Any]:
-        return read_config_snapshot(apply_env=apply_env)
+    def current_snapshot(self, *, apply_env: bool = True, apply_demo_overlay: bool = True) -> dict[str, Any]:
+        return read_config_snapshot(apply_env=apply_env, apply_demo_overlay=apply_demo_overlay)
+
+    def _current_mode_summary(self) -> str:
+        if self.runtime_context is not None:
+            agent_cfg = self.runtime_context.runtime["agent"]
+            return (
+                f"Microscope: {getattr(agent_cfg, 'microscope_mode', 'demo')} | "
+                f"Fiji: {getattr(agent_cfg, 'image_analysis_mode', 'mock')} | "
+                f"Cellpose: {getattr(agent_cfg, 'segmentation_mode', 'mock')}"
+            )
+        snapshot = self.current_snapshot()
+        agent_cfg = snapshot["agent"]
+        return (
+            f"Microscope: {agent_cfg.get('microscope_mode', 'demo')} | "
+            f"Fiji: {agent_cfg.get('image_analysis_mode', 'mock')} | "
+            f"Cellpose: {agent_cfg.get('segmentation_mode', 'mock')}"
+        )
+
+    def _asset_check(self) -> AssetCheckResult:
+        return check_snapshot_assets(self.current_snapshot())
+
+    @staticmethod
+    def _asset_blocking_message(result: AssetCheckResult, prefix: str = "Please complete configuration first") -> str:
+        detail = result.blocking_summary()
+        if not detail:
+            return prefix
+        return f"{prefix} for {result.mode_summary}: {detail}"
 
     def update_settings(
         self,
@@ -203,12 +175,28 @@ class RuntimeManager:
         if env_imagej is not None and hasattr(env_imagej, "set_interaction_artifact_listener"):
             env_imagej.set_interaction_artifact_listener(self.emit_interaction_artifact)
 
+    def _bind_task_progress_listener(self) -> None:
+        if self.runtime_context is None:
+            return
+        env_olympus = getattr(self.runtime_context, "env_olympus", None)
+        if env_olympus is not None and hasattr(env_olympus, "set_task_progress_listener"):
+            env_olympus.set_task_progress_listener(self.emit_task_progress)
+
     def _clear_interaction_artifact_listener(self) -> None:
         if self.runtime_context is None:
             return
         env_imagej = getattr(self.runtime_context, "env_imagej", None)
         if env_imagej is not None and hasattr(env_imagej, "set_interaction_artifact_listener"):
             env_imagej.set_interaction_artifact_listener(None)
+
+    def _clear_task_progress_listener(self) -> None:
+        if self.runtime_context is None:
+            self._latest_task_progress = None
+            return
+        env_olympus = getattr(self.runtime_context, "env_olympus", None)
+        if env_olympus is not None and hasattr(env_olympus, "set_task_progress_listener"):
+            env_olympus.set_task_progress_listener(None)
+        self._latest_task_progress = None
 
     def resolve_runtime_artifact_path(self, artifact_path: str) -> Path:
         if self.runtime_context is None:
@@ -243,11 +231,35 @@ class RuntimeManager:
             logger.warning("Ignoring interaction artifact outside runtime output directory: %s", artifact_path)
             return
 
-        self._show_local_artifact_preview(
-            str(resolved_path),
+        self._send_message(
+            "artifact",
+            title or "Fiji Detection Result",
+            kind="image",
             title=title or "Fiji Detection Result",
+            path=relative_path,
+            url=f"/api/artifacts/{quote(relative_path, safe='/')}",
             display_seconds=display_seconds,
         )
+
+    def emit_task_progress(self, progress: dict[str, Any]) -> None:
+        payload = dict(progress)
+        if not payload.get("timestamp"):
+            payload["timestamp"] = datetime.now().isoformat()
+        task_id = str(self.app_state.task.current_task_id or "")
+        payload["task_id"] = task_id
+        current = int(payload.get("progress_current") or 0)
+        total = int(payload.get("progress_total") or 0)
+        if total > 0 and payload.get("progress_percent") in (None, ""):
+            payload["progress_percent"] = int(max(0.0, min(100.0, (float(current) / float(total)) * 100.0)))
+        self._latest_task_progress = dict(payload)
+        self.enqueue_output_message({"type": "task_progress", **payload})
+        if self.runtime_context is not None:
+            self.runtime_context.history_manager.record_interaction(
+                agent_name="Runtime",
+                event_type="task_progress",
+                message="Runtime emitted long-running task progress.",
+                payload=payload,
+            )
 
     def _set_system_status(
         self,
@@ -262,7 +274,7 @@ class RuntimeManager:
         if initialized is None:
             initialized = phase == "ready"
         if initializing is None:
-            initializing = phase in {"initializing", "resetting"}
+            initializing = phase in {"initializing", "releasing"}
         self.system_status.initialized = initialized
         self.system_status.initializing = initializing
         self.system_status.error = error
@@ -271,28 +283,27 @@ class RuntimeManager:
         self.system_status.failure_step = failure_step if error else ""
 
     def _reset_preview_state(self) -> None:
-        self._preview_phase = "idle"
-        self._preview_start_requested_at = None
-        self._preview_starting = False
-        self._preview_started_once = False
+        self.preview_stream.reset()
+
+    def _clear_runtime_context(self) -> None:
+        self._clear_task_progress_listener()
+        self.runtime_context = None
+        self.orchestrator = None
+
+    def _set_runtime_context(self, runtime_context: RuntimeContext) -> None:
+        self.runtime_context = runtime_context
+        self.orchestrator = runtime_context.task_orchestrator
+        self._bind_task_progress_listener()
 
     def refresh_status_after_config_save(self) -> dict[str, Any]:
         snapshot = self.current_snapshot()
-        if not config_is_complete(snapshot):
-            missing = missing_required_fields(snapshot)
-            missing_fields = [*missing["agent"], *missing["system"]]
-            missing_text = ", ".join(missing_fields)
-            simulation_mode = bool(snapshot["agent"].get("Simulation_mode", True))
-            if simulation_mode:
-                message = (
-                    "Configuration saved. Before starting the system, complete these required fields "
-                    f"for simulation mode: {missing_text}."
-                )
-            else:
-                message = (
-                    "Configuration saved. Before starting the system, complete these required fields "
-                    f"for real hardware mode: {missing_text}."
-                )
+        asset_check = check_snapshot_assets(snapshot)
+        mode_summary = asset_check.mode_summary
+        if not asset_check.ready:
+            message = (
+                "Configuration saved. Before starting the system, resolve these blocking asset issues "
+                f"for {mode_summary}: {asset_check.blocking_summary()}."
+            )
             self._set_system_status(
                 phase="unconfigured",
                 initialized=False,
@@ -306,7 +317,7 @@ class RuntimeManager:
                 initialized=True,
                 initializing=False,
                 error=None,
-                message="Configuration saved. Reset and restart the system to apply changes.",
+                message=f"Configuration saved. Reset and restart the system to apply changes. ({mode_summary})",
             )
         else:
             self._set_system_status(
@@ -314,7 +325,7 @@ class RuntimeManager:
                 initialized=False,
                 initializing=False,
                 error=None,
-                message="Configuration saved. Start the system when ready.",
+                message=f"Configuration saved. Start the system when ready. ({mode_summary})",
             )
         return self._make_init_response().model_dump()
 
@@ -405,18 +416,12 @@ class RuntimeManager:
             except asyncio.QueueEmpty:
                 break
 
-    def _build_cancel_payload(self, task_id: str, model_name: str, *, prefers_zh: bool) -> TaskExecutionResponse:
-        cancellation_text = pick_text(
-            prefers_zh,
-            "Okay, I will not execute this plan for now. You can revise the request and send it again.",
-            "Okay, I will not execute this plan for now. You can revise the request and send it again.",
-        )
-        self._send_message("robot_say", cancellation_text)
+    def _build_cancel_payload(self, task_id: str, model_name: str, summary: str) -> TaskExecutionResponse:
         self._send_message("task_complete", "")
         return self._make_task_response(
             status="cancelled",
             retry_times=0,
-            summary=cancellation_text,
+            summary=summary,
             task_id=task_id,
             model_name=model_name,
         )
@@ -441,17 +446,6 @@ class RuntimeManager:
             message += f" Checker feedback: {checker_summary}"
         return message
 
-    def _emit_plan_outline(self, plan: Any) -> None:
-        if self.orchestrator is None:
-            return
-        try:
-            outline = str(self.orchestrator.present_plan(plan) or "").strip()
-        except Exception:
-            logger.exception("Failed to build plan outline for frontend")
-            return
-        if outline:
-            self._send_message("robot_say", outline)
-
     def _emit_skill_summary(self, plan: Any, *, prefers_zh: bool) -> None:
         task_manager = getattr(self.runtime_context, "task_manager", None)
         if task_manager is None or not getattr(task_manager, "_skill_enabled", False):
@@ -473,58 +467,16 @@ class RuntimeManager:
                 message += f" Reason: {reason}"
         self._send_message("robot_say", message)
 
-    def _emit_raw_planner_debug(self, plan: Any, *, prefers_zh: bool) -> None:
-        message = format_raw_planner_debug(plan, prefers_zh=prefers_zh)
-        if message:
-            self._send_message("robot_say", message)
-
-    async def _prompt_for_plan_feedback(self, prompt_text: str, *, command_snapshot: str = "") -> str:
+    async def _prompt_for_plan_feedback(self, prompt_text: str) -> str:
         self.app_state.session.is_asking_user = True
         self._send_message("ask_user", prompt_text, mode="plan_confirmation")
         try:
-            user_reply = await self.app_state.session.input_queue.get()
-            self._record_user_input(
-                user_reply,
-                input_kind="plan_feedback",
-                prompt_text=prompt_text,
-                prompt_mode="plan_confirmation",
-                command_snapshot=command_snapshot,
-            )
-            return user_reply
+            return await self.app_state.session.input_queue.get()
         finally:
             self.app_state.session.is_asking_user = False
 
-    async def _prompt_for_plan_feedback_with_debug(
-        self,
-        plan: Any,
-        prompt_text: str,
-        *,
-        command_snapshot: str = "",
-        prefers_zh: bool,
-    ) -> str:
-        while True:
-            user_reply = await self._prompt_for_plan_feedback(
-                prompt_text,
-                command_snapshot=command_snapshot,
-            )
-            if is_debug_plan_request(user_reply):
-                self._emit_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                continue
-            return user_reply
-
     async def release_system(self) -> None:
-        current_context = self.runtime_context
-        self.runtime_context = None
-        self.orchestrator = None
-        self._reset_preview_state()
-        if current_context is not None:
-            try:
-                env_imagej = getattr(current_context, "env_imagej", None)
-                if env_imagej is not None and hasattr(env_imagej, "set_interaction_artifact_listener"):
-                    env_imagej.set_interaction_artifact_listener(None)
-                await asyncio.to_thread(release_resources, current_context)
-            except Exception:
-                logger.exception("Failed to release system resources cleanly")
+        await self.runtime_lifecycle.release_system(self.runtime_context)
 
     def _build_failure_message(self, step: str, exc: Exception) -> str:
         detail = str(exc).strip() or type(exc).__name__
@@ -543,7 +495,12 @@ class RuntimeManager:
                         f"Z {system.Min_Z_position} to {system.Max_Z_position}. "
                         "The stage origin may not be aligned with the saved startup coordinates, so the requested startup position falls outside the configured travel range."
                     )
-                except Exception:
+                except Exception as snapshot_exc:
+                    logger.debug(
+                        "Failed to load saved startup/system ranges while formatting startup position failure: %s",
+                        snapshot_exc,
+                        exc_info=True,
+                    )
                     return (
                         "Initialization failed while applying the startup stage position because it is outside the configured travel range. "
                         "The stage origin may not be aligned with the saved startup coordinates."
@@ -557,6 +514,7 @@ class RuntimeManager:
     def humanize_exception_message(self, exc: Exception, *, context: str = "runtime") -> str:
         detail = str(exc).strip() or type(exc).__name__
         normalized = detail.lower()
+        exception_label = type(exc).__name__
 
         if normalized == "xy position out of range":
             return "The requested XY stage position is outside the configured travel range."
@@ -572,152 +530,14 @@ class RuntimeManager:
             if context == "execution":
                 return "Task execution timed out while waiting for a runtime or hardware step to finish."
             return "An internal operation timed out while waiting for a runtime or hardware step to finish."
-        if isinstance(exc, APIStatusError):
+        if isinstance(exc, APIStatusError) and hasattr(exc, "response"):
             return _summarize_api_status_error(exc)
 
         if context == "execution":
-            return "Task execution failed because of an internal runtime error."
+            return f"Task execution failed: {exception_label}: {detail}"
         if context == "initialization":
-            return "System initialization failed because of an internal runtime error."
-        return "The system encountered an internal runtime error."
-
-    async def _finalize_init_failure(self, step: str, exc: Exception, runtime_context: RuntimeContext | None = None) -> dict[str, Any]:
-        if runtime_context is not None:
-            try:
-                await asyncio.to_thread(release_resources, runtime_context)
-            except Exception:
-                logger.exception("Failed to release partially initialized runtime after %s", step)
-
-        self.runtime_context = None
-        self.orchestrator = None
-        self._reset_preview_state()
-
-        detail = str(exc).strip() or type(exc).__name__
-        message = self._build_failure_message(step, exc)
-        self._set_system_status(
-            phase="init_failed",
-            initialized=False,
-            initializing=False,
-            error=detail,
-            message=message,
-            failure_step=step,
-        )
-        self._send_message("error", message)
-        return self._make_init_response().model_dump()
-
-    def _validate_runtime_context(self, runtime_context: RuntimeContext) -> None:
-        if runtime_context is None:
-            raise RuntimeError("runtime context is missing")
-
-        env_olympus = getattr(runtime_context, "env_olympus", None)
-        if env_olympus is None:
-            raise RuntimeError("microscope environment is missing")
-
-        required_methods = ("start_preview", "get_live_preview_image")
-        for method_name in required_methods:
-            if not hasattr(env_olympus, method_name):
-                raise RuntimeError(f"microscope environment is missing '{method_name}'")
-
-        task_orchestrator = getattr(runtime_context, "task_orchestrator", None)
-        if task_orchestrator is None:
-            raise RuntimeError("task orchestrator is missing")
-
-    async def _initialize_runtime_once(self) -> dict[str, Any]:
-        snapshot = self.current_snapshot()
-        if not config_is_complete(snapshot):
-            self._set_system_status(
-                phase="unconfigured",
-                initialized=False,
-                initializing=False,
-                error=None,
-                message="Please complete configuration first",
-            )
-            return self._make_init_response().model_dump()
-
-        await self.release_system()
-        self._set_system_status(
-            phase="initializing",
-            initialized=False,
-            initializing=True,
-            error=None,
-            message="System initializing...",
-        )
-        self._send_message("robot_say", "System initializing...")
-
-        runtime_context = None
-        settings = load_runtime_settings()
-
-        try:
-            runtime_context = await asyncio.wait_for(
-                asyncio.to_thread(initialize_system_components, settings.model.Simulation_mode),
-                timeout=INIT_COMPONENT_TIMEOUT_SEC,
-            )
-        except asyncio.TimeoutError:
-            return await self._finalize_init_failure(
-                "runtime_build",
-                TimeoutError(f"timed out after {INIT_COMPONENT_TIMEOUT_SEC:.0f}s"),
-                runtime_context,
-            )
-        except Exception as exc:
-            logger.exception("System initialization failed during runtime build")
-            return await self._finalize_init_failure("runtime_build", exc, runtime_context)
-
-        try:
-            await asyncio.wait_for(
-                asyncio.to_thread(initialize_microscope, runtime_context.env_olympus),
-                timeout=MICROSCOPE_SETUP_TIMEOUT_SEC,
-            )
-        except asyncio.TimeoutError:
-            return await self._finalize_init_failure(
-                "microscope_initialize",
-                TimeoutError(f"timed out after {MICROSCOPE_SETUP_TIMEOUT_SEC:.0f}s"),
-                runtime_context,
-            )
-        except Exception as exc:
-            logger.exception("System initialization failed during microscope initialization")
-            return await self._finalize_init_failure("microscope_initialize", exc, runtime_context)
-
-        try:
-            await asyncio.wait_for(
-                asyncio.to_thread(apply_startup_state, runtime_context.env_olympus, settings.startup),
-                timeout=MICROSCOPE_SETUP_TIMEOUT_SEC,
-            )
-        except asyncio.TimeoutError:
-            return await self._finalize_init_failure(
-                "startup_state_apply",
-                TimeoutError(f"timed out after {MICROSCOPE_SETUP_TIMEOUT_SEC:.0f}s"),
-                runtime_context,
-            )
-        except Exception as exc:
-            logger.exception("System initialization failed during startup state apply")
-            return await self._finalize_init_failure("startup_state_apply", exc, runtime_context)
-
-        try:
-            self._validate_runtime_context(runtime_context)
-        except Exception as exc:
-            logger.exception("System initialization failed during post-init validation")
-            return await self._finalize_init_failure("post_init_validation", exc, runtime_context)
-
-        self.runtime_context = runtime_context
-        self.orchestrator = runtime_context.task_orchestrator
-        self._bind_interaction_artifact_listener()
-        self._reset_preview_state()
-
-        simulation_mode = bool(runtime_context.runtime["agent"].Simulation_mode)
-        ready_message = (
-            "System initialization completed. Simulation mode is active. Open the runtime page to start live preview."
-            if simulation_mode
-            else "System initialization completed. Open the runtime page to start live preview."
-        )
-        self._set_system_status(
-            phase="ready",
-            initialized=True,
-            initializing=False,
-            error=None,
-            message="System ready (simulated hardware)" if simulation_mode else "System ready",
-        )
-        self._send_message("robot_say", ready_message)
-        return self._make_init_response().model_dump()
+            return f"System initialization failed: {exception_label}: {detail}"
+        return f"The system encountered an internal runtime error: {exception_label}: {detail}"
 
     async def initialize_runtime(self) -> dict[str, Any]:
         async with self._initialization_lock:
@@ -726,7 +546,7 @@ class RuntimeManager:
             except RuntimeError:
                 self._initialization_task = None
             try:
-                return await self._initialize_runtime_once()
+                return await self.runtime_lifecycle.initialize_runtime_once(self.runtime_context)
             finally:
                 current_task = None
                 try:
@@ -737,14 +557,14 @@ class RuntimeManager:
                     self._initialization_task = None
 
     def start_runtime_initialization(self) -> dict[str, Any]:
-        snapshot = self.current_snapshot()
-        if not config_is_complete(snapshot):
+        asset_check = self._asset_check()
+        if not asset_check.ready:
             self._set_system_status(
                 phase="unconfigured",
                 initialized=False,
                 initializing=False,
                 error=None,
-                message="Please complete configuration first",
+                message=self._asset_blocking_message(asset_check),
             )
             return self._make_init_response().model_dump()
 
@@ -781,98 +601,159 @@ class RuntimeManager:
         return self._make_init_response().model_dump()
 
     async def restart_runtime(self) -> dict[str, Any]:
-        if self._initialization_task is not None and not self._initialization_task.done():
+        async with self._lifecycle_lock:
+            phase = self.system_status.system_phase
+            if phase == "executing":
+                raise LifecycleConflictError("A task is executing; the system cannot be restarted.")
+            if phase in {"initializing", "releasing"}:
+                raise LifecycleConflictError("A lifecycle operation is already in progress.")
+
+            asset_check = self._asset_check()
+            if not asset_check.ready:
+                self._set_system_status(
+                    phase="unconfigured",
+                    initialized=False,
+                    initializing=False,
+                    error=None,
+                    message=self._asset_blocking_message(asset_check),
+                )
+                return self._make_init_response().model_dump()
+
             self._set_system_status(
-                phase="initializing",
+                phase="releasing",
                 initialized=False,
                 initializing=True,
                 error=None,
-                message="System initialization already in progress...",
+                message="Releasing system resources...",
             )
-            return self._make_init_response().model_dump()
-
-        snapshot = self.current_snapshot()
-        if not config_is_complete(snapshot):
+        try:
+            await self.release_system()
+        except Exception as exc:
             self._set_system_status(
-                phase="unconfigured",
+                phase="failed",
                 initialized=False,
                 initializing=False,
-                error=None,
-                message="Please complete configuration first",
+                error=str(exc) or type(exc).__name__,
+                message="Safe resource release failed; initialization was not started.",
+                failure_step="resource_release",
             )
-            return self._make_init_response().model_dump()
-
-        self._set_system_status(
-            phase="resetting",
-            initialized=False,
-            initializing=True,
-            error=None,
-            message="Resetting system resources...",
-        )
-        await self.release_system()
+            raise
         return self.start_runtime_initialization()
 
+    async def shutdown_runtime(self) -> None:
+        async with self._lifecycle_lock:
+            phase = self.system_status.system_phase
+            if phase == "executing":
+                raise LifecycleConflictError("A task is executing; the system cannot be shut down.")
+            if phase in {"initializing", "releasing"}:
+                raise LifecycleConflictError("A lifecycle operation is already in progress.")
+            self._set_system_status(
+                phase="releasing",
+                initialized=False,
+                initializing=True,
+                error=None,
+                message="Safely releasing microscope resources...",
+            )
+        try:
+            await self.release_system()
+        except Exception as exc:
+            self._set_system_status(
+                phase="failed",
+                initialized=False,
+                initializing=False,
+                error=str(exc) or type(exc).__name__,
+                message="Safe microscope shutdown failed.",
+                failure_step="resource_release",
+            )
+            raise
+
+    async def stop_for_application_shutdown(self) -> None:
+        initialization_task = self._initialization_task
+        if initialization_task is not None and not initialization_task.done():
+            initialization_task.cancel()
+            try:
+                await initialization_task
+            except asyncio.CancelledError:
+                logger.debug("Runtime initialization task cancelled during application shutdown.")
+        execution_task = self._execution_task
+        if execution_task is not None and not execution_task.done():
+            # Do not release hardware while a task is still driving it. Waiting is
+            # deliberate; cancellation cannot safely stop vendor SDK calls.
+            try:
+                await asyncio.shield(execution_task)
+            except asyncio.CancelledError:
+                logger.debug("Application shutdown was cancelled while waiting for task execution to finish.")
+        preview_task = self._preview_task
+        if preview_task is not None and not preview_task.done():
+            try:
+                await asyncio.shield(preview_task)
+            except asyncio.CancelledError:
+                logger.debug("Application shutdown was cancelled while waiting for preview operation to finish.")
+        await self.release_system()
+
+    async def ensure_configuration_mutable(self) -> None:
+        async with self._lifecycle_lock:
+            if self.system_status.system_phase in {"initializing", "executing", "releasing"}:
+                raise LifecycleConflictError("Configuration cannot be changed while the device is busy.")
+
+    async def execute_exclusive(self, command: str) -> dict[str, Any]:
+        async with self._lifecycle_lock:
+            if self.system_status.system_phase != "ready":
+                raise LifecycleConflictError(self.system_status.message or "System is not ready.")
+            self.app_state.task.running = True
+            self._set_system_status(
+                phase="executing",
+                initialized=True,
+                initializing=False,
+                error=None,
+                message="Task executing...",
+            )
+        try:
+            self._execution_task = asyncio.current_task()
+            return await self.execute_command(command)
+        finally:
+            async with self._lifecycle_lock:
+                if self._execution_task is asyncio.current_task():
+                    self._execution_task = None
+                self.app_state.task.running = False
+                if self.system_status.system_phase == "executing":
+                    self._set_system_status(
+                        phase="ready",
+                        initialized=True,
+                        initializing=False,
+                        error=None,
+                        message=f"System ready ({self._current_mode_summary()})",
+                    )
+
     async def start_preview(self) -> dict[str, Any]:
-        if not self.system_status.initialized or self.runtime_context is None:
+        async with self._lifecycle_lock:
+            self._preview_task = asyncio.current_task()
+            try:
+                return await self._start_preview_locked()
+            finally:
+                if self._preview_task is asyncio.current_task():
+                    self._preview_task = None
+
+    async def _start_preview_locked(self) -> dict[str, Any]:
+        if self.system_status.system_phase != "ready":
             return {
                 "started": False,
-                "message": "System is not ready yet.",
+                "message": "Preview controls are unavailable while the device is busy.",
                 "preview_phase": self.get_preview_status().get("preview_phase", "idle"),
             }
-
-        env_olympus = getattr(self.runtime_context, "env_olympus", None)
-        if env_olympus is None or not hasattr(env_olympus, "start_preview") or not hasattr(env_olympus, "get_live_preview_image"):
-            self._preview_phase = "failed"
-            return {
-                "started": False,
-                "message": "Preview start failed during preview_start: preview methods are unavailable.",
-                "preview_phase": self._preview_phase,
-            }
-
-        current_status = self.get_preview_status()
-        if current_status["preview_phase"] == "live":
-            return {"started": True, "message": "Preview already live.", "preview_phase": "live"}
-        if self._preview_starting or current_status["preview_phase"] == "starting":
-            return {"started": True, "message": "Preview start already in progress.", "preview_phase": "starting"}
-
-        self._preview_phase = "starting"
-        self._preview_start_requested_at = time.monotonic()
-        self._preview_starting = True
-
-        try:
-            await asyncio.wait_for(
-                asyncio.to_thread(env_olympus.start_preview),
-                timeout=PREVIEW_START_COMMAND_TIMEOUT_SEC,
-            )
-            self._preview_started_once = True
-            message = "Preview start requested."
-        except asyncio.TimeoutError:
-            self._preview_phase = "failed"
-            message = f"Preview start failed during preview_start: timed out after {PREVIEW_START_COMMAND_TIMEOUT_SEC:.0f}s"
-        except Exception as exc:
-            self._preview_phase = "failed"
-            message = f"Preview start failed during preview_start: {exc}"
-        finally:
-            self._preview_starting = False
-
-        status = self.get_preview_status()
-        if status["preview_phase"] not in {"live", "starting"}:
-            self._send_message("error", message)
-            return {"started": False, "message": message, "preview_phase": status["preview_phase"]}
-
-        return {"started": True, "message": message, "preview_phase": status["preview_phase"]}
+        return await self.preview_stream.start()
 
     async def startup(self) -> None:
         self.bind_event_loop()
         self._reset_preview_state()
-        snapshot = self.current_snapshot()
-        if config_is_complete(snapshot):
+        asset_check = self._asset_check()
+        if asset_check.ready:
             self._set_system_status(
                 phase="ready_to_start",
                 initialized=False,
                 initializing=False,
                 error=None,
-                message="Configuration loaded. Start the system when ready.",
+                message=f"Configuration loaded. Start the system when ready. ({asset_check.mode_summary})",
             )
         else:
             self._set_system_status(
@@ -880,8 +761,49 @@ class RuntimeManager:
                 initialized=False,
                 initializing=False,
                 error=None,
-                message="Please complete configuration first",
+                message=self._asset_blocking_message(asset_check),
             )
+
+    async def _run_plan_interaction(self, original_command: str) -> InteractionOutcome:
+        if self.orchestrator is None:
+            raise RuntimeError("Task orchestrator is not initialized")
+
+        async def plan_request(request):
+            # Planner and its LLM calls are synchronous; keep them off the event loop so
+            # MJPEG preview and SSE updates can continue while the model is thinking.
+            plan = await asyncio.to_thread(self.orchestrator.plan, request)
+            self.app_state.task.current_task_id = plan.task_id
+            return plan
+
+        async def stream_preview(plan) -> str:
+            return await self._stream_scopebot_message(
+                lambda on_delta: self.orchestrator.stream_plan_preview(plan, on_delta),
+                final_type="robot_say",
+            )
+
+        async def prompt_user(prompt_text: str, command_snapshot: str) -> str:
+            del command_snapshot
+            return await self._prompt_for_plan_feedback(prompt_text)
+
+        def record_user_input(text: str, input_kind: str, prompt_text: str, command_snapshot: str) -> None:
+            self._record_user_input(
+                text,
+                input_kind=input_kind,
+                prompt_text=prompt_text,
+                prompt_mode="plan_confirmation",
+                command_snapshot=command_snapshot,
+            )
+
+        ports = TaskInteractionPorts(
+            plan=plan_request,
+            stream_plan_preview=stream_preview,
+            prompt_user=prompt_user,
+            send_robot_message=lambda text: self._send_message("robot_say", text),
+            emit_skill_summary=lambda plan, prefers_zh: self._emit_skill_summary(plan, prefers_zh=prefers_zh),
+            record_user_input=record_user_input,
+            log_planner_tokens=lambda tokens: logger.info("Planner tokens: %s", tokens),
+        )
+        return await TaskInteractionSession(ports).request_plan_confirmation(original_command)
 
     async def execute_command(self, command: str) -> dict[str, Any]:
         if self.runtime_context is None or self.orchestrator is None:
@@ -891,206 +813,26 @@ class RuntimeManager:
         original_command = command.strip()
         self._record_user_input(original_command, input_kind="initial_command", command_snapshot=original_command)
         prefers_zh = prefers_chinese(original_command)
-        current_command = original_command
-        revisions: list[str] = []
-        plan = None
 
         self._clear_pending_user_inputs()
         try:
-            while True:
-                request = TaskRequest(user_command=current_command, session_id="default", human_mode=True)
-                # Planner and its LLM calls are synchronous; keep them off the event loop so
-                # MJPEG preview and SSE updates can continue while the model is thinking.
-                plan = await asyncio.to_thread(self.orchestrator.plan, request)
-                self.app_state.task.current_task_id = plan.task_id
-                self._emit_skill_summary(plan, prefers_zh=prefers_zh)
-
-                if plan.ready and plan.steps:
-                    await self._stream_scopebot_message(
-                        lambda on_delta: self.orchestrator.stream_plan_preview(plan, on_delta),
-                        final_type="robot_say",
-                    )
-                    user_reply = await self._prompt_for_plan_feedback_with_debug(
-                        plan,
-                        pick_text(
-                            prefers_zh,
-                            "If this plan looks good, reply with 'confirm' or 'continue'. If you want changes, send the revision directly. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop, reply with 'cancel'.",
-                            "If this plan looks good, reply with 'confirm' or 'continue'. If you want changes, send the revision directly. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop, reply with 'cancel'.",
-                        ),
-                        command_snapshot=current_command,
-                        prefers_zh=prefers_zh,
-                    )
-                    decision = interpret_plan_feedback(
-                        user_reply,
-                        plan_ready=True,
-                        original_command=original_command,
-                        revisions=revisions,
-                    )
-                    if decision.action == "confirm":
-                        break
-                    if decision.action == "cancel":
-                        return self._build_cancel_payload(plan.task_id, runtime_agent.model_name, prefers_zh=prefers_zh).model_dump()
-                    if decision.action == "empty":
-                        self._send_message(
-                            "robot_say",
-                            pick_text(
-                                prefers_zh,
-                                "I have not received any revision yet. You can reply with 'confirm' or 'continue', send an edit directly, or reply with 'cancel'.",
-                                "I have not received any revision yet. You can reply with 'confirm' or 'continue', send an edit directly, or reply with 'cancel'.",
-                            ),
-                        )
-                        continue
-
-                    revisions = decision.revisions
-                    current_command = decision.current_command
-                    self._send_message(
-                        "robot_say",
-                        pick_text(
-                            prefers_zh,
-                            "Received. I will reorganize the plan based on your update.",
-                            "Received. I will reorganize the plan based on your update.",
-                        ),
-                    )
-                    continue
-
-                if getattr(plan, "status", "") == "ask_user":
-                    prompt_text = str(plan.question or "").strip() or pick_text(
-                        prefers_zh,
-                        "I need one key detail before I can continue planning.",
-                        "I need one key detail before I can continue planning.",
-                    )
-                    self._send_message("robot_say", prompt_text)
-                    user_reply = await self._prompt_for_plan_feedback_with_debug(
-                        plan,
-                        pick_text(
-                            prefers_zh,
-                            f"{prompt_text}\nYou can also reply with 'debug_plan' to inspect the raw planner output, or reply with 'cancel'.",
-                            f"{prompt_text}\nYou can also reply with 'debug_plan' to inspect the raw planner output, or reply with 'cancel'.",
-                        ),
-                        command_snapshot=current_command,
-                        prefers_zh=prefers_zh,
-                    )
-                    decision = interpret_plan_feedback(
-                        user_reply,
-                        plan_ready=False,
-                        original_command=original_command,
-                        revisions=revisions,
-                        planner_question=prompt_text,
-                    )
-                    if decision.action == "cancel":
-                        task_id = plan.task_id if plan is not None else uuid.uuid4().hex
-                        return self._build_cancel_payload(task_id, runtime_agent.model_name, prefers_zh=prefers_zh).model_dump()
-                    if decision.action == "confirm_without_plan":
-                        self._send_message(
-                            "robot_say",
-                            pick_text(
-                                prefers_zh,
-                                "I still do not have an executable plan yet, so I cannot start. Please answer the question first or reply with 'cancel'.",
-                                "I still do not have an executable plan yet, so I cannot start. Please answer the question first or reply with 'cancel'.",
-                            ),
-                        )
-                        continue
-                    if decision.action == "empty":
-                        self._send_message(
-                            "robot_say",
-                            pick_text(
-                                prefers_zh,
-                                "I have not received any new detail yet. You can answer the question or reply with 'cancel'.",
-                                "I have not received any new detail yet. You can answer the question or reply with 'cancel'.",
-                            ),
-                        )
-                        continue
-
-                    revisions = decision.revisions
-                    current_command = decision.current_command
-                    self._send_message(
-                        "robot_say",
-                        pick_text(
-                            prefers_zh,
-                            "Received. I will replan with that new detail.",
-                            "Received. I will replan with that new detail.",
-                        ),
-                    )
-                    continue
-
-                if getattr(plan, "status", "") == "unsupported":
-                    unsupported_text = pick_text(
-                        prefers_zh,
-                        "The current system cannot execute this request. Here is the original planner output:",
-                        "The current system cannot execute this request. Here is the original planner output:",
-                    )
-                    self._send_message("robot_say", unsupported_text)
-                    self._send_message(
-                        "robot_say",
-                        str(getattr(plan, "planner_raw_response", "") or getattr(plan, "error", "") or "Unsupported request."),
-                    )
+            outcome = await self._run_plan_interaction(original_command)
+            plan = outcome.plan
+            if not outcome.confirmed:
+                if outcome.status == "unsupported":
                     self._send_message("task_complete", "")
                     return self._make_task_response(
                         status="failed",
                         retry_times=0,
-                        summary=str(getattr(plan, "planner_raw_response", "") or getattr(plan, "error", "") or unsupported_text),
-                        task_id=plan.task_id if plan is not None else uuid.uuid4().hex,
+                        summary=outcome.summary,
+                        task_id=plan.task_id if plan is not None else "",
                         model_name=runtime_agent.model_name,
                     ).model_dump()
-
-                self._send_message(
-                    "robot_say",
-                    pick_text(
-                        prefers_zh,
-                        "I still cannot turn the current request into an executable plan. You can add more detail or reply with 'cancel'.",
-                        "I still cannot turn the current request into an executable plan. You can add more detail or reply with 'cancel'.",
-                    ),
-                )
-                user_reply = await self._prompt_for_plan_feedback_with_debug(
-                    plan,
-                    pick_text(
-                        prefers_zh,
-                        "Please add more revisions. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop this task, reply with 'cancel'.",
-                        "Please add more revisions. If you want to inspect the raw planner output, reply with 'debug_plan'. If you want to stop this task, reply with 'cancel'.",
-                    ),
-                    command_snapshot=current_command,
-                    prefers_zh=prefers_zh,
-                )
-                decision = interpret_plan_feedback(
-                    user_reply,
-                    plan_ready=False,
-                    original_command=original_command,
-                    revisions=revisions,
-                )
-                if decision.action == "cancel":
-                    task_id = plan.task_id if plan is not None else uuid.uuid4().hex
-                    return self._build_cancel_payload(task_id, runtime_agent.model_name, prefers_zh=prefers_zh).model_dump()
-                if decision.action == "confirm_without_plan":
-                    self._send_message(
-                        "robot_say",
-                        pick_text(
-                            prefers_zh,
-                            "I still do not have an executable updated plan, so I cannot start yet. Please add more revisions or reply with 'cancel'.",
-                            "I still do not have an executable updated plan, so I cannot start yet. Please add more revisions or reply with 'cancel'.",
-                        ),
-                    )
-                    continue
-                if decision.action == "empty":
-                    self._send_message(
-                        "robot_say",
-                        pick_text(
-                            prefers_zh,
-                            "I have not received any new revision yet. You can keep refining the request or reply with 'cancel'.",
-                            "I have not received any new revision yet. You can keep refining the request or reply with 'cancel'.",
-                        ),
-                    )
-                    continue
-
-                revisions = decision.revisions
-                current_command = decision.current_command
-                self._send_message(
-                    "robot_say",
-                    pick_text(
-                        prefers_zh,
-                        "Received. I will continue replanning based on your update.",
-                        "Received. I will continue replanning based on your update.",
-                    ),
-                )
+                return self._build_cancel_payload(
+                    plan.task_id if plan is not None else "",
+                    runtime_agent.model_name,
+                    outcome.summary,
+                ).model_dump()
 
             self._send_message(
                 "robot_say",
@@ -1139,6 +881,54 @@ class RuntimeManager:
                 model_name=runtime_agent.model_name,
             )
             return response.model_dump()
+        except asyncio.CancelledError as exc:
+            latest_progress = dict(self._latest_task_progress or {})
+            task_id = str(self.app_state.task.current_task_id or "")
+            detail = str(latest_progress.get("detail") or "The task was cancelled before completion.")
+            stage_label = str(latest_progress.get("stage_label") or latest_progress.get("task_kind") or "task execution")
+            message = f"Task execution was cancelled while running {stage_label}. {detail}".strip()
+            logger.warning(
+                "Task execution coroutine cancelled. task_id=%s latest_progress=%s",
+                task_id,
+                latest_progress,
+            )
+            if latest_progress:
+                cancelled_progress = dict(latest_progress)
+                cancelled_progress["status"] = "cancelled"
+                cancelled_progress["detail"] = message
+                self.emit_task_progress(cancelled_progress)
+            else:
+                self.emit_task_progress(
+                    {
+                        "task_kind": "execution",
+                        "status": "cancelled",
+                        "title": "Task Execution",
+                        "detail": message,
+                        "progress_current": 0,
+                        "progress_total": 0,
+                        "progress_percent": 0,
+                        "stage_key": "cancelled",
+                        "stage_label": "Execution cancelled",
+                        "timestamp": "",
+                    }
+                )
+            if self.runtime_context is not None:
+                self.runtime_context.history_manager.record_interaction(
+                    agent_name="Runtime",
+                    event_type="executor_execution_failed",
+                    message="Executor was interrupted because task execution was cancelled.",
+                    payload={
+                        "task_id": task_id,
+                        "command": original_command,
+                        "latest_progress": latest_progress,
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                        "cancelled": True,
+                    },
+                )
+            self._send_message("error", message)
+            self._send_message("task_complete", "")
+            raise
         finally:
             self.app_state.session.is_asking_user = False
     def emit_robot_action(self, summary: str) -> None:
@@ -1147,7 +937,7 @@ class RuntimeManager:
 
     def emit_step_summary(self, summary: str) -> None:
         if summary:
-            self._send_message("robot_action", summary)
+            self._send_message("step_summary", summary)
 
     def emit_checker_warning(self, summary: str) -> None:
         if summary:
@@ -1177,244 +967,11 @@ class RuntimeManager:
         await self.app_state.session.input_queue.put(text)
         return UserInputResponse(status="ok", message="Input received").model_dump()
 
-    def _build_preview_status(self, env_olympus: Any | None = None) -> dict[str, Any]:
-        env = env_olympus
-        simulation_mode = True
-        if self.runtime_context is not None:
-            env = env or self.runtime_context.env_olympus
-            simulation_mode = bool(self.runtime_context.runtime["agent"].Simulation_mode)
-
-        status: dict[str, Any] = {
-            "available": env is not None,
-            "initialized": self.system_status.initialized,
-            "stream_state": "unavailable",
-            "status_text": "Preview unavailable",
-            "detail": "Runtime is not initialized yet.",
-            "healthy": False,
-            "preview_running": False,
-            "acquisition_running": False,
-            "auto_restart_enabled": False,
-            "thread_alive": False,
-            "has_frame": False,
-            "fallback_active": True,
-            "simulation_mode": simulation_mode,
-            "last_frame_age_sec": None,
-            "time_since_preview_start_sec": None,
-            "last_error": "",
-            "preview_phase": self._preview_phase,
-        }
-        if env is None:
-            if self.system_status.initialized:
-                status.update(
-                    {
-                        "stream_state": "stopped",
-                        "status_text": "Preview idle",
-                        "detail": "Start live preview from the runtime page.",
-                        "preview_phase": self._preview_phase if self._preview_phase == "failed" else "idle",
-                    }
-                )
-            return status
-
-        preview_running = bool(getattr(env, "preview_running", False))
-        acquisition_running = bool(getattr(env, "acquisition_running", False))
-        acquisition_thread = getattr(env, "acquisition_thread", None)
-        thread_alive = bool(acquisition_thread and acquisition_thread.is_alive())
-        preview_error = str(getattr(env, "last_preview_error", "") or "").strip()
-        last_frame_at = getattr(env, "last_preview_frame_at", None)
-        preview_started_at = getattr(env, "preview_started_at", None)
-
-        last_frame_age = None
-        if isinstance(last_frame_at, (int, float)):
-            last_frame_age = max(0.0, time.monotonic() - float(last_frame_at))
-
-        preview_age = None
-        if isinstance(preview_started_at, (int, float)):
-            preview_age = max(0.0, time.monotonic() - float(preview_started_at))
-        elif isinstance(self._preview_start_requested_at, (int, float)):
-            preview_age = max(0.0, time.monotonic() - float(self._preview_start_requested_at))
-
-        has_frame = False
-        latest_frame = getattr(env, "latest_display_frame", None)
-        if latest_frame is not None:
-            try:
-                has_frame = np.asarray(latest_frame).size > 0
-            except Exception:
-                has_frame = False
-        if not has_frame and hasattr(env, "get_live_preview_image") and not acquisition_running:
-            try:
-                sampled_frame = env.get_live_preview_image()
-                has_frame = sampled_frame is not None and np.asarray(sampled_frame).size > 0
-                if has_frame and last_frame_age is None:
-                    last_frame_age = 0.0
-            except Exception:
-                has_frame = False
-
-        healthy = bool(
-            not acquisition_running
-            and has_frame
-            and (last_frame_age is None or last_frame_age <= PREVIEW_STALE_FRAME_SEC)
-            and (preview_running or thread_alive)
-            and not preview_error
-        )
-
-        preview_phase = self._preview_phase
-        if preview_error:
-            preview_phase = "failed"
-        elif healthy:
-            preview_phase = "live"
-        elif preview_running:
-            preview_phase = "starting"
-        elif preview_phase == "starting":
-            if preview_age is not None and preview_age > PREVIEW_START_REQUEST_GRACE_SEC:
-                preview_phase = "stopped"
-        elif self._preview_started_once:
-            preview_phase = "stopped"
-        else:
-            preview_phase = "idle"
-        self._preview_phase = preview_phase
-
-        status.update(
-            {
-                "preview_running": preview_running,
-                "acquisition_running": acquisition_running,
-                "thread_alive": thread_alive,
-                "has_frame": has_frame,
-                "healthy": healthy,
-                "last_frame_age_sec": last_frame_age,
-                "time_since_preview_start_sec": preview_age,
-                "last_error": preview_error,
-                "preview_phase": preview_phase,
-            }
-        )
-
-        if acquisition_running:
-            status.update(
-                {
-                    "stream_state": "busy",
-                    "status_text": "Preview paused during acquisition",
-                    "detail": "The camera is busy with an acquisition task. Live preview will resume afterward.",
-                }
-            )
-        elif preview_phase == "live":
-            status.update(
-                {
-                    "stream_state": "live",
-                    "status_text": "Live preview",
-                    "detail": "Receiving microscope frames normally.",
-                }
-            )
-        elif preview_phase == "failed":
-            status.update(
-                {
-                    "stream_state": "error",
-                    "status_text": "Preview start failed",
-                    "detail": preview_error or "Live preview could not be started.",
-                }
-            )
-        elif preview_phase == "starting":
-            status.update(
-                {
-                    "stream_state": "starting",
-                    "status_text": "Starting live preview",
-                    "detail": "Waiting for the microscope to deliver live preview frames.",
-                }
-            )
-        elif preview_phase == "stopped":
-            status.update(
-                {
-                    "stream_state": "stopped",
-                    "status_text": "Preview stopped",
-                    "detail": "Live preview is not running. Use Restart Preview to try again.",
-                }
-            )
-        else:
-            status.update(
-                {
-                    "stream_state": "stopped",
-                    "status_text": "Preview idle",
-                    "detail": "Live preview has not been started yet.",
-                }
-            )
-
-        status["fallback_active"] = status["preview_phase"] != "live"
-        return status
-
     def get_preview_status(self) -> dict[str, Any]:
-        return self._build_preview_status()
-
-    def _build_preview_placeholder_frame(self, status: dict[str, Any]) -> np.ndarray:
-        frame = np.full((720, 720, 3), 24, dtype=np.uint8)
-        accent_map = {
-            "starting": (0, 180, 255),
-            "error": (0, 96, 255),
-            "busy": (255, 191, 0),
-            "stopped": (128, 128, 128),
-            "unavailable": (128, 128, 128),
-        }
-        accent = accent_map.get(status.get("stream_state", "unavailable"), (128, 128, 128))
-        cv2.rectangle(frame, (24, 24), (696, 696), accent, 2)
-        cv2.rectangle(frame, (24, 24), (696, 120), accent, -1)
-        cv2.putText(frame, "Microscope Preview Status", (48, 82), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (20, 20, 20), 2, cv2.LINE_AA)
-
-        lines = [str(status.get("status_text") or "Preview unavailable")]
-        detail = str(status.get("detail") or "").strip()
-        if detail:
-            while detail and len(lines) < 5:
-                lines.append(detail[:54])
-                detail = detail[54:]
-
-        y = 180
-        for line in lines[:5]:
-            cv2.putText(frame, line, (48, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (235, 235, 235), 2, cv2.LINE_AA)
-            y += 56
-
-        meta = []
-        if status.get("last_frame_age_sec") is not None:
-            meta.append(f"Last frame age: {status['last_frame_age_sec']:.1f}s")
-        if status.get("simulation_mode") is not None:
-            mode = "Simulation" if status["simulation_mode"] else "Real hardware"
-            meta.append(f"Mode: {mode}")
-        if status.get("auto_restart_enabled") is not None:
-            meta.append(f"Auto restart: {'on' if status['auto_restart_enabled'] else 'off'}")
-
-        y = 520
-        for line in meta:
-            cv2.putText(frame, line, (48, y), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (200, 200, 200), 2, cv2.LINE_AA)
-            y += 42
-        return frame
+        return self.preview_stream.get_status()
 
     async def generate_mjpeg_frames(self) -> AsyncGenerator[bytes, None]:
-        while True:
-            try:
-                frame: Optional[np.ndarray] = None
-                env_olympus = None
-                if self.runtime_context is not None and self.system_status.initialized:
-                    env_olympus = self.runtime_context.env_olympus
-
-                preview_status = self._build_preview_status(env_olympus)
-                if env_olympus is not None and hasattr(env_olympus, "get_live_preview_image"):
-                    frame = _normalize_stream_frame(env_olympus.get_live_preview_image())
-
-                if frame is None:
-                    if (time.monotonic() - self._last_preview_fallback_log_at) >= PREVIEW_FALLBACK_LOG_INTERVAL_SEC:
-                        logger.warning(
-                            "Streaming preview placeholder frame. state=%s detail=%s",
-                            preview_status.get("stream_state"),
-                            preview_status.get("detail"),
-                        )
-                        self._last_preview_fallback_log_at = time.monotonic()
-                    frame = self._build_preview_placeholder_frame(preview_status)
-
-                ret, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                if not ret:
-                    await asyncio.sleep(0.1)
-                    continue
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
-                await asyncio.sleep(0.05)
-            except asyncio.CancelledError:
-                break
-            except Exception as exc:
-                logger.error("Video stream error: %s", exc)
-                await asyncio.sleep(0.2)
+        async for frame in self.preview_stream.generate_mjpeg_frames():
+            yield frame
 
 

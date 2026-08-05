@@ -16,17 +16,17 @@ os.environ["BFIO_LOG_TO_FILE"] = "0"
 
 
 ROOT_DIR = Path(__file__).parent
-logger = logging.getLogger("uvicorn.error")
-logger.info("Server is starting. Please wait for 'Application startup complete.' before opening http://127.0.0.1:8000")
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("microscope_api.log"),
+        logging.FileHandler("microscope_api.log", encoding="utf-8"),
         logging.StreamHandler(),
     ],
+    force=True,
 )
+logger = logging.getLogger("uvicorn.error")
+logger.info("Server is starting. Please wait for 'Application startup complete.' before opening http://127.0.0.1:8000")
 
 app = FastAPI(
     title="AI Microscope Assistant",
@@ -47,7 +47,7 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    await app.state.runtime_manager.release_system()
+    await app.state.runtime_manager.stop_for_application_shutdown()
 
 
 @app.get("/")

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - optional in mock-only environments
 from PIL import Image
 
 from agent.utils import convert_to_list
-from utils.cli_logging import get_cli_logger
+from interfaces.cli_logging import get_cli_logger
 
 
 logger = get_cli_logger("CHECKER")
@@ -54,6 +54,7 @@ class CheckResult:
             "raw_vlm_response": self.raw_vlm_response,
             "file_info": self.file_info
         }
+
 
 class ExperimentCheckAgent:
     _MOCK_MICROSCOPE_HEADER = "mock microscope acquisition"
@@ -201,7 +202,6 @@ class ExperimentCheckAgent:
         """Clear all historical detection records"""
         self.results.clear()
 
-
     def _parse_channel_names(self, description: str) -> List[str]:
         """Parse channel names (e.g., DAPI/FITC) from file description"""
         pattern = r"channel_names:\s*\[(.*?)\]"
@@ -321,6 +321,7 @@ class ExperimentCheckAgent:
                 )
             return parsed, content
         except Exception as e:
+            logger.exception("Checker VLM call failed")
             if self._history_manager:
                 self._history_manager.record_interaction(
                     agent_name="checker",
@@ -351,6 +352,7 @@ class ExperimentCheckAgent:
                 )
             return content, content
         except Exception as e:
+            logger.exception("Checker LLM call failed")
             if self._history_manager:
                 self._history_manager.record_interaction(
                     agent_name="checker",
@@ -523,6 +525,7 @@ class ExperimentCheckAgent:
             return final_result
 
         except Exception as e:
+            logger.exception("Checker failed while parsing or validating image file: %s", image_path)
             error_result = CheckResult(
                 defects=ImageDefect(reason=f"Image parsing failed: {str(e)[:50]}"),
                 file_info=file_info,

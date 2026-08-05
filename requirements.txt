@@ -207,6 +207,7 @@ pyqt6-sip==13.10.3
 pyqtgraph==0.14.0
 pyreadline3==3.5.4
 pyrect==0.2.0
+pyserial==3.5
 pyscreeze==1.0.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1

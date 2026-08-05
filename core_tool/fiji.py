@@ -17,16 +17,8 @@ import json
 import csv
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, List, Tuple, Optional
-from bootstrap.config import load_detection_targets
-from config.system_config import (
-    # PSF and FIJI paths
-    PSF_40X,
-    PSF_60X,
-    PSF_100X,
-    FIJI_PATH,
-    MAVEN_BIN,
-)
+from typing import Any, Callable, List, Tuple, Optional, Mapping, Sequence
+from bootstrap.config import load_runtime_settings
 
 try:
     from aicsimageio.types import PhysicalPixelSizes
@@ -367,7 +359,7 @@ def _resolve_project_path(path_value: str) -> str:
     return str((ROOT_DIR / candidate).resolve())
 
 
-def _ensure_maven_on_path() -> None:
+def _ensure_maven_on_path(maven_bin: str | None) -> None:
     """
     Make Maven available to jgo.
 
@@ -393,9 +385,9 @@ def _ensure_maven_on_path() -> None:
                     return candidate
         return None
 
-    resolved_maven_bin = _resolve_maven_bin(MAVEN_BIN)
-    if MAVEN_BIN and resolved_maven_bin is None:
-        logger.warning("Configured MAVEN_BIN does not contain a Maven executable: %s", MAVEN_BIN)
+    resolved_maven_bin = _resolve_maven_bin(maven_bin)
+    if maven_bin and resolved_maven_bin is None:
+        logger.warning("Configured MAVEN_BIN does not contain a Maven executable: %s", maven_bin)
 
     if resolved_maven_bin is None:
         try:
@@ -716,8 +708,15 @@ def _extract_filtered_pred_instances(result: Any, score_thr: float) -> tuple[np.
     )
 
 
-def _resolve_target_detection_spec(target_type: str) -> dict[str, Any]:
-    target_specs = load_detection_targets()
+def _resolve_target_detection_spec(
+    target_type: str,
+    target_specs: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    target_specs = {
+        str(key): dict(value)
+        for key, value in target_specs.items()
+        if isinstance(value, Mapping)
+    }
     normalized = str(target_type).strip()
     resolved_spec: dict[str, Any] | None = None
     if normalized in target_specs:
@@ -754,8 +753,8 @@ def _resolve_target_detection_spec(target_type: str) -> dict[str, Any]:
     return resolved_spec
 
 
-def _list_supported_target_types() -> list[str]:
-    return sorted(load_detection_targets().keys(), key=str.lower)
+def _list_supported_target_types(target_specs: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    return sorted((str(key) for key in target_specs.keys()), key=str.lower)
 
 
 @dataclass
@@ -780,7 +779,33 @@ class ImageJProcessor(BaseTool):
     Optimizations: Resolve hardcoding, repeated model initialization, fake file registration, resource leaks, etc.
     """
 
-    def __init__(self, storagemanger, output_path: str):
+    def __init__(
+        self,
+        storagemanger,
+        output_path: str,
+        *,
+        system_config: Any = None,
+        detection_targets: Optional[dict[str, dict[str, Any]]] = None,
+    ):
+        if system_config is None or detection_targets is None:
+            settings = load_runtime_settings()
+            if system_config is None:
+                system_config = settings.system
+            if detection_targets is None:
+                detection_targets = settings.detection_targets
+
+        self.system_config = system_config
+        self.detection_targets = {
+            str(target_name): dict(spec)
+            for target_name, spec in (detection_targets or {}).items()
+        }
+        self.fiji_path = getattr(system_config, "FIJI_PATH", "")
+        self.maven_bin = getattr(system_config, "MAVEN_BIN", "")
+        self.psf_paths = {
+            40: getattr(system_config, "PSF_40X", "PSF/40x.tif"),
+            60: getattr(system_config, "PSF_60X", "PSF/60x.tif"),
+            100: getattr(system_config, "PSF_100X", "PSF/100x.tif"),
+        }
         self._storagemanger = storagemanger
         self.output_directory: str = output_path
         self.ij = None
@@ -860,9 +885,10 @@ class ImageJProcessor(BaseTool):
             logger.exception("Failed to emit Fiji interaction artifact for %s", path)
 
     @tool_func
-    def fiji_initialize(self, fiji_path=FIJI_PATH):
+    def fiji_initialize(self, fiji_path: Optional[str] = None):
         """Synchronously initialize ImageJ environment (directly inline private interface logic without hierarchical calls)"""
         print("Initializing ImageJ environment...")
+        fiji_path = self.fiji_path if fiji_path is None else fiji_path
         if not fiji_path:
             raise FileNotFoundError(
                 "FIJI_PATH is empty. Configure Fiji first, for example:\n"
@@ -896,7 +922,7 @@ class ImageJProcessor(BaseTool):
             ) from exc
         try:
             _prepare_java_cache_dirs()
-            _ensure_maven_on_path()
+            _ensure_maven_on_path(self.maven_bin)
             self.ij = imagej.init(fiji_path, mode=imagej.Mode.INTERACTIVE)
             print(f"ImageJ version: {self.ij.getVersion()}")
         except Exception as exc:
@@ -1204,12 +1230,12 @@ class ImageJProcessor(BaseTool):
                 try:
                     channel_imp.close()
                 except Exception:
-                    pass
+                    logger.debug("Failed to close split channel ImagePlus", exc_info=True)
             if owns_imp and imp is not None:
                 try:
                     imp.close()
                 except Exception:
-                    pass
+                    logger.debug("Failed to close source ImagePlus after channel split", exc_info=True)
 
     @tool_func
     def merge_channels(
@@ -1350,12 +1376,12 @@ class ImageJProcessor(BaseTool):
                 try:
                     imp.close()
                 except Exception:
-                    pass
+                    logger.debug("Failed to close source ImagePlus after channel merge", exc_info=True)
             if merged_imp:
                 try:
                     merged_imp.close()
                 except Exception:
-                    pass
+                    logger.debug("Failed to close merged ImagePlus", exc_info=True)
 
     @tool_func
     def set_lut(self, image_meta: ImageWithMetadata, color_name: str) -> ImageWithMetadata:
@@ -1478,9 +1504,9 @@ class ImageJProcessor(BaseTool):
             4: ROOT_DIR / "PSF" / "4x.tif",
             10: ROOT_DIR / "PSF" / "10x.tif",
             20: ROOT_DIR / "PSF" / "20x.tif",
-            40: PSF_40X,
-            60: PSF_60X,
-            100: PSF_100X,
+            40: self.psf_paths[40],
+            60: self.psf_paths[60],
+            100: self.psf_paths[100],
         }
 
         if magnification not in psf_mapping:
@@ -1872,7 +1898,7 @@ class ImageJProcessor(BaseTool):
             try:
                 imp.close()
             except Exception:
-                pass
+                logger.debug("Failed to close TrackMate ImagePlus", exc_info=True)
 
     def _extract_trackmate_tracks(
         self,
@@ -2069,8 +2095,8 @@ class ImageJProcessor(BaseTool):
                 imp.close()  # Ensure ImagePlus is released
 
         except Exception as e:
-            print(f"Fluorescence quantification failed: {e}")
-            return 0.0  # Or return np.nan as needed
+            logger.exception("Fluorescence quantification failed")
+            raise RuntimeError(f"Fluorescence quantification failed: {type(e).__name__}: {e}") from e
     # ----------------- Resource Release -----------------
     def _close_all_imagej_images(self):
         """Close ImageJ image windows without triggering save-confirmation dialogs."""
@@ -2088,7 +2114,7 @@ class ImageJProcessor(BaseTool):
             try:
                 imp.changes = False
             except Exception:
-                pass
+                logger.debug("Failed to clear ImageJ dirty flag for image %s", image_id, exc_info=True)
             try:
                 imp.close()
             except Exception:
@@ -2222,11 +2248,15 @@ class ImageJProcessor(BaseTool):
                         imp.close()
 
                 if len(img_np.shape) != 2:
-                    print(f"Abnormal dimension after image conversion: {len(img_np.shape)}, only 2D single-channel images are supported")
-                    return []
+                    raise ValueError(
+                        f"Abnormal dimension after image conversion: {len(img_np.shape)}; "
+                        "only 2D single-channel images are supported"
+                    )
             except Exception as e:
-                print(f"Image type conversion failed! Unsupported input type: {type(image)}, error message: {e}")
-                return []
+                raise RuntimeError(
+                    f"Image type conversion failed for generic target detection. "
+                    f"Unsupported input type: {type(image).__name__}: {e}"
+                ) from e
         # ==================================================================================
 
         model_config = model_config
@@ -2263,13 +2293,14 @@ class ImageJProcessor(BaseTool):
         try:
             model = self._init_generic_model(model_config, model_checkpoint, device)
             if model is None:
-                return []
+                raise RuntimeError("Generic target detection model initialization returned None")
 
             orig_img = img_np.copy()
             if len(orig_img.shape) == 2:
                 try:
                     input_img = cv2.cvtColor(orig_img, cv2.COLOR_GRAY2RGB)
-                except:
+                except Exception:
+                    logger.debug("cv2 grayscale conversion failed; falling back to channel stacking", exc_info=True)
                     input_img = np.stack([orig_img] * 3, axis=-1)
             elif len(orig_img.shape) == 3 and orig_img.shape[2] == 1:
                 input_img = cv2.cvtColor(orig_img.squeeze(), cv2.COLOR_GRAY2RGB)
@@ -2369,10 +2400,8 @@ class ImageJProcessor(BaseTool):
             print(f"Total {len(pixel_regions)} valid targets detected")
 
         except Exception as e:
-            print(f"Generic target detection failed: {e}")
-            import traceback
-            traceback.print_exc()
-            return []
+            logger.exception("Generic target detection failed")
+            raise RuntimeError(f"Generic target detection failed: {type(e).__name__}: {e}") from e
         finally:
             if device.startswith('cuda'):
                 _safe_empty_cuda_cache()
@@ -2412,14 +2441,14 @@ class ImageJProcessor(BaseTool):
                 logger.warning("Failed to save Fiji annotated image to %s", img_output_path)
 
         # === Save: use physical coordinates ===
-        if save_outputs and len(physical_regions) > 0:
+        if save_outputs:
             output_path = os.path.join(self.output_directory, output_filename)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(physical_regions, f, indent=2)
             self._storagemanger.register_file(output_filename, description, 'analysis_platform', 'json')
-        elif save_outputs:
-            print(f"No valid targets, skipping file {output_filename} registration")
+            if not physical_regions:
+                print(f"No valid targets detected; saved empty target list to {output_filename}")
 
         # === Return: pixel coordinates ===
         return pixel_regions
@@ -2454,7 +2483,7 @@ class ImageJProcessor(BaseTool):
         """
         print(f"Finding {target_type} target positions in image")
 
-        spec = _resolve_target_detection_spec(target_type)
+        spec = _resolve_target_detection_spec(target_type, self.detection_targets)
         resolved_score_thr = float(spec.get("score_thr", 0.2) if score_thr is None else score_thr)
         final_output_filename = output_filename or spec["output_filename"]
         np_xarray = self.ij.py.to_xarray(image_meta.dataset)
@@ -2579,8 +2608,45 @@ class ImageJProcessor(BaseTool):
             )
             aggregated_pixel_regions = _sort_pixel_regions_reading_order(aggregated_pixel_regions)
 
+        self.save_target_positions(
+            image_meta=image_meta,
+            regions_px=aggregated_pixel_regions,
+            description=description,
+            output_filename=final_output_filename,
+            emit_preview=True,
+        )
+        return aggregated_pixel_regions
+
+    def list_supported_detection_targets(self) -> list[str]:
+        """Return the registered target names accepted by analysis_platform_find_target_positions()."""
+        return _list_supported_target_types(self.detection_targets)
+
+    def _save_target_positions(
+        self,
+        *,
+        image_meta: ImageWithMetadata,
+        regions_px: Sequence[Sequence[float]],
+        description: str,
+        output_filename: str,
+        emit_preview: bool,
+    ) -> List[Tuple[float, float, float, float]]:
+        normalized_regions: List[Tuple[float, float, float, float]] = []
+        for index, region in enumerate(regions_px):
+            if not isinstance(region, (list, tuple)) or len(region) != 4:
+                raise ValueError(f"Target region at index {index} must be a 4-item list/tuple, got: {region!r}")
+            normalized_regions.append(tuple(map(float, region)))
+
+        image_np = self.convert_to_numpy(image_meta)
+        height, width = image_np.shape[:2]
+        pixel_size_x_um = float(image_meta.pixel_size_x_um)
+        pixel_size_y_um = float(image_meta.pixel_size_y_um)
+        image_center_x_um = float(image_meta.center_x_um)
+        image_center_y_um = float(image_meta.center_y_um)
+        image_center_x_px = (width - 1) / 2.0
+        image_center_y_px = (height - 1) / 2.0
+
         physical_regions = []
-        for cx_px, cy_px, w_px, h_px in aggregated_pixel_regions:
+        for cx_px, cy_px, w_px, h_px in normalized_regions:
             dx_img = float(cx_px) - image_center_x_px
             dy_img = float(cy_px) - image_center_y_px
             physical_regions.append(
@@ -2592,48 +2658,79 @@ class ImageJProcessor(BaseTool):
                 ]
             )
 
-        output_path = os.path.join(self.output_directory, final_output_filename)
+        output_path = os.path.join(self.output_directory, output_filename)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(physical_regions, f, indent=2)
-        self._storagemanger.register_file(final_output_filename, description, 'analysis_platform', 'json')
+        target_count = len(physical_regions)
+        description_with_count = f"{description}; target_count: {target_count}"
+        self._storagemanger.register_file(output_filename, description_with_count, 'analysis_platform', 'json')
 
-        cv2 = _get_cv2()
-        display_img = self._safe_image_normalize(np.asarray(image_np))
-        if display_img.ndim == 2:
-            display_img = cv2.cvtColor(display_img, cv2.COLOR_GRAY2BGR)
-        for idx, (cx_px, cy_px, w_px, h_px) in enumerate(aggregated_pixel_regions, start=1):
-            x1 = int(round(float(cx_px) - float(w_px) / 2.0))
-            y1 = int(round(float(cy_px) - float(h_px) / 2.0))
-            x2 = int(round(float(cx_px) + float(w_px) / 2.0))
-            y2 = int(round(float(cy_px) + float(h_px) / 2.0))
-            _draw_detection_box_with_index(
-                display_img,
-                x1=x1,
-                y1=y1,
-                x2=x2,
-                y2=y2,
-                label=str(idx),
-            )
+        if emit_preview:
+            cv2 = _get_cv2()
+            display_img = self._safe_image_normalize(np.asarray(image_np))
+            if display_img.ndim == 2:
+                display_img = cv2.cvtColor(display_img, cv2.COLOR_GRAY2BGR)
+            for idx, (cx_px, cy_px, w_px, h_px) in enumerate(normalized_regions, start=1):
+                x1 = int(round(float(cx_px) - float(w_px) / 2.0))
+                y1 = int(round(float(cy_px) - float(h_px) / 2.0))
+                x2 = int(round(float(cx_px) + float(w_px) / 2.0))
+                y2 = int(round(float(cy_px) + float(h_px) / 2.0))
+                _draw_detection_box_with_index(
+                    display_img,
+                    x1=x1,
+                    y1=y1,
+                    x2=x2,
+                    y2=y2,
+                    label=str(idx),
+                )
 
-        img_output_filename = final_output_filename.replace('.json', '_annotated.jpg')
-        img_output_path = os.path.join(self.output_directory, img_output_filename)
-        os.makedirs(os.path.dirname(img_output_path), exist_ok=True)
-        saved = bool(cv2.imwrite(img_output_path, display_img))
-        if saved:
-            self._emit_interaction_artifact(
-                path=img_output_path,
-                title="Fiji Detection Result",
-                text="Annotated image is ready for review.",
-                display_seconds=3.0,
-            )
-        else:
-            logger.warning("Failed to save Fiji annotated image to %s", img_output_path)
-        return aggregated_pixel_regions
+            img_output_filename = output_filename.replace('.json', '_annotated.jpg')
+            img_output_path = os.path.join(self.output_directory, img_output_filename)
+            os.makedirs(os.path.dirname(img_output_path), exist_ok=True)
+            saved = bool(cv2.imwrite(img_output_path, display_img))
+            if saved:
+                self._emit_interaction_artifact(
+                    path=img_output_path,
+                    title="Fiji Detection Result",
+                    text="Annotated image is ready for review.",
+                    display_seconds=3.0,
+                )
+            else:
+                logger.warning("Failed to save Fiji annotated image to %s", img_output_path)
 
-    def list_supported_detection_targets(self) -> list[str]:
-        """Return the registered target names accepted by analysis_platform_find_target_positions()."""
-        return _list_supported_target_types()
+        if not normalized_regions:
+            print(f"No valid targets detected; saved empty target list to {output_filename}")
+        return normalized_regions
+
+    @tool_func
+    def save_target_positions(
+        self,
+        image_meta: ImageWithMetadata,
+        regions_px: Sequence[Sequence[float]],
+        description: str,
+        output_filename: str,
+        emit_preview: bool = True,
+    ) -> List[Tuple[float, float, float, float]]:
+        """
+        Save arbitrary point/box detections using the standard target-position contract.
+
+        Parameters:
+            image_meta: Source image and metadata used for pixel-to-physical conversion.
+            regions_px: Pixel-space detections as (center_x_px, center_y_px, width_px, height_px).
+            description: Human-readable description for storage metadata.
+            output_filename: JSON filename to create under the output directory.
+            emit_preview: Whether to emit an annotated preview image artifact.
+        Returns:
+            The normalized pixel-space regions as List[Tuple[float, float, float, float]].
+        """
+        return self._save_target_positions(
+            image_meta=image_meta,
+            regions_px=regions_px,
+            description=description,
+            output_filename=output_filename,
+            emit_preview=bool(emit_preview),
+        )
     @tool_func
     def convert_to_numpy(self, image_meta: ImageWithMetadata) -> np.ndarray:
         """

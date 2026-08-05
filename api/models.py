@@ -1,11 +1,27 @@
 ﻿from typing import Any, Dict, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel as PydanticBaseModel, Field
 
 
 TaskExecutionStatus = Literal["executed", "cancelled", "failed"]
-SystemPhase = Literal["unconfigured", "ready_to_start", "initializing", "ready", "init_failed", "resetting"]
+SystemPhase = Literal[
+    "unconfigured",
+    "ready_to_start",
+    "initializing",
+    "ready",
+    "executing",
+    "releasing",
+    "failed",
+]
 PreviewPhase = Literal["idle", "starting", "live", "failed", "stopped"]
+
+
+class BaseModel(PydanticBaseModel):
+    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        dump = getattr(super(), "model_dump", None)
+        if callable(dump):
+            return dump(*args, **kwargs)
+        return self.dict(*args, **kwargs)
 
 
 class CommandRequest(BaseModel):
@@ -65,6 +81,14 @@ class ConfigSaveRequest(BaseModel):
     transmittedIllumination: str = ""
     focus_drive: str = ""
     Dichroic: str = ""
+    Max_X_position: float | None = None
+    Min_X_position: float | None = None
+    Max_Y_position: float | None = None
+    Min_Y_position: float | None = None
+    Max_Z_position: float | None = None
+    Min_Z_position: float | None = None
+    Max_brightness: int | None = None
+    Min_brightness: int | None = None
     openai_api_key: str = ""
     base_url: str = ""
     model_name: str = ""
@@ -73,16 +97,26 @@ class ConfigSaveRequest(BaseModel):
     vlm_model_name: str = ""
     clarify_enabled: bool = False
     checker_enabled: bool = True
-    simulation_mode: bool = True
+    microscope_mode: Literal["demo", "real"] = "demo"
+    image_analysis_mode: Literal["real", "mock"] = "mock"
+    segmentation_mode: Literal["real", "mock"] = "mock"
+    objectives: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    channels: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    transmitted_light: Dict[str, Any] = Field(default_factory=dict)
     startup_objective: str = ""
     startup_channel: str = ""
     startup_exposure: float | None = None
     startup_brightness: int | None = None
-    startup_start_preview: bool = True
+    startup_z_position: float | None = None
+    startup_x_position: float | None = None
+    startup_y_position: float | None = None
+    startup_start_preview: bool | None = None
 
 
 class AgentConfigView(BaseModel):
-    Simulation_mode: bool
+    microscope_mode: Literal["demo", "real"] = "demo"
+    image_analysis_mode: Literal["real", "mock"] = "mock"
+    segmentation_mode: Literal["real", "mock"] = "mock"
     clarify_enabled: bool = False
     checker_enabled: bool = True
     openai_api_key: str
@@ -115,6 +149,8 @@ class ConfigStatusResponse(BaseModel):
     preview_phase: PreviewPhase = "idle"
     failure_step: str = ""
     system: Dict[str, Any]
+    real_system_draft: Dict[str, Any] = Field(default_factory=dict)
+    demo_system: Dict[str, Any] = Field(default_factory=dict)
     agent: AgentConfigView
     startup: StartupConfigView
 
@@ -135,8 +171,9 @@ class ConfigUploadResponse(BaseModel):
     stored_config_path: str = ""
     original_filename: str = ""
     suggestions: Dict[str, Dict[str, Any]]
-    objective_labels: Dict[str, int]
-    dichroic_colors: Dict[str, Any]
+    objectives: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    channels: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    transmitted_light: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PreviewStatusResponse(BaseModel):
@@ -152,7 +189,10 @@ class PreviewStatusResponse(BaseModel):
     thread_alive: bool = False
     has_frame: bool = False
     fallback_active: bool = False
-    simulation_mode: bool = True
+    microscope_mode: Literal["demo", "real"] = "demo"
+    image_analysis_mode: Literal["real", "mock"] = "mock"
+    segmentation_mode: Literal["real", "mock"] = "mock"
+    mode_summary: str = ""
     last_frame_age_sec: float | None = None
     time_since_preview_start_sec: float | None = None
     last_error: str = ""

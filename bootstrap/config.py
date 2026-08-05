@@ -6,10 +6,13 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 from dotenv import dotenv_values
 
+from bootstrap.microscope_semantics import derived_dichroic_colors, derived_objective_labels
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RUNTIME_CONFIG_PATH = ROOT_DIR / "config" / "runtime_config.json"
 ENV_PATH = ROOT_DIR / ".env"
+DEMO_CONFIG_PATH = ROOT_DIR / "demo_cfg" / "MMConfig_demo.cfg"
 
 
 DEFAULT_OBJECTIVE_LABELS: Dict[str, int] = {
@@ -32,30 +35,127 @@ DEFAULT_DICHROIC_COLORS: Dict[str, Tuple[int, int, int]] = {
     "1-NONE": (128, 128, 128),
 }
 
+DEFAULT_OBJECTIVES: Dict[str, Dict[str, Any]] = {
+    "4x": {"label": "1-UPLFLN4XPH", "magnification": 4, "display_name": "4x objective"},
+    "10x": {"label": "2-SOB", "magnification": 10, "display_name": "10x objective"},
+    "20x": {"label": "3-LUCPLFLN20XRC", "magnification": 20, "display_name": "20x objective"},
+    "30x": {"label": "6-UPLSAPO30XS", "magnification": 30, "display_name": "30x objective"},
+    "40x": {"label": "4-LUCPLFLN40X", "magnification": 40, "display_name": "40x objective"},
+    "60x": {"label": "5-LUCPLFLN60X", "magnification": 60, "display_name": "60x objective"},
+}
+
+DEFAULT_CHANNELS: Dict[str, Dict[str, Any]] = {
+    "brightfield": {
+        "label": "1-NONE",
+        "display_name": "Brightfield",
+        "color": [128, 128, 128],
+        "illumination": "transmitted",
+    },
+    "dapi": {
+        "label": "2-U-FUNA",
+        "display_name": "DAPI / 405 nm",
+        "color": [0, 0, 255],
+        "illumination": "fluorescence",
+    },
+    "fitc": {
+        "label": "3-U-FBNA",
+        "display_name": "FITC / 488 nm",
+        "color": [0, 255, 0],
+        "illumination": "fluorescence",
+    },
+    "tritc": {
+        "label": "4-U-FGNA",
+        "display_name": "TRITC / 640 nm",
+        "color": [255, 0, 0],
+        "illumination": "fluorescence",
+    },
+}
+
+DEFAULT_TRANSMITTED_LIGHT: Dict[str, Any] = {
+    "device": "",
+    "intensity_property": "",
+    "min": 0,
+    "max": 250,
+}
+
+DEMO_OBJECTIVES: Dict[str, Dict[str, Any]] = {
+    "4x": {"label": "1-UPLFLN4XPH", "magnification": 4, "display_name": "4x objective"},
+    "10x": {"label": "2-SOB", "magnification": 10, "display_name": "10x objective"},
+    "20x": {"label": "3-LUCPLFLN20XRC", "magnification": 20, "display_name": "20x objective"},
+    "30x": {"label": "6-UPLSAPO30XS", "magnification": 30, "display_name": "30x objective"},
+    "40x": {"label": "4-LUCPLFLN40X", "magnification": 40, "display_name": "40x objective"},
+    "60x": {"label": "5-LUCPLFLN60X", "magnification": 60, "display_name": "60x objective"},
+}
+
+DEMO_CHANNELS: Dict[str, Dict[str, Any]] = {
+    "brightfield": {
+        "label": "1-NONE",
+        "display_name": "Brightfield",
+        "color": [128, 128, 128],
+        "illumination": "transmitted",
+    },
+    "dapi": {
+        "label": "2-U-FUNA",
+        "display_name": "DAPI / 405 nm",
+        "color": [0, 0, 255],
+        "illumination": "fluorescence",
+    },
+    "fitc": {
+        "label": "3-U-FBNA",
+        "display_name": "FITC / 488 nm",
+        "color": [0, 255, 0],
+        "illumination": "fluorescence",
+    },
+    "tritc": {
+        "label": "4-U-FGNA",
+        "display_name": "TRITC / 640 nm",
+        "color": [255, 0, 0],
+        "illumination": "fluorescence",
+    },
+}
+
+DEMO_TRANSMITTED_LIGHT: Dict[str, Any] = {
+    "device": "DCam",
+    "intensity_property": "BeadBrightness",
+    "min": 0,
+    "max": 250,
+    "control_kind": "demo_camera_bead_brightness",
+    "surrogate_min_property_value": 0.5,
+    "surrogate_scale": 100.0,
+}
+
 DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "2Dcell": {
         "target_class_id": 0,
         "target_class_name": "2Dcell",
         "score_thr": 0.2,
         "output_filename": "2Dcell_locations_list.json",
-        "model_config": "detector_configs/2dcell.py",
-        "model_checkpoint": "weights/2Dcell.pth",
+        "model_config": "detector_models/cell2d/config.py",
+        "model_checkpoint": "detector_models/cell2d/weights.pth",
     },
     "organoid": {
         "target_class_id": 0,
         "target_class_name": "organoid",
         "score_thr": 0.2,
         "output_filename": "organoid_locations_list.json",
-        "model_config": "detector_configs/organoid.py",
-        "model_checkpoint": "weights/organoid.pth",
+        "model_config": "detector_models/organoid/config.py",
+        "model_checkpoint": "detector_models/organoid/weights.pth",
+    },
+    "mitosis": {
+        "target_class_id": 0,
+        "target_class_name": "mitosis",
+        "score_thr": 0.2,
+        "output_filename": "mitosis_locations_list.json",
+        "model_config": "detector_models/mitosis/config.py",
+        "model_checkpoint": "detector_models/mitosis/weights.pth",
     },
 }
 
 
 @dataclass
 class StartupConfig:
-    objective: str = "4-LUCPLFLN40X"
-    channel: str = "1-NONE"
+    objective: str = "40x"
+    channel: str = "brightfield"
     exposure: float = 10.0
     brightness: int = 100
     z_position: float = 4100.0
@@ -64,10 +164,18 @@ class StartupConfig:
     start_preview: bool = True
 
 
+@dataclass(frozen=True)
+class TaskRuntimeConfig:
+    HISTORY_DIR: str = "history"
+    OUTPUT_DIR: str = "output"
+    MAX_RETRY_TIMES: int = 3
+    RETRY_INTERVAL: int = 3
+
+
 @dataclass
 class SystemConfig:
     MM_DIR: str = r""
-    CONFIG_PATH: str = str(ROOT_DIR / "uploaded_cfg" / "MMConfig_demo2.cfg")
+    CONFIG_PATH: str = str(DEMO_CONFIG_PATH)
     FIJI_PATH: str = r""
     MAVEN_BIN: str = r""
     camera_device: str = ""
@@ -78,6 +186,9 @@ class SystemConfig:
     Dichroic: str = ""
     objective_labels: Dict[str, int] = field(default_factory=lambda: dict(DEFAULT_OBJECTIVE_LABELS))
     dichroic_colors: Dict[str, Tuple[int, int, int]] = field(default_factory=lambda: dict(DEFAULT_DICHROIC_COLORS))
+    objectives: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_OBJECTIVES)))
+    channels: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_CHANNELS)))
+    transmitted_light: Dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_TRANSMITTED_LIGHT))
     Max_X_position: float = 100000.0
     Min_X_position: float = 0.0
     Max_Y_position: float = 70000.0
@@ -96,7 +207,9 @@ class SystemConfig:
 
 @dataclass
 class ModelConfig:
-    Simulation_mode: bool = True
+    microscope_mode: str = "demo"
+    image_analysis_mode: str = "mock"
+    segmentation_mode: str = "mock"
     clarify_enabled: bool = False
     checker_enabled: bool = False
     skill_mode: str = "disabled"
@@ -107,7 +220,7 @@ class ModelConfig:
     vlm_api_key: str = ""
     vlm_base_url: str = "https://api.openai.com/v1"
     vlm_model_name: str = "gpt-4.1"
-    CROSS_ENCODER_MODEL_PATH: str = r"model\bge-m3"
+    CROSS_ENCODER_MODEL_PATH: str = r"embedding_model\bge-m3"
     task_similarity_threshold: float = 0.029
 
 @dataclass
@@ -116,6 +229,21 @@ class RuntimeSettings:
     model: ModelConfig = field(default_factory=ModelConfig)
     startup: StartupConfig = field(default_factory=StartupConfig)
     detection_targets: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_DETECTION_TARGETS)))
+
+
+def build_demo_system_overrides() -> Dict[str, Any]:
+    return {
+        "CONFIG_PATH": str(DEMO_CONFIG_PATH),
+        "camera_device": "DCam",
+        "xy_stage_device": "DXYStage",
+        "objective_device": "DObjective",
+        "transmittedIllumination": "DLightPath",
+        "focus_drive": "DStage",
+        "Dichroic": "DStateDevice",
+        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "channels": json.loads(json.dumps(DEMO_CHANNELS)),
+        "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
+    }
 
 
 def _read_json(path: Path) -> Dict[str, Any]:
@@ -139,6 +267,13 @@ def _coerce_bool(value: Any, default: bool) -> bool:
     return default
 
 
+def _coerce_mode(value: Any, *, allowed: tuple[str, ...], default: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in allowed:
+        return normalized
+    return default
+
+
 def _coerce_color_map(value: Mapping[str, Any], fallback: Mapping[str, Tuple[int, int, int]]) -> Dict[str, Tuple[int, int, int]]:
     if not isinstance(value, Mapping):
         return dict(fallback)
@@ -147,6 +282,16 @@ def _coerce_color_map(value: Mapping[str, Any], fallback: Mapping[str, Tuple[int
         if isinstance(item, (list, tuple)) and len(item) == 3:
             result[str(key)] = (int(item[0]), int(item[1]), int(item[2]))
     return result or dict(fallback)
+
+
+def _coerce_nested_mapping(value: Any, fallback: Mapping[str, Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    if not isinstance(value, Mapping):
+        return {str(key): dict(item) for key, item in fallback.items()}
+    result: Dict[str, Dict[str, Any]] = {}
+    for key, item in value.items():
+        if isinstance(item, Mapping):
+            result[str(key).strip().lower()] = dict(item)
+    return result or {str(key): dict(item) for key, item in fallback.items()}
 
 
 def _update_dataclass(instance: Any, updates: Mapping[str, Any]) -> None:
@@ -160,8 +305,77 @@ def _update_dataclass(instance: Any, updates: Mapping[str, Any]) -> None:
             setattr(instance, key, _coerce_color_map(value, current))
         elif key == "objective_labels" and isinstance(value, Mapping):
             setattr(instance, key, {str(k): int(v) for k, v in value.items()})
+        elif key in {"objectives", "channels"}:
+            setattr(instance, key, _coerce_nested_mapping(value, current))
+        elif key == "transmitted_light" and isinstance(value, Mapping):
+            merged = dict(current)
+            merged.update(dict(value))
+            setattr(instance, key, merged)
+        elif key == "microscope_mode":
+            setattr(instance, key, _coerce_mode(value, allowed=("demo", "real"), default=current))
+        elif key in {"image_analysis_mode", "segmentation_mode"}:
+            setattr(instance, key, _coerce_mode(value, allowed=("real", "mock"), default=current))
         else:
             setattr(instance, key, value)
+
+
+def _normalize_system_semantics(system_config: SystemConfig) -> None:
+    if not system_config.objectives:
+        system_config.objectives = _objectives_from_legacy_labels(system_config.objective_labels)
+    if not system_config.channels:
+        system_config.channels = _channels_from_legacy_colors(system_config.dichroic_colors)
+
+    # Legacy maps are internal derived compatibility fields. The structured
+    # semantic maps are the only mapping source users should maintain.
+    system_config.objective_labels = derived_objective_labels(system_config)
+    system_config.dichroic_colors = derived_dichroic_colors(system_config)
+
+
+def _apply_demo_system_overrides(system_config: SystemConfig) -> None:
+    _update_dataclass(system_config, build_demo_system_overrides())
+    _normalize_system_semantics(system_config)
+
+
+def _objectives_from_legacy_labels(objective_labels: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    objectives: Dict[str, Dict[str, Any]] = {}
+    for label, magnification in objective_labels.items():
+        try:
+            mag = int(magnification)
+        except (TypeError, ValueError):
+            continue
+        key = f"{mag}x"
+        objectives[key] = {
+            "label": str(label),
+            "magnification": mag,
+            "display_name": f"{mag}x objective",
+        }
+    return objectives or json.loads(json.dumps(DEFAULT_OBJECTIVES))
+
+
+def _channels_from_legacy_colors(dichroic_colors: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    channels = json.loads(json.dumps(DEFAULT_CHANNELS))
+    for key, item in channels.items():
+        label = item.get("label")
+        if label in dichroic_colors:
+            item["color"] = list(dichroic_colors[label])
+    return channels
+
+
+def _apply_legacy_mode_migration(settings: RuntimeSettings, model_payload: Mapping[str, Any]) -> None:
+    if any(key in model_payload for key in ("microscope_mode", "image_analysis_mode", "segmentation_mode")):
+        return
+    if "Simulation_mode" not in model_payload:
+        return
+
+    simulation_mode = _coerce_bool(model_payload.get("Simulation_mode"), True)
+    if simulation_mode:
+        settings.model.microscope_mode = "demo"
+        settings.model.image_analysis_mode = "mock"
+        settings.model.segmentation_mode = "mock"
+    else:
+        settings.model.microscope_mode = "real"
+        settings.model.image_analysis_mode = "real"
+        settings.model.segmentation_mode = "real"
 
 
 def _apply_file_overrides(settings: RuntimeSettings, payload: Mapping[str, Any]) -> None:
@@ -171,7 +385,12 @@ def _apply_file_overrides(settings: RuntimeSettings, payload: Mapping[str, Any])
     detection_payload = payload.get("detection_targets", {})
     if isinstance(system_payload, Mapping):
         _update_dataclass(settings.system, system_payload)
+        if "objective_labels" in system_payload and "objectives" not in system_payload:
+            settings.system.objectives = _objectives_from_legacy_labels(settings.system.objective_labels)
+        if "dichroic_colors" in system_payload and "channels" not in system_payload:
+            settings.system.channels = _channels_from_legacy_colors(settings.system.dichroic_colors)
     if isinstance(model_payload, Mapping):
+        _apply_legacy_mode_migration(settings, model_payload)
         _update_dataclass(settings.model, model_payload)
     if isinstance(startup_payload, Mapping):
         _update_dataclass(settings.startup, startup_payload)
@@ -199,23 +418,6 @@ def _merge_detection_targets(
 
 
 def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str]) -> None:
-    env_map = {
-        "MM_DIR": "EIMS_MM_DIR",
-        "CONFIG_PATH": "EIMS_CONFIG_PATH",
-        "FIJI_PATH": "EIMS_FIJI_PATH",
-        "MAVEN_BIN": "EIMS_MAVEN_BIN",
-        "camera_device": "EIMS_CAMERA_DEVICE",
-        "xy_stage_device": "EIMS_XY_STAGE_DEVICE",
-        "objective_device": "EIMS_OBJECTIVE_DEVICE",
-        "transmittedIllumination": "EIMS_TRANSMITTED_ILLUMINATION",
-        "focus_drive": "EIMS_FOCUS_DRIVE",
-        "Dichroic": "EIMS_DICHROIC",
-    }
-    for field_name, env_name in env_map.items():
-        value = env_values.get(env_name)
-        if value:
-            setattr(settings.system, field_name, value)
-
     model_env_map = {
         "llm_seed": ("EIMS_LLM_SEED",),
         "openai_api_key": ("EIMS_OPENAI_API_KEY", "OPENAI_API_KEY"),
@@ -229,15 +431,61 @@ def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str
                 setattr(settings.model, field_name, value)
                 break
 
-    # Keep UI-managed simulation mode stable across saves: only a real process environment
-    # override should win here, not a value persisted in .env.
-    simulation_env = os.environ.get("EIMS_SIMULATION_MODE")
-    if simulation_env is not None:
-        settings.model.Simulation_mode = _coerce_bool(simulation_env, settings.model.Simulation_mode)
-
     checker_env = os.environ.get("EIMS_CHECKER_ENABLED")
     if checker_env is not None:
         settings.model.checker_enabled = _coerce_bool(checker_env, settings.model.checker_enabled)
+
+
+def is_demo_mode_settings(settings: RuntimeSettings) -> bool:
+    return str(getattr(settings.model, "microscope_mode", "demo")).strip().lower() == "demo"
+
+
+def is_demo_mode_snapshot(snapshot: Mapping[str, Any]) -> bool:
+    agent_cfg = snapshot.get("agent", {}) if isinstance(snapshot, Mapping) else {}
+    return str(agent_cfg.get("microscope_mode", "demo")).strip().lower() == "demo"
+
+
+def _normalized_demo_mapping_payload() -> Dict[str, Any]:
+    return {
+        "CONFIG_PATH": str(DEMO_CONFIG_PATH),
+        "camera_device": "DCam",
+        "xy_stage_device": "DXYStage",
+        "objective_device": "DObjective",
+        "transmittedIllumination": "DLightPath",
+        "focus_drive": "DStage",
+        "Dichroic": "DStateDevice",
+        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "channels": json.loads(json.dumps(DEMO_CHANNELS)),
+        "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
+    }
+
+
+def is_demo_mapping_payload(
+    *,
+    config_path: str,
+    camera_device: str,
+    xy_stage_device: str,
+    objective_device: str,
+    transmitted_illumination: str,
+    focus_drive: str,
+    dichroic: str,
+    objectives: Mapping[str, Any],
+    channels: Mapping[str, Any],
+    transmitted_light: Mapping[str, Any],
+) -> bool:
+    demo = _normalized_demo_mapping_payload()
+    return (
+        str(config_path).strip() == str(demo["CONFIG_PATH"]).strip()
+        and str(camera_device).strip() == str(demo["camera_device"]).strip()
+        and str(xy_stage_device).strip() == str(demo["xy_stage_device"]).strip()
+        and str(objective_device).strip() == str(demo["objective_device"]).strip()
+        and str(transmitted_illumination).strip() == str(demo["transmittedIllumination"]).strip()
+        and str(focus_drive).strip() == str(demo["focus_drive"]).strip()
+        and str(dichroic).strip() == str(demo["Dichroic"]).strip()
+        and dict(objectives or {}) == dict(demo["objectives"])
+        and dict(channels or {}) == dict(demo["channels"])
+        and dict(transmitted_light or {}) == dict(demo["transmitted_light"])
+    )
 
 
 def _load_env_values(*, include_dotenv: bool) -> Dict[str, str]:
@@ -287,13 +535,22 @@ def save_env_secrets(*, openai_api_key: str | None = None, vlm_api_key: str | No
     target_path.write_text("\n".join(rewritten_lines) + "\n", encoding="utf-8")
 
 
-def load_runtime_settings(config_path: Optional[Path] = None, *, apply_env: bool = True) -> RuntimeSettings:
+def load_runtime_settings(
+    config_path: Optional[Path] = None,
+    *,
+    apply_env: bool = True,
+    apply_demo_overlay: bool = True,
+) -> RuntimeSettings:
     settings = RuntimeSettings()
     target_path = config_path or RUNTIME_CONFIG_PATH
     payload = _read_json(target_path)
     _apply_file_overrides(settings, payload)
+    _normalize_system_semantics(settings.system)
     if apply_env:
         _apply_env_overrides(settings, _load_env_values(include_dotenv=target_path == RUNTIME_CONFIG_PATH))
+        _normalize_system_semantics(settings.system)
+    if apply_demo_overlay and is_demo_mode_settings(settings):
+        _apply_demo_system_overrides(settings.system)
     return settings
 
 
@@ -304,6 +561,13 @@ def _dataclass_dict(instance: Any) -> Dict[str, Any]:
     return payload
 
 
+def _system_config_payload(system_config: SystemConfig) -> Dict[str, Any]:
+    payload = _dataclass_dict(system_config)
+    payload.pop("objective_labels", None)
+    payload.pop("dichroic_colors", None)
+    return payload
+
+
 def save_runtime_settings(
     system_updates: Optional[Mapping[str, Any]] = None,
     model_updates: Optional[Mapping[str, Any]] = None,
@@ -311,7 +575,7 @@ def save_runtime_settings(
     config_path: Optional[Path] = None,
 ) -> RuntimeSettings:
     target_path = config_path or RUNTIME_CONFIG_PATH
-    settings = load_runtime_settings(target_path, apply_env=False)
+    settings = load_runtime_settings(target_path, apply_env=False, apply_demo_overlay=False)
     if system_updates:
         _update_dataclass(settings.system, system_updates)
     if model_updates:
@@ -320,12 +584,14 @@ def save_runtime_settings(
         _update_dataclass(settings.startup, startup_updates)
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    _normalize_system_semantics(settings.system)
     payload = {
-        "system": _dataclass_dict(settings.system),
+        "system": _system_config_payload(settings.system),
         "model": _dataclass_dict(settings.model),
         "startup": _dataclass_dict(settings.startup),
         "detection_targets": settings.detection_targets,
     }
+    payload["model"].pop("Simulation_mode", None)
     payload["model"].pop("openai_api_key", None)
     payload["model"].pop("vlm_api_key", None)
     target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -359,7 +625,9 @@ def mask_secret(value: str) -> str:
 
 def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Dict[str, Any]:
     agent_payload = {
-        "Simulation_mode": settings.model.Simulation_mode,
+        "microscope_mode": settings.model.microscope_mode,
+        "image_analysis_mode": settings.model.image_analysis_mode,
+        "segmentation_mode": settings.model.segmentation_mode,
         "clarify_enabled": settings.model.clarify_enabled,
         "checker_enabled": settings.model.checker_enabled,
         "skill_mode": settings.model.skill_mode,
@@ -392,8 +660,19 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "transmittedIllumination": settings.system.transmittedIllumination,
             "focus_drive": settings.system.focus_drive,
             "Dichroic": settings.system.Dichroic,
-            "objective_labels": settings.system.objective_labels,
-            "dichroic_colors": settings.system.dichroic_colors,
+            "objectives": settings.system.objectives,
+            "channels": settings.system.channels,
+            "transmitted_light": settings.system.transmitted_light,
+            "Max_X_position": settings.system.Max_X_position,
+            "Min_X_position": settings.system.Min_X_position,
+            "Max_Y_position": settings.system.Max_Y_position,
+            "Min_Y_position": settings.system.Min_Y_position,
+            "Max_Z_position": settings.system.Max_Z_position,
+            "Min_Z_position": settings.system.Min_Z_position,
+            "Max_brightness": settings.system.Max_brightness,
+            "Min_brightness": settings.system.Min_brightness,
+            "Max_exposure": settings.system.Max_exposure,
+            "Min_exposure": settings.system.Min_exposure,
         },
         "agent": agent_payload,
         "startup": asdict(settings.startup),
@@ -401,58 +680,24 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
     }
 
 
-def read_config_snapshot(config_path: Optional[Path] = None, *, apply_env: bool = True) -> Dict[str, Any]:
-    settings = load_runtime_settings(config_path, apply_env=apply_env)
+def read_config_snapshot(
+    config_path: Optional[Path] = None,
+    *,
+    apply_env: bool = True,
+    apply_demo_overlay: bool = True,
+) -> Dict[str, Any]:
+    settings = load_runtime_settings(config_path, apply_env=apply_env, apply_demo_overlay=apply_demo_overlay)
     return _snapshot_payload(settings, include_secrets=True)
 
 
-def read_public_config_snapshot(config_path: Optional[Path] = None, *, apply_env: bool = True) -> Dict[str, Any]:
-    settings = load_runtime_settings(config_path, apply_env=apply_env)
+def read_public_config_snapshot(
+    config_path: Optional[Path] = None,
+    *,
+    apply_env: bool = True,
+    apply_demo_overlay: bool = True,
+) -> Dict[str, Any]:
+    settings = load_runtime_settings(config_path, apply_env=apply_env, apply_demo_overlay=apply_demo_overlay)
     return _snapshot_payload(settings, include_secrets=False)
-
-
-def missing_required_fields(snapshot: Mapping[str, Any]) -> Dict[str, list[str]]:
-    system_cfg = snapshot["system"]
-    agent_cfg = snapshot["agent"]
-    simulation_mode = bool(agent_cfg.get("Simulation_mode", True))
-    required_system = []
-    if not simulation_mode:
-        required_system = [
-            "MM_DIR",
-            "CONFIG_PATH",
-            "camera_device",
-            "xy_stage_device",
-            "objective_device",
-            "transmittedIllumination",
-            "focus_drive",
-            "Dichroic",
-        ]
-    required_agent = [
-        "openai_api_key",
-        "base_url",
-        "model_name",
-        "vlm_api_key",
-        "vlm_base_url",
-        "vlm_model_name",
-    ]
-    missing_system = [field for field in required_system if not system_cfg.get(field)]
-    missing_agent = [field for field in required_agent if not agent_cfg.get(field)]
-    return {
-        "system": missing_system,
-        "agent": missing_agent,
-    }
-
-
-def config_is_complete(snapshot: Mapping[str, Any]) -> bool:
-    missing = missing_required_fields(snapshot)
-    return not missing["system"] and not missing["agent"]
-
-
-
-
-
-
-
 
 
 

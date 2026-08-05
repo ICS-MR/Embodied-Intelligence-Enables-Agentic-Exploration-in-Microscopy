@@ -24,6 +24,7 @@ class DeviceRecord:
 class MMConfigData:
     devices: List[DeviceRecord] = field(default_factory=list)
     core_props: Dict[str, str] = field(default_factory=dict)
+    device_props: Dict[str, Dict[str, str]] = field(default_factory=dict)
     parents: Dict[str, str] = field(default_factory=dict)
     focus_directions: Dict[str, str] = field(default_factory=dict)
     labels: Dict[str, List[str]] = field(default_factory=dict)
@@ -35,6 +36,13 @@ FILTER_COLOR_HINTS: Tuple[Tuple[Tuple[str, ...], Tuple[int, int, int]], ...] = (
     (("u-fb", "fitc", "gfp", "green"), (0, 255, 0)),
     (("u-fu", "dapi", "hoechst", "blue"), (0, 0, 255)),
 )
+CHANNEL_SEMANTIC_HINTS: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
+    ("brightfield", ("none", "bright", "bf", "transmitted"), "Brightfield"),
+    ("dapi", ("u-fu", "dapi", "hoechst", "blue", "405"), "DAPI / 405 nm"),
+    ("fitc", ("u-fb", "fitc", "gfp", "green", "488"), "FITC / 488 nm"),
+    ("tritc", ("u-fg", "tritc", "txred", "red", "640", "561"), "TRITC / 640 nm"),
+)
+INTENSITY_PROPERTY_HINTS = ("brightness", "intensity", "power", "level", "percent")
 
 DEFAULT_MMCORE_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Micro-Manager"
 DEFAULT_FIJI_DEST = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / "EIMS" / "Fiji"
@@ -47,7 +55,6 @@ class FieldRule:
     name: str
     description: str
     core_property: Optional[str] = None
-    exact_labels: Tuple[str, ...] = ()
     label_tokens: Tuple[str, ...] = ()
     adapter_tokens: Tuple[str, ...] = ()
     require_labels: bool = False
@@ -59,7 +66,6 @@ FIELD_RULES: List[FieldRule] = [
         name="camera_device",
         description="Primary imaging camera",
         core_property="Camera",
-        exact_labels=("Camera-1",),
         label_tokens=("camera",),
         adapter_tokens=("camera", "pvcam", "demo"),
     ),
@@ -67,7 +73,6 @@ FIELD_RULES: List[FieldRule] = [
         name="xy_stage_device",
         description="XY stage",
         core_property="XYStage",
-        exact_labels=("XYStage",),
         label_tokens=("xy", "stage"),
         adapter_tokens=("prior", "stage"),
     ),
@@ -75,27 +80,23 @@ FIELD_RULES: List[FieldRule] = [
         name="focus_drive",
         description="Z drive / focus drive",
         core_property="Focus",
-        exact_labels=("FocusDrive",),
         label_tokens=("focus", "z"),
     ),
     FieldRule(
         name="objective_device",
         description="Objective changer",
-        exact_labels=("Objective",),
         label_tokens=("objective", "nosepiece", "turret"),
         require_labels=True,
     ),
     FieldRule(
         name="transmittedIllumination",
         description="Transmitted-light illuminator",
-        exact_labels=("TransmittedIllumination 2", "TransmittedIllumination 1"),
-        label_tokens=("transmittedillumination", "transmitted", "illumination", "lamp", "led"),
+        label_tokens=("transmittedillumination", "transmitted", "illumination", "lamp", "led", "white light", "shutter"),
         numeric_suffix_preference="highest",
     ),
     FieldRule(
         name="Dichroic",
         description="Dichroic / filter-block switcher",
-        exact_labels=("Dichroic 2", "Dichroic"),
         label_tokens=("dichroic", "filter", "mirror"),
         require_labels=True,
     ),
@@ -119,6 +120,8 @@ def parse_mm_config(cfg_path: Path) -> MMConfigData:
             prop_value = ",".join(parts[3:]).strip()
             if scope.lower() == "core" and prop_name and prop_value:
                 data.core_props[prop_name] = prop_value
+            elif scope and prop_name:
+                data.device_props.setdefault(scope, {})[prop_name] = prop_value
         elif keyword == "parent" and len(parts) >= 3:
             data.parents[parts[1]] = parts[2]
         elif keyword == "focusdirection" and len(parts) >= 3:
@@ -139,10 +142,6 @@ def score_device(record: DeviceRecord, rule: FieldRule, data: MMConfigData) -> i
     device_name_lower = record.device_name.lower()
     score = 0
 
-    for idx, exact in enumerate(rule.exact_labels):
-        if record.label == exact:
-            score += 1000 - idx
-
     for token in rule.label_tokens:
         token_lower = token.lower()
         if token_lower in label_lower:
@@ -160,6 +159,15 @@ def score_device(record: DeviceRecord, rule: FieldRule, data: MMConfigData) -> i
         score += 10
     if record.label in data.focus_directions:
         score += 120
+    if rule.name == "transmittedIllumination":
+        props = data.device_props.get(record.label, {})
+        if any(
+            any(token in str(prop_name).lower() for token in INTENSITY_PROPERTY_HINTS)
+            for prop_name in props
+        ):
+            # Prefer devices that actually expose an intensity-like control property
+            # over shutters or path selectors whose names happen to match light tokens.
+            score += 160
 
     return score
 
@@ -229,7 +237,7 @@ def parse_objective_magnification(label: str, existing_map: Dict[str, int]) -> O
     return None
 
 
-def build_objective_labels(data: MMConfigData, objective_device: Optional[str], existing_map: Dict[str, int]) -> Dict[str, int]:
+def _build_objective_labels(data: MMConfigData, objective_device: Optional[str], existing_map: Dict[str, int]) -> Dict[str, int]:
     if not objective_device:
         return {}
     labels = data.labels.get(objective_device, [])
@@ -255,15 +263,127 @@ def infer_filter_color(label: str, existing_map: Dict[str, Tuple[int, int, int]]
     return DEFAULT_GRAY
 
 
-def build_dichroic_colors(
+def build_objectives(data: MMConfigData, objective_device: Optional[str], existing_map: Dict[str, int]) -> Dict[str, Dict[str, Any]]:
+    objective_labels = _build_objective_labels(data, objective_device, existing_map)
+    objectives: Dict[str, Dict[str, Any]] = {}
+    for label, magnification in sorted(objective_labels.items(), key=lambda item: item[1]):
+        semantic_key = f"{int(magnification)}x"
+        objectives[semantic_key] = {
+            "label": label,
+            "magnification": int(magnification),
+            "display_name": f"{int(magnification)}x objective",
+        }
+    return objectives
+
+
+def infer_channel_semantic(label: str, used_keys: set[str]) -> Tuple[str, str]:
+    label_lower = label.lower()
+    for semantic_key, tokens, display_name in CHANNEL_SEMANTIC_HINTS:
+        if semantic_key in used_keys:
+            continue
+        if any(token in label_lower for token in tokens):
+            return semantic_key, display_name
+
+    base_key = "channel"
+    index = 1
+    while f"{base_key}_{index}" in used_keys:
+        index += 1
+    return f"{base_key}_{index}", label
+
+
+def _leading_number(label: str) -> Optional[int]:
+    match = re.match(r"\s*(\d+)\s*[-_]", str(label or ""))
+    return int(match.group(1)) if match else None
+
+
+def select_brightfield_label(labels: List[str]) -> Optional[str]:
+    if not labels:
+        return None
+
+    exact_priority = ("1-NONE", "BF", "Brightfield")
+    by_lower = {label.lower(): label for label in labels}
+    for preferred in exact_priority:
+        match = by_lower.get(preferred.lower())
+        if match:
+            return match
+
+    named_candidates = [
+        label
+        for label in labels
+        if any(token in label.lower() for token in ("brightfield", "bright", "transmitted"))
+    ]
+    if named_candidates:
+        return named_candidates[0]
+
+    none_candidates = [label for label in labels if "none" in label.lower()]
+    if none_candidates:
+        return min(none_candidates, key=lambda label: (_leading_number(label) is None, _leading_number(label) or 9999, label))
+
+    bf_candidates = [
+        label
+        for label in labels
+        if re.search(r"(^|[-_\s])bf($|[-_\s])", label, flags=re.IGNORECASE)
+    ]
+    if bf_candidates:
+        return bf_candidates[0]
+
+    return None
+
+
+def build_channels(
     data: MMConfigData,
     dichroic_device: Optional[str],
     existing_map: Dict[str, Tuple[int, int, int]],
-) -> Dict[str, Tuple[int, int, int]]:
+) -> Dict[str, Dict[str, Any]]:
     if not dichroic_device:
         return {}
     labels = data.labels.get(dichroic_device, [])
-    return {label: infer_filter_color(label, existing_map) for label in labels}
+    channels: Dict[str, Dict[str, Any]] = {}
+    used_keys: set[str] = set()
+    brightfield_label = select_brightfield_label(labels)
+    for label in labels:
+        if brightfield_label is not None and label == brightfield_label:
+            semantic_key, display_name = "brightfield", "Brightfield"
+        else:
+            blocked_keys = set(used_keys)
+            if brightfield_label is not None:
+                blocked_keys.add("brightfield")
+            semantic_key, display_name = infer_channel_semantic(label, blocked_keys)
+        used_keys.add(semantic_key)
+        color = infer_filter_color(label, existing_map)
+        illumination = "transmitted" if semantic_key == "brightfield" else "fluorescence"
+        channels[semantic_key] = {
+            "label": label,
+            "display_name": display_name,
+            "color": list(color),
+            "illumination": illumination,
+        }
+    return channels
+
+
+def build_transmitted_light_mapping(data: MMConfigData, transmitted_device: Optional[str]) -> Dict[str, Any]:
+    if not transmitted_device:
+        return {}
+    props = data.device_props.get(transmitted_device, {})
+    selected_property = ""
+    for prop_name in props:
+        lowered = prop_name.lower()
+        if any(token in lowered for token in INTENSITY_PROPERTY_HINTS):
+            selected_property = prop_name
+            break
+    if not selected_property:
+        return {
+            "device": transmitted_device,
+            "intensity_property": "",
+            "min": 0,
+            "max": 250,
+        }
+    return {
+        "device": transmitted_device,
+        "intensity_property": selected_property,
+        "min": 0,
+        "max": 250,
+    }
 
 
 def format_python_dict(mapping: Dict[str, Any]) -> str:
@@ -811,6 +931,42 @@ def ensure_project_maven() -> bool:
         return False
 
 
+def _cleanup_fiji_bootstrap_caches() -> bool:
+    runtime_root = ROOT_DIR / ".runtime"
+    jgo_cache_dir = runtime_root / "jgo"
+    m2_repo_dir = Path.home() / ".m2" / "repository"
+    cleanup_targets = (
+        m2_repo_dir / "cisd" / "jhdf5",
+        m2_repo_dir / "net" / "imglib2-BOOTSTRAPPER",
+        jgo_cache_dir,
+    )
+    removed_any = False
+    for target in cleanup_targets:
+        if not target.exists():
+            continue
+        try:
+            shutil.rmtree(target)
+            print(f"Removed stale Fiji bootstrap cache: {target}")
+            removed_any = True
+        except OSError as exc:
+            print(f"Could not remove stale Fiji bootstrap cache: {target}")
+            print(f"Error: {exc}")
+    return removed_any
+
+
+def _should_retry_fiji_bootstrap(exc: Exception) -> bool:
+    message = str(exc or "").lower()
+    retry_markers = (
+        "failed to bootstrap the artifact",
+        "dependencyresolutionexception",
+        "premature end of content-length",
+        "could not transfer artifact",
+        "lastupdated",
+        "failed to create a jvm with the requested environment",
+    )
+    return any(marker in message for marker in retry_markers)
+
+
 def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
     fiji_root = resolve_fiji_root(fiji_dir or configured_fiji_path())
     print(f"Checking Fiji root: {fiji_root}")
@@ -836,7 +992,19 @@ def check_fiji(fiji_dir: Optional[Path], *, interactive: bool) -> bool:
             return False
         mode = imagej.Mode.INTERACTIVE if interactive else imagej.Mode.HEADLESS
         print(f"Initializing pyimagej in {mode} mode ...")
-        ij = imagej.init(str(fiji_root), mode=mode)
+        try:
+            ij = imagej.init(str(fiji_root), mode=mode)
+        except Exception as exc:
+            if not _should_retry_fiji_bootstrap(exc):
+                raise
+            print("pyimagej bootstrap failed in a way that often leaves stale Maven/jgo cache entries.")
+            print("Cleaning targeted Fiji bootstrap caches and retrying once ...")
+            cleaned = _cleanup_fiji_bootstrap_caches()
+            if not cleaned:
+                print("No targeted stale Fiji bootstrap caches were found to clean.")
+            if not ensure_project_maven():
+                return False
+            ij = imagej.init(str(fiji_root), mode=mode)
         print(f"ImageJ version: {ij.getVersion()}")
         try:
             from core_tool.fiji import check_declared_fiji_capabilities
@@ -1161,16 +1329,16 @@ def main() -> None:
     suggestions = suggest_values(cfg_path)
     print_suggestions(suggestions)
 
-    existing_objective_labels = dict(system_config.objective_labels)
-    existing_dichroic_colors = dict(system_config.dichroic_colors)
     objective_device = suggestions["objective_device"]["value"]
     dichroic_device = suggestions["Dichroic"]["value"]
 
-    objective_labels = build_objective_labels(cfg_data, objective_device, existing_objective_labels)
-    dichroic_colors = build_dichroic_colors(cfg_data, dichroic_device, existing_dichroic_colors)
+    objectives = build_objectives(cfg_data, objective_device, {})
+    channels = build_channels(cfg_data, dichroic_device, {})
+    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
 
-    print_mapping_preview("objective_labels preview", objective_labels)
-    print_mapping_preview("dichroic_colors preview", dichroic_colors)
+    print_mapping_preview("objectives semantic mapping preview", objectives)
+    print_mapping_preview("channels semantic mapping preview", channels)
+    print_mapping_preview("transmitted_light preview", transmitted_light)
 
     if args.apply:
         updates = {
@@ -1180,10 +1348,12 @@ def main() -> None:
         }
         applied = apply_updates(system_config_path, updates)
         dict_updates: List[str] = []
-        if objective_labels and apply_dict_update(system_config_path, "objective_labels", objective_labels):
-            dict_updates.append("objective_labels")
-        if dichroic_colors and apply_dict_update(system_config_path, "dichroic_colors", dichroic_colors):
-            dict_updates.append("dichroic_colors")
+        if objectives and apply_dict_update(system_config_path, "objectives", objectives):
+            dict_updates.append("objectives")
+        if channels and apply_dict_update(system_config_path, "channels", channels):
+            dict_updates.append("channels")
+        if transmitted_light and apply_dict_update(system_config_path, "transmitted_light", transmitted_light):
+            dict_updates.append("transmitted_light")
 
         all_updates = applied + dict_updates
         if all_updates:

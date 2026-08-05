@@ -12,9 +12,13 @@ from typing import Sequence, Literal
 from skimage import measure, restoration, io
 from skimage.restoration import estimate_sigma, denoise_nl_means
 import tifffile
+
+logger = logging.getLogger(__name__)
+
 try:
     import cv2
 except Exception:
+    logger.debug("OpenCV is unavailable; Cellpose preview helpers that need cv2 will use fallback paths.", exc_info=True)
     cv2 = None
 import cellpose.core as cellpose_core
 import cellpose.models as cellpose_models
@@ -22,8 +26,6 @@ import torch
 
 from core_tool.spatial_metadata import load_ome_spatial_metadata
 from tool.base import BaseTool, tool_func
-
-logger = logging.getLogger(__name__)
 
 _DIGIT_BITMAPS: dict[str, list[str]] = {
     "0": ["111", "101", "101", "101", "111"],
@@ -81,6 +83,7 @@ class Cellpose2D(BaseTool):
             try:
                 signature = inspect.signature(cellpose_models.CellposeModel)
             except Exception:
+                logger.debug("Failed to inspect CellposeModel signature; not passing explicit device.", exc_info=True)
                 signature = None
             if signature is not None and "device" in signature.parameters:
                 kwargs["device"] = torch.device(resolved_device)
@@ -313,9 +316,15 @@ class Cellpose2D(BaseTool):
                 preview = self._normalize_preview_image(image)
                 if preview.shape[:2] == masks_2d.shape:
                     return preview
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to load Cellpose preview base image with %s: %s", loader, exc, exc_info=True)
                 continue
 
+        logger.warning(
+            "Using mask-derived fallback preview because source image could not be loaded or shape did not match. source=%s mask_shape=%s",
+            resolved,
+            masks_2d.shape,
+        )
         fallback = masks_2d.astype(np.float32, copy=False)
         if fallback.size and float(np.max(fallback)) > 0:
             fallback = fallback / float(np.max(fallback))
@@ -759,7 +768,12 @@ class Cellpose2D(BaseTool):
             try:
                 self._save_target_location_preview(source_image_path, masks_2d, regions, output_path)
             except Exception as preview_exc:
-                logger.warning("Failed to save Cellpose annotated target preview for %s: %s", output_path, preview_exc)
+                logger.warning(
+                    "Failed to save Cellpose annotated target preview for %s: %s",
+                    output_path,
+                    preview_exc,
+                    exc_info=True,
+                )
             return output_path
         except Exception as e:
             raise IOError(f"Failed to save target locations JSON: {e}")

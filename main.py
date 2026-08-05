@@ -1,5 +1,6 @@
 ﻿import logging
 import os
+import asyncio
 import multiprocessing as mp
 import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
@@ -11,19 +12,13 @@ os.environ["PYMM_LOG_FILE"] = "0"
 os.environ["BFIO_LOG_TO_FILE"] = "0"
 
 from bootstrap.config import load_runtime_settings
-from services.task_orchestrator import TaskPlan, TaskRequest
-from utils.cli_logging import configure_cli_logging, get_cli_logger
-from utils.interaction_flow import (
-    combine_clarification_context,
-    interpret_clarification_feedback,
-    interpret_plan_feedback,
-    is_debug_plan_request,
-    pick_text,
-    prefers_chinese,
-)
-from utils.preview_process import PreviewProcessManager
-from utils.runtime_core import initialize_system_components, release_resources, setup_microscope
-from utils.runtime_text import format_raw_planner_debug
+from services.task_interaction import TaskInteractionPorts, TaskInteractionSession
+from services.task_orchestrator import TaskPlan
+from interfaces.cli_logging import configure_cli_logging, get_cli_logger
+from interfaces.interaction_flow import pick_text, prefers_chinese
+from interfaces.preview_process import PreviewProcessManager
+from runtime.factory import initialize_system_components
+from runtime.hardware_lifecycle import release_resources, setup_microscope
 
 
 NOISY_LOGGERS = [
@@ -233,10 +228,6 @@ def print_cli_skill_routing_summary(runtime_context, plan: TaskPlan, *, prefers_
     print_scopebot_message(message)
 
 
-def print_cli_raw_planner_debug(plan: TaskPlan, *, prefers_zh: bool) -> None:
-    print_scopebot_message(format_raw_planner_debug(plan, prefers_zh=prefers_zh))
-
-
 def _record_cli_user_input(
     runtime_context,
     text: str,
@@ -255,233 +246,55 @@ def _record_cli_user_input(
     )
 
 def request_plan_confirmation(runtime_context, original_command: str) -> Optional[TaskPlan]:
-    current_command = original_command.strip()
-    revisions: list[str] = []
-    clarification_entries: list[str] = []
-    prefers_zh = prefers_chinese(original_command)
-
-    while True:
+    def plan_request(request):
         with capture_technical_output():
-            plan = runtime_context.task_orchestrator.plan(
-                TaskRequest(
-                    user_command=current_command,
-                    human_mode=True,
-                    planner_context=combine_clarification_context(clarification_entries),
-                )
-            )
-        if plan.tokens:
-            planner_logger.info("Planner tokens: %s", plan.tokens)
-        print_cli_skill_routing_summary(runtime_context, plan, prefers_zh=prefers_zh)
+            return runtime_context.task_orchestrator.plan(request)
 
-        if plan.ready and plan.steps:
-            stream_scopebot_message(
-                lambda on_delta: runtime_context.task_orchestrator.stream_plan_preview(plan, on_delta)
-            )
-            reply = cli_input(
-                pick_text(
-                    prefers_zh,
-                    "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'debug_plan' to inspect the raw planner output, or type a revision:\nYou: ",
-                    "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'debug_plan' to inspect the raw planner output, or type a revision:\nYou: ",
-                )
-            )
-            _record_cli_user_input(
-                runtime_context,
-                reply,
-                input_kind="plan_feedback",
-                prompt_text="plan_ready_confirmation",
-                command_snapshot=current_command,
-            )
-            if is_debug_plan_request(reply):
-                print_cli_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                continue
-            decision = interpret_plan_feedback(
-                reply,
-                plan_ready=True,
-                original_command=original_command,
-                revisions=revisions,
-            )
-            if decision.action == "confirm":
-                return plan
-            if decision.action == "cancel":
-                print_scopebot_message(
-                    pick_text(
-                        prefers_zh,
-                        "Okay, I will not execute this plan for now. You can revise it and ask me again later.",
-                        "Okay, I will not execute this plan for now. You can revise it and ask me again later.",
-                    )
-                )
-                return None
-
-            if decision.action == "empty":
-                print_scopebot_message(
-                    pick_text(
-                        prefers_zh,
-                        "I have not received any revision yet. You can confirm, cancel, or type a revision directly.",
-                        "I have not received any revision yet. You can confirm, cancel, or type a revision directly.",
-                    )
-                )
-                continue
-
-            revisions = decision.revisions
-            current_command = decision.current_command
-            print_scopebot_message(
-                pick_text(
-                    prefers_zh,
-                    "Received. I will reorganize the plan based on your revision.",
-                    "Received. I will reorganize the plan based on your revision.",
-                )
-            )
-            print_divider()
-            continue
-
-        if getattr(plan, "status", "") == "ask_user":
-            prompt_text = str(plan.question or "").strip() or pick_text(
-                prefers_zh,
-                "I need one key detail before I can continue planning.",
-                "I need one key detail before I can continue planning.",
-            )
-            print_scopebot_message(prompt_text)
-            reply = cli_input(
-                pick_text(
-                    prefers_zh,
-                    "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':\nYou: ",
-                    "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':\nYou: ",
-                )
-            )
-            _record_cli_user_input(
-                runtime_context,
-                reply,
-                input_kind="plan_feedback",
-                prompt_text=prompt_text,
-                command_snapshot=current_command,
-            )
-            if is_debug_plan_request(reply):
-                print_cli_raw_planner_debug(plan, prefers_zh=prefers_zh)
-                continue
-            clarification_decision = interpret_clarification_feedback(
-                reply,
-                entries=clarification_entries,
-                planner_question=prompt_text,
-            )
-            if clarification_decision.action == "cancel":
-                print_scopebot_message(
-                    pick_text(
-                        prefers_zh,
-                        "Okay, I will pause this task for now.",
-                        "Okay, I will pause this task for now.",
-                    )
-                )
-                return None
-            if clarification_decision.action == "confirm_without_plan":
-                print_scopebot_message(
-                    pick_text(
-                        prefers_zh,
-                        "I still do not have an executable plan yet, so I cannot start. Please answer the question first.",
-                        "I still do not have an executable plan yet, so I cannot start. Please answer the question first.",
-                    )
-                )
-                continue
-            if clarification_decision.action == "empty":
-                print_scopebot_message(
-                    pick_text(
-                        prefers_zh,
-                        "I have not received any new detail yet. Please answer the question first or type 'cancel'.",
-                        "I have not received any new detail yet. Please answer the question first or type 'cancel'.",
-                    )
-                )
-                continue
-
-            clarification_entries = clarification_decision.entries
-            print_scopebot_message(
-                pick_text(
-                    prefers_zh,
-                    "Received. I will replan using that resolved workflow detail.",
-                    "Received. I will replan with that new detail.",
-                )
-            )
-            print_divider()
-            continue
-
-        if getattr(plan, "status", "") == "unsupported":
-            print_scopebot_message(
-                pick_text(
-                    prefers_zh,
-                    "The current system cannot execute this request. Here is the original planner output:",
-                    "The current system cannot execute this request. Here is the original planner output:",
-                )
-            )
-            print_scopebot_message(plan.planner_raw_response or plan.error or "Unsupported request.")
-            return None
-
-        print_scopebot_message(
-            pick_text(
-                prefers_zh,
-                "I still cannot turn this into an executable plan. You can add more detail or type 'cancel'.",
-                "I still cannot turn this into an executable plan. You can add more detail or type 'cancel'.",
-            )
+    def stream_preview(plan: TaskPlan) -> str:
+        return stream_scopebot_message(
+            lambda on_delta: runtime_context.task_orchestrator.stream_plan_preview(plan, on_delta)
         )
-        reply = cli_input(
-            pick_text(
-                prefers_zh,
-                "Please add a revision, type 'debug_plan' to inspect the raw planner output, or type 'cancel':\nYou: ",
-                "Please add a revision, type 'debug_plan' to inspect the raw planner output, or type 'cancel':\nYou: ",
-            )
-        )
+
+    def prompt_user(prompt_text: str, command_snapshot: str) -> str:
+        del command_snapshot
+        return cli_input(f"{prompt_text}\nYou: ")
+
+    def record_user_input(text: str, input_kind: str, prompt_text: str, command_snapshot: str) -> None:
         _record_cli_user_input(
             runtime_context,
-            reply,
-            input_kind="plan_feedback",
-            prompt_text="plan_revision_request",
-            command_snapshot=current_command,
+            text,
+            input_kind=input_kind,
+            prompt_text=prompt_text,
+            command_snapshot=command_snapshot,
         )
-        if is_debug_plan_request(reply):
-            print_cli_raw_planner_debug(plan, prefers_zh=prefers_zh)
-            continue
-        decision = interpret_plan_feedback(
-            reply,
-            plan_ready=False,
-            original_command=original_command,
-            revisions=revisions,
-        )
-        if decision.action == "cancel":
-            print_scopebot_message(
-                pick_text(
-                    prefers_zh,
-                    "Okay, I will pause this task for now.",
-                    "Okay, I will pause this task for now.",
-                )
-            )
-            return None
-        if decision.action == "confirm_without_plan":
-            print_scopebot_message(
-                pick_text(
-                    prefers_zh,
-                    "I still do not have an executable updated plan, so I cannot start yet. Please keep revising it.",
-                    "I still do not have an executable updated plan, so I cannot start yet. Please keep revising it.",
-                )
-            )
-            continue
-        if decision.action == "empty":
-            continue
-        revisions = decision.revisions
-        current_command = decision.current_command
-        print_scopebot_message(
-            pick_text(
-                prefers_zh,
-                "Received. I will keep replanning.",
-                "Received. I will keep replanning.",
-            )
-        )
-        print_divider()
+
+    ports = TaskInteractionPorts(
+        plan=plan_request,
+        stream_plan_preview=stream_preview,
+        prompt_user=prompt_user,
+        send_robot_message=print_scopebot_message,
+        emit_skill_summary=lambda plan, prefers_zh: print_cli_skill_routing_summary(
+            runtime_context,
+            plan,
+            prefers_zh=prefers_zh,
+        ),
+        record_user_input=record_user_input,
+        log_planner_tokens=lambda tokens: planner_logger.info("Planner tokens: %s", tokens),
+        after_replan_notice=print_divider,
+    )
+    outcome = asyncio.run(TaskInteractionSession(ports).request_plan_confirmation(original_command))
+    if outcome.confirmed:
+        return outcome.plan
+    return None
 
 
 def main() -> None:
     show_eims_welcome_logo()
     cli_print(f"Technical logs: {CLI_LOG_PATH}")
     settings = load_runtime_settings()
-    simulation_mode = bool(settings.model.Simulation_mode)
+    microscope_mode = str(settings.model.microscope_mode).strip().lower()
     with capture_technical_output():
-        runtime_context = initialize_system_components(settings.model.Simulation_mode)
+        runtime_context = initialize_system_components()
     preview_manager: Optional[PreviewProcessManager] = None
 
     try:
@@ -489,8 +302,8 @@ def main() -> None:
             runtime_context.env_imagej.set_interaction_artifact_listener(show_cli_interaction_artifact)
         with capture_technical_output():
             setup_microscope(runtime_context.env_olympus, settings.startup)
-        if simulation_mode:
-            system_logger.info("Simulation mode detected; skipping local preview window startup.")
+        if microscope_mode == "demo":
+            system_logger.info("Micro-Manager demo microscope mode detected; skipping local preview window startup.")
         else:
             if bool(getattr(settings.startup, "start_preview", True)) and hasattr(runtime_context.env_olympus, "start_preview"):
                 try:

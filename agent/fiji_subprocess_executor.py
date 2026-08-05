@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from typing import Any, Optional
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 ROBOT_SAYS_PREFIX = "robot says:"
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -75,12 +77,12 @@ def _kill_process_tree(proc: subprocess.Popen[str]) -> None:
             )
             return
         except Exception:
-            pass
+            logger.warning("Failed to terminate Fiji subprocess tree with taskkill. pid=%s", proc.pid, exc_info=True)
 
     try:
         proc.kill()
     except Exception:
-        pass
+        logger.warning("Failed to kill Fiji subprocess. pid=%s", proc.pid, exc_info=True)
 
 
 def _read_result_json(result_path: Path) -> dict[str, Any]:
@@ -89,6 +91,7 @@ def _read_result_json(result_path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(result_path.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("Failed to read Fiji subprocess result JSON: %s", result_path, exc_info=True)
         return {}
     return payload if isinstance(payload, dict) else {}
 
@@ -99,6 +102,7 @@ def _read_text_tail(path: Path, max_chars: int = 4000) -> str:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
+        logger.warning("Failed to read Fiji subprocess log tail: %s", path, exc_info=True)
         return ""
     return text[-max_chars:]
 
@@ -137,15 +141,29 @@ def _tail_from_lines(lines: deque[str], max_chars: int = 4000) -> str:
     return "".join(lines)[-max_chars:]
 
 
+def _format_child_error_summary(child_error: Any, stdout_tail: str, *, max_chars: int = 1200) -> str:
+    text = str(child_error or "").strip()
+    if not text:
+        text = str(stdout_tail or "").strip()
+    if not text:
+        return ""
+    if len(text) > max_chars:
+        text = "..." + text[-max_chars:]
+    return text
+
+
 def _merge_child_metadata(storage_manager: Any, metadata: dict[str, Any]) -> None:
     if storage_manager is None or not metadata:
         return
     if not hasattr(storage_manager, "merge_external_metadata"):
         return
-    storage_manager.merge_external_metadata(
-        storage=metadata.get("storage") or {},
-        cache=metadata.get("cache") or {},
-    )
+    try:
+        storage_manager.merge_external_metadata(
+            storage=metadata.get("storage") or {},
+            cache=metadata.get("cache") or {},
+        )
+    except Exception:
+        logger.warning("Failed to merge Fiji subprocess metadata into storage manager.", exc_info=True)
 
 
 def _cleanup_attempt_artifacts(paths: list[Path]) -> None:
@@ -154,7 +172,7 @@ def _cleanup_attempt_artifacts(paths: list[Path]) -> None:
             if path.exists():
                 path.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to remove Fiji subprocess temporary artifact: %s", path, exc_info=True)
 
 
 def _build_temp_executor_dir(session_path: Path) -> Path:
@@ -181,7 +199,7 @@ def _replay_artifacts(artifact_emitter: Any, artifacts: list[dict[str, Any]]) ->
         try:
             artifact_emitter(dict(artifact))
         except Exception:
-            pass
+            logger.warning("Failed to replay Fiji subprocess artifact event: %s", artifact, exc_info=True)
 
 
 def _start_output_forwarder(
@@ -292,7 +310,7 @@ def run_generated_fiji_code_in_subprocess(
                 try:
                     proc.wait(timeout=5)
                 except Exception:
-                    pass
+                    logger.debug("Fiji subprocess did not exit cleanly after timeout termination. pid=%s", proc.pid, exc_info=True)
                 output_thread.join(timeout=5)
                 log_handle.close()
                 duration = time.monotonic() - started
@@ -353,8 +371,15 @@ def run_generated_fiji_code_in_subprocess(
                 "attempt": attempt,
                 "max_attempts": attempts,
             }
+            error_detail = _format_child_error_summary(
+                child_payload.get("error"),
+                result.stdout,
+            )
+            message = f"Fiji executor failed with exit code {proc.returncode}."
+            if error_detail:
+                message = f"{message} Child error/log tail: {error_detail}"
             error = FijiSubprocessError(
-                f"Fiji executor failed with exit code {proc.returncode}.",
+                message,
                 payload=payload,
             )
             last_error = error
