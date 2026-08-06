@@ -58,7 +58,7 @@ def download_bge_m3(*, force: bool) -> None:
     except ImportError as exc:
         raise RuntimeError(
             "huggingface_hub is required to download model assets.\n"
-            "Install it with: pip install huggingface_hub"
+            "Restore the locked project environment with: uv sync --frozen"
         ) from exc
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)

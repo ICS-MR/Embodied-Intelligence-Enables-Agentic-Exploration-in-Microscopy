@@ -1,28 +1,41 @@
 ﻿import shutil
 from os import path as os_path
+import asyncio
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from api.dependencies import get_runtime_manager
-from api.models import ConfigSaveRequest, ConfigSaveResponse, ConfigStatusResponse, ConfigUploadResponse
+from api.models import (
+    ConfigSaveRequest,
+    ConfigSaveResponse,
+    ConfigStatusResponse,
+    ConfigUploadResponse,
+    LLMConnectionTestRequest,
+    LLMConnectionTestResponse,
+    VLMConnectionTestRequest,
+    VLMConnectionTestResponse,
+)
 from bootstrap.config import (
     build_demo_startup_overrides,
     build_demo_system_overrides,
     is_demo_mapping_payload,
+    load_runtime_settings,
     read_public_config_snapshot,
     save_env_secrets,
 )
 from runtime.asset_check import check_snapshot_assets
-from services.runtime_manager import LifecycleConflictError
-from system_config_wizard import (
-    build_channels,
-    build_objectives,
-    build_transmitted_light_mapping,
-    parse_mm_config,
-    suggest_values,
+from services.config_mapping_ai import analyze_config_mapping
+from services.llm_health import (
+    LLMConnectionConfig,
+    VLMConnectionConfig,
+    validate_llm_connection,
+    validate_vlm_connection,
 )
+from services.mm_hardware_inventory import inspect_micro_manager_config, merge_runtime_inventory
+from services.runtime_manager import LifecycleConflictError
+from system_config_wizard import build_cfg_inventory
 
 
 router = APIRouter()
@@ -51,6 +64,23 @@ def normalize_config_path(new_value: str, current_value: str) -> str:
     return str(Path(expanded))
 
 
+def _require_real_mapping_mode(microscope_mode: str) -> None:
+    if microscope_mode != "real":
+        raise HTTPException(
+            status_code=409,
+            detail="External Micro-Manager cfg import is available only in Real microscope mode.",
+        )
+
+
+def _format_llm_connection_error(exc: Exception) -> str:
+    message = str(exc).strip()
+    return message or exc.__class__.__name__
+
+
+def _clean_form_text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
 @router.get("/api/config/status", response_model=ConfigStatusResponse)
 async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> ConfigStatusResponse:
     snapshot = read_public_config_snapshot()
@@ -70,40 +100,111 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         real_system_draft=persisted_snapshot["system"],
         demo_system=build_demo_system_overrides(),
         demo_startup=build_demo_startup_overrides(),
+        transmitted_light_runtime=runtime_manager.get_transmitted_light_runtime_info(),
         agent=snapshot["agent"],
         startup=snapshot["startup"],
     )
 
 
 @router.post("/api/config/upload-cfg", response_model=ConfigUploadResponse)
-async def upload_cfg(file: UploadFile = File(...), runtime_manager=Depends(get_runtime_manager)) -> ConfigUploadResponse:
+async def upload_cfg(
+    file: UploadFile = File(...),
+    microscope_mode: str = Form("real"),
+    inspect_hardware: bool = Form(False),
+    mm_dir: str = Form(""),
+    openai_api_key: str = Form(""),
+    base_url: str = Form(""),
+    model_name: str = Form(""),
+    runtime_manager=Depends(get_runtime_manager),
+) -> ConfigUploadResponse:
     try:
         await runtime_manager.ensure_configuration_mutable()
     except LifecycleConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if not file.filename.lower().endswith(".cfg"):
+    _require_real_mapping_mode((_clean_form_text(microscope_mode) or "real").lower())
+    filename = str(file.filename or "")
+    if not filename.lower().endswith(".cfg"):
         raise HTTPException(status_code=400, detail="Please upload a .cfg file.")
 
     UPLOADED_CFG_DIR.mkdir(parents=True, exist_ok=True)
-    saved_path = UPLOADED_CFG_DIR / Path(file.filename).name
+    saved_path = UPLOADED_CFG_DIR / Path(filename).name
     with saved_path.open("wb") as target:
         shutil.copyfileobj(file.file, target)
 
-    suggestions = suggest_values(saved_path)
-    cfg_data = parse_mm_config(saved_path)
-    objectives = build_objectives(cfg_data, suggestions["objective_device"]["value"], {})
-    channels = build_channels(cfg_data, suggestions["Dichroic"]["value"], {})
-    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
+    runtime_settings = load_runtime_settings(apply_demo_overlay=False)
+    request_api_key = _clean_form_text(openai_api_key)
+    request_base_url = _clean_form_text(base_url)
+    request_model_name = _clean_form_text(model_name)
+    if request_api_key:
+        runtime_settings.model.openai_api_key = request_api_key
+    if request_base_url:
+        runtime_settings.model.base_url = request_base_url
+    if request_model_name:
+        runtime_settings.model.model_name = request_model_name
+    inventory = build_cfg_inventory(saved_path)
+    inspection_status = "skipped"
+    inspected_device_count = 0
+    inspection_warning = ""
+    if inspect_hardware:
+        try:
+            runtime_inventory = await runtime_manager.inspect_micro_manager_hardware(
+                inspect_micro_manager_config,
+                mm_dir=_clean_form_text(mm_dir) or str(runtime_settings.system.MM_DIR or ""),
+                config_path=saved_path,
+            )
+            inventory = merge_runtime_inventory(inventory, runtime_inventory)
+            inspection_status = "completed"
+            inspected_device_count = len(runtime_inventory.get("devices", []))
+        except LifecycleConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception as exc:
+            inspection_status = "unavailable"
+            inspection_warning = (
+                "Micro-Manager hardware inspection was unavailable; AI used cfg-only inventory: "
+                f"{_format_llm_connection_error(exc)}"
+            )
+    analysis = analyze_config_mapping(
+        inventory=inventory,
+        model_config=runtime_settings.model,
+        current_system=runtime_settings.system,
+    )
+    analysis.hardware_inspection_status = inspection_status
+    analysis.inspected_device_count = inspected_device_count
+    if inspection_warning:
+        analysis.warnings.append(inspection_warning)
 
     return ConfigUploadResponse(
         config_path=str(saved_path),
-        stored_config_path=str(saved_path),
-        original_filename=Path(file.filename).name,
-        suggestions=suggestions,
-        objectives=objectives,
-        channels=channels,
-        transmitted_light=transmitted_light,
+        mapping=analysis,
     )
+
+
+@router.post("/api/config/test-llm", response_model=LLMConnectionTestResponse)
+async def test_llm_connection(req: LLMConnectionTestRequest) -> LLMConnectionTestResponse:
+    config = LLMConnectionConfig(
+        openai_api_key=req.openai_api_key,
+        base_url=req.base_url,
+        model_name=req.model_name,
+    )
+    try:
+        await asyncio.to_thread(validate_llm_connection, config)
+    except Exception as exc:
+        return LLMConnectionTestResponse(ok=False, detail=_format_llm_connection_error(exc))
+    return LLMConnectionTestResponse(ok=True, detail="")
+
+
+@router.post("/api/config/test-vlm", response_model=VLMConnectionTestResponse)
+async def test_vlm_connection(req: VLMConnectionTestRequest) -> VLMConnectionTestResponse:
+    config = VLMConnectionConfig(
+        vlm_api_key=req.vlm_api_key,
+        vlm_base_url=req.vlm_base_url,
+        vlm_model_name=req.vlm_model_name,
+    )
+    try:
+        await asyncio.to_thread(validate_vlm_connection, config)
+    except Exception as exc:
+        return VLMConnectionTestResponse(ok=False, detail=_format_llm_connection_error(exc))
+    return VLMConnectionTestResponse(ok=True, detail="")
 
 
 @router.post("/api/config/save", response_model=ConfigSaveResponse)
@@ -124,7 +225,6 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
             camera_device=req.camera_device,
             xy_stage_device=req.xy_stage_device,
             objective_device=req.objective_device,
-            transmitted_illumination=req.transmittedIllumination,
             focus_drive=req.focus_drive,
             dichroic=req.Dichroic,
             objectives=req.objectives,
@@ -155,11 +255,6 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
             if microscope_mode == "demo" or preserve_persisted_hardware_fields
             else coalesce_text(req.objective_device, system_current["objective_device"])
         ),
-        "transmittedIllumination": (
-            system_current["transmittedIllumination"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
-            else coalesce_text(req.transmittedIllumination, system_current["transmittedIllumination"])
-        ),
         "focus_drive": (
             system_current["focus_drive"]
             if microscope_mode == "demo" or preserve_persisted_hardware_fields
@@ -179,6 +274,8 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
     maybe_number_update(system_updates, "Min_Z_position", req.Min_Z_position)
     maybe_number_update(system_updates, "Max_brightness", req.Max_brightness)
     maybe_number_update(system_updates, "Min_brightness", req.Min_brightness)
+    maybe_number_update(system_updates, "Max_exposure", req.Max_exposure)
+    maybe_number_update(system_updates, "Min_exposure", req.Min_exposure)
     if req.objectives and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
         system_updates["objectives"] = req.objectives
     if req.channels and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):

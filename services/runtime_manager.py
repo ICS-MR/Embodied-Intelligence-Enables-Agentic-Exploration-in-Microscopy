@@ -95,6 +95,15 @@ class RuntimeManager:
     def current_snapshot(self, *, apply_env: bool = True, apply_demo_overlay: bool = True) -> dict[str, Any]:
         return read_config_snapshot(apply_env=apply_env, apply_demo_overlay=apply_demo_overlay)
 
+    def get_transmitted_light_runtime_info(self) -> dict[str, Any]:
+        if not self.system_status.initialized or self.runtime_context is None:
+            return {}
+        microscope = getattr(self.runtime_context, "env_olympus", None)
+        get_info = getattr(microscope, "get_transmitted_light_runtime_info", None)
+        if not callable(get_info):
+            return {}
+        return dict(get_info() or {})
+
     def _current_mode_summary(self) -> str:
         if self.runtime_context is not None:
             agent_cfg = self.runtime_context.runtime["agent"]
@@ -139,9 +148,18 @@ class RuntimeManager:
         if not self.server_loop:
             return
         self.server_loop.call_soon_threadsafe(
-            self.app_state.session.output_queue.put_nowait,
+            self._publish_output_message,
             message,
         )
+
+    def _publish_output_message(self, message: dict[str, Any]) -> None:
+        session = self.app_state.session
+        if session.output_subscribers:
+            for subscriber in tuple(session.output_subscribers):
+                subscriber.put_nowait(dict(message))
+            return
+        # Keep messages produced before the first SSE connection for the next client.
+        session.output_queue.put_nowait(message)
 
     def _send_message(self, message_type: str, text: str, **extra: Any) -> None:
         payload = {"type": message_type, "text": text}
@@ -381,18 +399,20 @@ class RuntimeManager:
             }
         )
 
-    def _finish_llm_stream(self, stream_id: str, *, final_type: str) -> None:
+    def _finish_llm_stream(self, stream_id: str, *, final_type: str, text: str = "") -> None:
         self.enqueue_output_message(
             {
                 "type": "llm_stream_end",
                 "stream_id": stream_id,
                 "final_type": final_type,
+                "text": text,
             }
         )
 
     async def _stream_scopebot_message(self, producer, *, final_type: str = "robot_say") -> str:
         stream_id = self._start_llm_stream(role="robot", final_type=final_type)
         emitted_chunks: list[str] = []
+        final_text = ""
 
         def on_delta(delta: str) -> None:
             if not delta:
@@ -405,9 +425,10 @@ class RuntimeManager:
             if text and not emitted_chunks:
                 self._push_llm_stream_delta(stream_id, text)
                 emitted_chunks.append(text)
-            return text or "".join(emitted_chunks)
+            final_text = text or "".join(emitted_chunks)
+            return final_text
         finally:
-            self._finish_llm_stream(stream_id, final_type=final_type)
+            self._finish_llm_stream(stream_id, final_type=final_type, text=final_text)
 
     def _clear_pending_user_inputs(self) -> None:
         while True:
@@ -468,12 +489,15 @@ class RuntimeManager:
         self._send_message("robot_say", message)
 
     async def _prompt_for_plan_feedback(self, prompt_text: str) -> str:
-        self.app_state.session.is_asking_user = True
+        session = self.app_state.session
+        session.is_asking_user = True
+        session.pending_user_prompt = {"type": "ask_user", "text": prompt_text, "mode": "plan_confirmation"}
         self._send_message("ask_user", prompt_text, mode="plan_confirmation")
         try:
-            return await self.app_state.session.input_queue.get()
+            return await session.input_queue.get()
         finally:
-            self.app_state.session.is_asking_user = False
+            session.is_asking_user = False
+            session.pending_user_prompt = None
 
     async def release_system(self) -> None:
         await self.runtime_lifecycle.release_system(self.runtime_context)
@@ -695,6 +719,37 @@ class RuntimeManager:
         async with self._lifecycle_lock:
             if self.system_status.system_phase in {"initializing", "executing", "releasing"}:
                 raise LifecycleConflictError("Configuration cannot be changed while the device is busy.")
+
+    async def inspect_micro_manager_hardware(self, inspector: Any, **kwargs: Any) -> dict[str, Any]:
+        async with self._lifecycle_lock:
+            if self.system_status.system_phase in {"initializing", "executing", "releasing"}:
+                raise LifecycleConflictError("Hardware cannot be inspected while the device is busy.")
+            if self.system_status.initialized:
+                self._set_system_status(
+                    phase="releasing",
+                    initialized=False,
+                    initializing=False,
+                    error=None,
+                    message="Releasing the active runtime for Micro-Manager hardware inspection...",
+                )
+                await self.release_system()
+            self._set_system_status(
+                phase="initializing",
+                initialized=False,
+                initializing=True,
+                error=None,
+                message="Inspecting Micro-Manager Device Adapter capabilities...",
+            )
+            try:
+                return await asyncio.to_thread(inspector, **kwargs)
+            finally:
+                self._set_system_status(
+                    phase="ready_to_start",
+                    initialized=False,
+                    initializing=False,
+                    error=None,
+                    message="Hardware inspection finished. Review and save the mapping draft.",
+                )
 
     async def execute_exclusive(self, command: str) -> dict[str, Any]:
         async with self._lifecycle_lock:
@@ -944,18 +999,29 @@ class RuntimeManager:
             self._send_message("robot_say", summary)
 
     async def global_message_stream(self) -> AsyncGenerator[str, None]:
-        if not self.app_state.session.first_connection_made:
-            self.app_state.session.first_connection_made = True
+        session = self.app_state.session
+        subscriber: asyncio.Queue = asyncio.Queue()
+        while True:
+            try:
+                subscriber.put_nowait(session.output_queue.get_nowait())
+            except asyncio.QueueEmpty:
+                break
+        session.output_subscribers.add(subscriber)
+        if not session.first_connection_made:
+            session.first_connection_made = True
             if self.system_status.initialized:
-                await self.app_state.session.output_queue.put(
+                self._publish_output_message(
                     {"type": "robot_say", "text": "Microscope is ready! Please enter commands."}
                 )
+        if session.pending_user_prompt is not None:
+            subscriber.put_nowait(dict(session.pending_user_prompt))
 
         while True:
             try:
-                msg = await self.app_state.session.output_queue.get()
+                msg = await subscriber.get()
                 yield f"data: {json.dumps(msg, ensure_ascii=False)}\n\n"
             except asyncio.CancelledError:
+                session.output_subscribers.discard(subscriber)
                 break
             except Exception as exc:
                 logger.error("SSE generator error: %s", exc)
@@ -964,6 +1030,7 @@ class RuntimeManager:
     async def receive_user_input(self, text: str) -> dict[str, str]:
         if not self.app_state.session.is_asking_user:
             return UserInputResponse(status="ignored", message="No user input is being waited for currently").model_dump()
+        self.app_state.session.pending_user_prompt = None
         await self.app_state.session.input_queue.put(text)
         return UserInputResponse(status="ok", message="Input received").model_dump()
 

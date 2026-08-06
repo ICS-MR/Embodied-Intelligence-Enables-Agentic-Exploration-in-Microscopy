@@ -113,9 +113,6 @@
         }
 
         .config-hero {
-            display: grid;
-            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-            gap: 24px;
             flex: 0 0 auto;
         }
 
@@ -128,8 +125,8 @@
         }
 
         .hero-main {
-            padding: 32px;
-            background: linear-gradient(145deg, #ffffff, #f8f9ff);
+            padding: 24px 28px;
+            background: var(--panel);
         }
 
         .eyebrow {
@@ -147,9 +144,10 @@
         }
 
         .hero-main h1 {
-            margin-top: 18px;
-            font-size: clamp(2rem, 4vw, 3.4rem);
-            line-height: 1.08;
+            margin-top: 12px;
+            font-size: 1.8rem;
+            line-height: 1.2;
+            letter-spacing: 0;
         }
 
         .hero-main p {
@@ -162,15 +160,21 @@
         .meta-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 14px;
-            margin-top: 24px;
+            gap: 0;
+            margin-top: 18px;
+            padding: 12px 0;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
         }
 
         .meta-card {
-            padding: 16px;
-            border-radius: var(--radius-lg);
-            background: var(--gradient-soft);
-            border: 1px solid rgba(102, 126, 234, 0.12);
+            padding: 6px 18px;
+            border-left: 1px solid var(--line);
+        }
+
+        .meta-card:first-child {
+            padding-left: 0;
+            border-left: 0;
         }
 
         .meta-card strong {
@@ -185,14 +189,16 @@
             line-height: 1.5;
         }
 
-        .hero-status {
-            padding: 28px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 18px;
-            background: var(--gradient-main);
-            color: var(--text-white);
+        .config-status-strip {
+            margin-top: 14px;
+            padding: 10px 12px;
+            border-radius: var(--radius-lg);
+            background: rgba(102, 126, 234, 0.08);
+            border: 1px solid rgba(102, 126, 234, 0.14);
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 14px;
         }
 
         .status-chip {
@@ -202,7 +208,8 @@
             width: fit-content;
             padding: 10px 14px;
             border-radius: var(--radius-pill);
-            background: rgba(255, 255, 255, 0.18);
+            background: rgba(102, 126, 234, 0.12);
+            color: #5a67d8;
             font-weight: 700;
         }
 
@@ -213,29 +220,50 @@
             background: currentColor;
         }
 
-        .hero-status h2 {
-            font-size: 2rem;
-            margin-top: 16px;
+        .config-status-detail,
+        .config-status-summary {
+            color: var(--text-secondary);
+            line-height: 1.5;
+            font-size: 0.92rem;
         }
 
-        .hero-status p,
-        .hero-status .status-summary {
-            line-height: 1.7;
-            color: rgba(255, 255, 255, 0.92);
+        .config-status-summary {
+            color: var(--text-muted);
+            text-align: right;
         }
 
         .config-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 24px;
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             min-height: 0;
         }
 
         .panel {
-            padding: 24px;
+            padding: 28px;
             min-height: 0;
-            overflow-y: auto;
+        }
+
+        .settings-panel {
+            display: grid;
+            grid-template-columns: minmax(210px, 0.32fr) minmax(0, 1fr);
+            gap: clamp(28px, 4vw, 56px);
+            align-items: start;
+        }
+
+        .panel-heading {
+            position: sticky;
+            top: 20px;
+        }
+
+        .section-index {
+            display: block;
+            margin-bottom: 10px;
+            color: #667eea;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
         }
 
         .panel h3 {
@@ -246,7 +274,55 @@
         .panel-subtitle {
             color: var(--text-secondary);
             line-height: 1.6;
-            margin-bottom: 18px;
+        }
+
+        .panel-body {
+            min-width: 0;
+        }
+
+        .settings-group + .settings-group {
+            margin-top: 26px;
+            padding-top: 26px;
+            border-top: 1px solid var(--line);
+        }
+
+        .settings-group h4 {
+            margin-bottom: 4px;
+            font-size: 1rem;
+        }
+
+        .settings-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .settings-group-header h4 {
+            margin-bottom: 0;
+        }
+
+        .group-description {
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            line-height: 1.5;
+        }
+
+        .provider-columns,
+        .startup-columns {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 28px;
+        }
+
+        .provider-columns .settings-group + .settings-group,
+        .startup-columns .settings-group + .settings-group {
+            margin-top: 0;
+            padding-top: 0;
+            padding-left: 28px;
+            border-top: 0;
+            border-left: 1px solid var(--line);
         }
 
         .upload-box {
@@ -258,6 +334,7 @@
             flex-direction: column;
             gap: 12px;
         }
+
 
         .upload-box label,
         .field label {
@@ -290,11 +367,87 @@
             font-size: 0.92rem;
         }
 
+        .cfg-import-status {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 14px;
+            border: 1px solid rgba(90, 103, 216, 0.18);
+            border-radius: var(--radius-md);
+            background: rgba(90, 103, 216, 0.07);
+            color: var(--text-secondary);
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .cfg-import-status.active {
+            display: block;
+        }
+
+        .cfg-import-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .cfg-import-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(90, 103, 216, 0.22);
+            border-top-color: #5a67d8;
+            border-radius: 50%;
+            animation: spin 0.85s linear infinite;
+        }
+
+        .cfg-import-progress {
+            position: relative;
+            height: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+            border-radius: var(--radius-pill);
+            background: rgba(90, 103, 216, 0.14);
+        }
+
+        .cfg-import-progress::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 38%;
+            border-radius: inherit;
+            background: #5a67d8;
+            animation: indeterminateProgress 1.15s ease-in-out infinite;
+        }
+
+        .cfg-import-help {
+            margin-top: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes indeterminateProgress {
+            0% {
+                transform: translateX(-110%);
+            }
+
+            100% {
+                transform: translateX(270%);
+            }
+        }
+
         .field-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
             margin-top: 18px;
+        }
+
+        .field-grid.three-column {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .field {
@@ -304,6 +457,47 @@
 
         .field.full {
             grid-column: 1 / -1;
+        }
+
+        .mapping-hint {
+            margin-top: 6px;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+
+        .mapping-hint.review {
+            color: #9a6700;
+        }
+
+        .mapping-input-row {
+            display: flex;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .mapping-input-row.has-candidates input {
+            min-width: 0;
+            border-radius: 14px 0 0 14px;
+        }
+
+        .field .mapping-candidate-picker {
+            display: none;
+            flex: 0 0 46px;
+            width: 46px;
+            padding: 0 8px;
+            border-left: 0;
+            border-radius: 0 14px 14px 0;
+            color: transparent;
+            cursor: pointer;
+        }
+
+        .mapping-input-row.has-candidates .mapping-candidate-picker {
+            display: block;
+        }
+
+        .mapping-candidate-picker option {
+            color: var(--text-primary);
         }
 
         .field input,
@@ -352,6 +546,60 @@
             border: 1px solid rgba(18, 24, 40, 0.1);
         }
 
+        .btn-test {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 96px;
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+
+        .test-status-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            color: var(--text-muted);
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .btn-test.testing .test-status-icon {
+            border: 2px solid rgba(90, 103, 216, 0.22);
+            border-top-color: #5a67d8;
+            animation: spin 0.85s linear infinite;
+        }
+
+        .btn-test.testing .test-status-icon,
+        .btn-test.pending .test-status-icon {
+            color: transparent;
+        }
+
+        .btn-test.success {
+            border-color: rgba(46, 125, 50, 0.28);
+            color: #2e7d32;
+        }
+
+        .btn-test.success .test-status-icon {
+            background: rgba(46, 125, 50, 0.12);
+            color: #2e7d32;
+        }
+
+        .btn-test.failed {
+            border-color: rgba(211, 47, 47, 0.28);
+            color: #d32f2f;
+        }
+
+        .btn-test.failed .test-status-icon {
+            background: rgba(211, 47, 47, 0.1);
+            color: #d32f2f;
+        }
+
         .feedback {
             margin-top: 16px;
             min-height: 24px;
@@ -376,6 +624,46 @@
             margin-top: 18px;
             color: var(--text-secondary);
             font-size: 0.92rem;
+        }
+
+        .config-action-bar {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto;
+            align-items: center;
+            gap: 24px;
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+        }
+
+        .config-action-copy strong {
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .config-action-copy p {
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .config-action-bar .actions {
+            justify-content: flex-end;
+            margin-top: 0;
+        }
+
+        .config-action-bar .feedback {
+            margin-top: 6px;
+            min-height: 0;
+            font-size: 0.9rem;
+        }
+
+        .required-mark {
+            color: var(--danger);
+            font-weight: 700;
+            margin-left: 3px;
         }
 
         .app-shell {
@@ -837,10 +1125,9 @@
         }
 
         @media (max-width: 1180px) {
-
-            .config-hero,
-            .config-grid {
-                grid-template-columns: 1fr;
+            .settings-panel {
+                grid-template-columns: 190px minmax(0, 1fr);
+                gap: 28px;
             }
 
             .app-shell {
@@ -877,14 +1164,65 @@
             }
 
             .hero-main,
-            .hero-status,
             .panel {
                 padding: 18px;
             }
 
-            .meta-grid,
-            .field-grid {
+            .hero-main h1 {
+                font-size: 1.55rem;
+            }
+
+            .meta-card,
+            .meta-card:first-child {
+                padding: 10px 0;
+                border-left: 0;
+                border-top: 1px solid var(--line);
+            }
+
+            .meta-card:first-child {
+                border-top: 0;
+            }
+
+            .settings-panel,
+            .provider-columns,
+            .startup-columns,
+            .config-action-bar {
                 grid-template-columns: 1fr;
+            }
+
+            .panel-heading {
+                position: static;
+            }
+
+            .provider-columns .settings-group + .settings-group,
+            .startup-columns .settings-group + .settings-group {
+                margin-top: 26px;
+                padding-top: 26px;
+                padding-left: 0;
+                border-top: 1px solid var(--line);
+                border-left: 0;
+            }
+
+            .config-action-bar {
+                position: static;
+            }
+
+            .config-action-bar .actions {
+                justify-content: flex-start;
+            }
+
+            .meta-grid,
+            .field-grid,
+            .field-grid.three-column {
+                grid-template-columns: 1fr;
+            }
+
+            .config-status-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .config-status-summary {
+                text-align: left;
             }
 
             .chat-header {
@@ -945,152 +1283,217 @@
                     <span class="eyebrow">Configuration Gateway</span>
                     <h1>Complete configuration to access the runtime interface</h1>
                     <div class="meta-grid">
-                        <div class="meta-card"><strong>1</strong><span>Import `.cfg` to suggest EIMS device and label
-                                mappings</span></div>
-                        <div class="meta-card"><strong>2</strong><span>Enter system paths & LLM / VLM API
-                                information</span></div>
-                        <div class="meta-card"><strong>3</strong><span>Save configuration first, then start the system
-                                when ready</span></div>
+                        <div class="meta-card"><strong>1</strong><span>Configure the LLM used for AI-assisted cfg
+                                mapping</span></div>
+                        <div class="meta-card"><strong>2</strong><span>Import `.cfg` and review the editable EIMS
+                                mapping draft</span></div>
+                        <div class="meta-card"><strong>3</strong><span>Save the configuration, then start the
+                                runtime</span></div>
                     </div>
-                </div>
-                <div class="hero-card hero-status">
-                    <div>
+                    <div class="config-status-strip">
                         <span class="status-chip"><span class="status-dot"></span><span id="configStatusBadge">Waiting
                                 for Configuration</span></span>
-                        <h2>Status Overview</h2>
-                        <p id="configStatusText">The page is loading the current configuration. Demo mode uses the managed demo configuration. Real mode accepts your Micro-Manager .cfg and hardware mappings.</p>
+                        <p id="configStatusText" class="config-status-detail">The page is loading the current configuration. Demo mode uses the managed demo configuration. Real mode accepts your Micro-Manager .cfg and hardware mappings.</p>
+                        <div id="configSummary" class="config-status-summary">Not initialized yet.</div>
                     </div>
-                    <div id="configSummary" class="status-summary">Not initialized yet.</div>
                 </div>
             </div>
 
             <div class="config-grid">
-                <section class="panel">
-                    <h3>Microscope System Configuration</h3>
-                    <p id="microscopeConfigSubtitle" class="panel-subtitle">We recommend importing your existing Micro-Manager config first, then
-                        configure EIMS to match its device names and state labels. Do not rename a working .cfg just for
-                        EIMS.</p>
-                    <div class="upload-box">
-                        <label for="cfgFile">Import Micro-Manager `.cfg`</label>
-                        <input id="cfgFile" class="visually-hidden-file" type="file" accept=".cfg">
-                        <div class="upload-file-row">
-                            <button id="chooseCfgBtn" type="button" class="btn-secondary">Choose `.cfg` File</button>
-                            <span id="cfgFileName" class="file-name">No file selected</span>
+                <section class="panel settings-panel panel-llm">
+                    <header class="panel-heading">
+                        <span class="section-index">STEP 01</span>
+                        <h3>AI Services</h3>
+                        <p class="panel-subtitle">Configure the main LLM before importing a cfg so EIMS can generate mapping recommendations.</p>
+                    </header>
+                    <div class="panel-body">
+                        <div class="settings-group">
+                            <h4>Runtime Modes</h4>
+                            <p class="group-description">Choose which hardware and analysis backends EIMS should use.</p>
+                            <div class="field-grid three-column">
+                                <div class="field"><label for="microscopeMode">Microscope Mode</label><select id="microscopeMode">
+                                        <option value="demo">Demo - Use Micro-Manager demo hardware</option>
+                                        <option value="real">Real - Connect to microscope hardware</option>
+                                    </select></div>
+                                <div class="field"><label for="imageAnalysisMode">Image Analysis Mode</label><select id="imageAnalysisMode">
+                                        <option value="mock">Mock - Reuse simulation/imagej.py</option>
+                                        <option value="real">Real - Use Fiji / ImageJ runtime</option>
+                                    </select></div>
+                                <div class="field"><label for="segmentationMode">Segmentation Mode</label><select id="segmentationMode">
+                                        <option value="mock">Mock - Reuse simulation/cellpose.py</option>
+                                        <option value="real">Real - Use Cellpose runtime</option>
+                                    </select></div>
+                                <div class="field"><label for="clarifyEnabled">Clarify Agent</label><select id="clarifyEnabled">
+                                        <option value="false">Disabled - use direct planner flow</option>
+                                        <option value="true">Enabled - ask for missing planning details</option>
+                                    </select></div>
+                                <div class="field"><label for="checkerEnabled">Checker Agent</label><select id="checkerEnabled">
+                                        <option value="true">Enabled - validate new microscope images</option>
+                                        <option value="false">Disabled - skip checker validation and retries</option>
+                                    </select></div>
+                            </div>
                         </div>
-                        <div class="actions">
-                            <button id="uploadCfgBtn" class="btn-secondary">Import & Suggest Mapping</button>
+
+                        <div class="provider-columns settings-group">
+                            <div class="settings-group">
+                                <div class="settings-group-header">
+                                    <h4>Main LLM</h4>
+                                    <button id="testLlmBtn" type="button" class="btn-secondary btn-test pending" title="Test LLM connection">
+                                        <span>Test LLM</span>
+                                        <span id="testLlmIcon" class="test-status-icon" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <p class="group-description">Used for planning and AI-assisted cfg mapping.</p>
+                                <div class="field-grid">
+                                    <div class="field full"><label for="openaiApiKey">LLM API Key</label><input id="openaiApiKey" type="password" placeholder="sk-..."></div>
+                                    <div class="field full"><label for="baseUrl">LLM Base URL</label><input id="baseUrl" type="text" placeholder="https://..."></div>
+                                    <div class="field full"><label for="modelName">LLM Model Name</label><input id="modelName" type="text" placeholder="gpt-4o / claude / qwen..."></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-header">
+                                    <h4>Vision Model</h4>
+                                    <button id="testVlmBtn" type="button" class="btn-secondary btn-test pending" title="Test VLM connection">
+                                        <span>Test VLM</span>
+                                        <span id="testVlmIcon" class="test-status-icon" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <p class="group-description">Used when workflows require visual interpretation.</p>
+                                <div class="field-grid">
+                                    <div class="field full"><label for="vlmApiKey">VLM API Key</label><input id="vlmApiKey" type="password" placeholder="your vlm key"></div>
+                                    <div class="field full"><label for="vlmBaseUrl">VLM Base URL</label><input id="vlmBaseUrl" type="text" placeholder="https://..."></div>
+                                    <div class="field full"><label for="vlmModelName">VLM Model Name</label><input id="vlmModelName" type="text" placeholder="qwen-vl / ..."></div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="field-grid">
-                        <div class="field full"><label for="configPath">CONFIG_PATH</label><input id="configPath"
-                                type="text" placeholder="Micro-Manager .cfg file path actually used at runtime"></div>
-                        <div class="field full"><label for="mmDir">MM_DIR</label><input id="mmDir" type="text"
-                                placeholder="Micro-Manager installation directory"></div>
-                        <div class="field full"><label for="fijiPath">FIJI_PATH</label><input id="fijiPath" type="text"
-                                placeholder="Fiji.app or Fiji installation directory"></div>
-                        <div class="field"><label for="cameraDevice">Camera Device</label><input id="cameraDevice"
-                                type="text"></div>
-                        <div class="field"><label for="xyStageDevice">XY Stage Device</label><input id="xyStageDevice"
-                                type="text"></div>
-                        <div class="field"><label for="objectiveDevice">Objective Switcher Device</label><input
-                                id="objectiveDevice" type="text"></div>
-                        <div class="field"><label for="transmittedIllumination">Transmitted Light Device</label><input
-                                id="transmittedIllumination" type="text"></div>
-                        <div class="field"><label for="focusDrive">Focus Drive Device</label><input id="focusDrive"
-                                type="text"></div>
-                        <div class="field"><label for="dichroicDevice">Channel Selector Device</label><input id="dichroicDevice"
-                                type="text"></div>
-                    </div>
-                    <div class="mapping-section-title">Motion, Brightness & Startup Limits</div>
-                    <div class="field-grid">
-                        <div class="field"><label for="minXPosition">Min X Position</label><input id="minXPosition" type="number" step="any"></div>
-                        <div class="field"><label for="maxXPosition">Max X Position</label><input id="maxXPosition" type="number" step="any"></div>
-                        <div class="field"><label for="minYPosition">Min Y Position</label><input id="minYPosition" type="number" step="any"></div>
-                        <div class="field"><label for="maxYPosition">Max Y Position</label><input id="maxYPosition" type="number" step="any"></div>
-                        <div class="field"><label for="minZPosition">Min Z Position</label><input id="minZPosition" type="number" step="any"></div>
-                        <div class="field"><label for="maxZPosition">Max Z Position</label><input id="maxZPosition" type="number" step="any"></div>
-                        <div class="field"><label for="minBrightness">Min Brightness</label><input id="minBrightness" type="number" step="1"></div>
-                        <div class="field"><label for="maxBrightness">Max Brightness</label><input id="maxBrightness" type="number" step="1"></div>
-                        <div class="field"><label for="startupObjective">Startup Objective</label><select id="startupObjective"></select></div>
-                        <div class="field"><label for="startupChannel">Startup Channel</label><select id="startupChannel"></select></div>
-                        <div class="field"><label for="startupXPosition">Startup X Position</label><input id="startupXPosition" type="number" step="any"></div>
-                        <div class="field"><label for="startupYPosition">Startup Y Position</label><input id="startupYPosition" type="number" step="any"></div>
-                        <div class="field"><label for="startupZPosition">Startup Z Position</label><input id="startupZPosition" type="number" step="any"></div>
-                        <div class="field"><label for="startupBrightness">Startup Brightness</label><input id="startupBrightness" type="number" step="1"></div>
-                        <div class="field"><label for="startupExposure">Startup Exposure</label><input id="startupExposure" type="number" step="any"></div>
-                        <div class="field"><label for="startupStartPreview">Startup Preview</label><select id="startupStartPreview">
-                                <option value="true">Start preview after initialization</option>
-                                <option value="false">Do not start preview automatically</option>
-                            </select></div>
-                    </div>
-                    <div class="mapping-section-title">Suggested Label Mapping</div>
-                    <div class="field-grid">
-                        <div class="field"><label for="objective4x">4x Objective Label</label><input id="objective4x" type="text"></div>
-                        <div class="field"><label for="objective10x">10x Objective Label</label><input id="objective10x" type="text"></div>
-                        <div class="field"><label for="objective20x">20x Objective Label</label><input id="objective20x" type="text"></div>
-                        <div class="field"><label for="objective30x">30x Objective Label</label><input id="objective30x" type="text"></div>
-                        <div class="field"><label for="objective40x">40x Objective Label</label><input id="objective40x" type="text"></div>
-                        <div class="field"><label for="objective60x">60x Objective Label</label><input id="objective60x" type="text"></div>
-                        <div class="field"><label for="channelBrightfield">Brightfield Channel Label</label><input id="channelBrightfield" type="text"></div>
-                        <div class="field"><label for="channelDapi">DAPI Channel Label</label><input id="channelDapi" type="text"></div>
-                        <div class="field"><label for="channelFitc">FITC Channel Label</label><input id="channelFitc" type="text"></div>
-                        <div class="field"><label for="channelTritc">TRITC Channel Label</label><input id="channelTritc" type="text"></div>
-                        <div class="field"><label for="transmittedLightDevice">Transmitted Light Control Device</label><input id="transmittedLightDevice" type="text"></div>
-                        <div class="field"><label for="transmittedLightProperty">Transmitted Light Intensity Property</label><input id="transmittedLightProperty" type="text"></div>
                     </div>
                 </section>
 
-                <section class="panel">
-                    <h3>Model & API Configuration</h3>
-                    <p class="panel-subtitle">Save configuration first. The runtime will only initialize after you click Start System. Cellpose will use its default model resolution and cache behavior.</p>
-                    <div class="field-grid">
-                        <div class="field full"><label for="microscopeMode">Microscope Mode</label><select
-                                id="microscopeMode">
-                                <option value="demo">Demo - Use Micro-Manager demo hardware</option>
-                                <option value="real">Real - Connect to microscope hardware</option>
-                            </select></div>
-                        <div class="field full"><label for="imageAnalysisMode">Image Analysis Mode</label><select
-                                id="imageAnalysisMode">
-                                <option value="mock">Mock - Reuse simulation/imagej.py</option>
-                                <option value="real">Real - Use Fiji / ImageJ runtime</option>
-                            </select></div>
-                        <div class="field full"><label for="segmentationMode">Segmentation Mode</label><select
-                                id="segmentationMode">
-                                <option value="mock">Mock - Reuse simulation/cellpose.py</option>
-                                <option value="real">Real - Use Cellpose runtime</option>
-                            </select></div>
-                        <div class="field full"><label for="clarifyEnabled">Clarify Agent</label><select
-                                id="clarifyEnabled">
-                                <option value="false">Disabled - use direct planner flow</option>
-                                <option value="true">Enabled - ask for missing planning details</option>
-                            </select></div>
-                        <div class="field full"><label for="checkerEnabled">Checker Agent</label><select
-                                id="checkerEnabled">
-                                <option value="true">Enabled - validate new microscope images</option>
-                                <option value="false">Disabled - skip checker validation and retries</option>
-                            </select></div>
-                        <div class="field full"><label for="openaiApiKey">LLM API Key</label><input id="openaiApiKey"
-                                type="password" placeholder="sk-..."></div>
-                        <div class="field full"><label for="baseUrl">LLM Base URL</label><input id="baseUrl" type="text"
-                                placeholder="https://..."></div>
-                        <div class="field full"><label for="modelName">LLM Model Name</label><input id="modelName"
-                                type="text" placeholder="gpt-4o / claude / qwen..."></div>
-                        <div class="field full"><label for="vlmApiKey">VLM API Key</label><input id="vlmApiKey"
-                                type="password" placeholder="your vlm key"></div>
-                        <div class="field full"><label for="vlmBaseUrl">VLM Base URL</label><input id="vlmBaseUrl"
-                                type="text" placeholder="https://..."></div>
-                        <div class="field full"><label for="vlmModelName">VLM Model Name</label><input id="vlmModelName"
-                                type="text" placeholder="qwen-vl / ..."></div>
+                <section class="panel settings-panel panel-system">
+                    <header class="panel-heading">
+                        <span class="section-index">STEP 02</span>
+                        <h3>Micro-Manager System</h3>
+                        <p id="microscopeConfigSubtitle" class="panel-subtitle">Configure EIMS to match your existing Micro-Manager devices and state labels. A working cfg is never modified.</p>
+                    </header>
+                    <div class="panel-body">
+                        <div class="settings-group">
+                            <h4>Import & Paths</h4>
+                            <p class="group-description">Import is available in Real mode. It fills this form with an editable AI-assisted mapping draft.</p>
+                            <div class="upload-box">
+                                <label for="cfgFile">Micro-Manager `.cfg` file</label>
+                                <input id="cfgFile" class="visually-hidden-file" type="file" accept=".cfg">
+                                <div class="upload-file-row">
+                                    <button id="chooseCfgBtn" type="button" class="btn-secondary">Choose `.cfg` File</button>
+                                    <span id="cfgFileName" class="file-name">No file selected</span>
+                                    <button id="uploadCfgBtn" class="btn-secondary">Import, Inspect & AI Map</button>
+                                </div>
+                                <div id="cfgImportStatus" class="cfg-import-status" role="status" aria-live="polite">
+                                    <div class="cfg-import-line">
+                                        <span class="cfg-import-spinner" aria-hidden="true"></span>
+                                        <span id="cfgImportStatusTitle">Importing and requesting AI recommendations...</span>
+                                    </div>
+                                    <div class="cfg-import-progress" aria-hidden="true"></div>
+                                    <div id="cfgImportStatusDetail" class="cfg-import-help">Uploading the cfg, parsing hardware inventory, and preparing an editable mapping draft.</div>
+                                </div>
+                            </div>
+                            <div class="field-grid">
+                                <div class="field full"><label for="configPath">CONFIG_PATH<span class="required-mark">*</span></label><input id="configPath" type="text" placeholder="Micro-Manager .cfg file path actually used at runtime"></div>
+                                <div class="field"><label for="mmDir">MM_DIR<span class="required-mark">*</span></label><input id="mmDir" type="text" placeholder="Micro-Manager installation directory"></div>
+                                <div class="field"><label for="fijiPath">FIJI_PATH</label><input id="fijiPath" type="text" placeholder="Fiji.app or Fiji installation directory"></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Device Mapping</h4>
+                            <p class="group-description">Required EIMS roles mapped to device instance names declared by the cfg.</p>
+                            <div class="field-grid three-column">
+                                <div class="field"><label for="cameraDevice">Camera Device<span class="required-mark">*</span></label><input id="cameraDevice" type="text"></div>
+                                <div class="field"><label for="xyStageDevice">XY Stage Device<span class="required-mark">*</span></label><input id="xyStageDevice" type="text"></div>
+                                <div class="field"><label for="objectiveDevice">Objective Switcher Device<span class="required-mark">*</span></label><input id="objectiveDevice" type="text"></div>
+                                <div class="field"><label for="focusDrive">Focus Drive Device<span class="required-mark">*</span></label><input id="focusDrive" type="text"></div>
+                                <div class="field"><label for="dichroicDevice">Channel Selector Device<span class="required-mark">*</span></label><input id="dichroicDevice" type="text"></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Suggested Label Mapping</h4>
+                            <p class="group-description">AI recommendations are selected in the editable fields. Unavailable labels may be left blank.</p>
+                            <div class="field-grid three-column">
+                                <div class="field"><label for="objective4x">4x Objective Label</label><input id="objective4x" type="text"></div>
+                                <div class="field"><label for="objective10x">10x Objective Label</label><input id="objective10x" type="text"></div>
+                                <div class="field"><label for="objective20x">20x Objective Label</label><input id="objective20x" type="text"></div>
+                                <div class="field"><label for="objective30x">30x Objective Label</label><input id="objective30x" type="text"></div>
+                                <div class="field"><label for="objective40x">40x Objective Label</label><input id="objective40x" type="text"></div>
+                                <div class="field"><label for="objective60x">60x Objective Label</label><input id="objective60x" type="text"></div>
+                                <div class="field"><label for="objective100x">100x Objective Label</label><input id="objective100x" type="text"></div>
+                                <div class="field"><label for="channelBrightfield">Brightfield Channel Label</label><input id="channelBrightfield" type="text"></div>
+                                <div class="field"><label for="channelDapi">DAPI Channel Label</label><input id="channelDapi" type="text"></div>
+                                <div class="field"><label for="channelFitc">FITC Channel Label</label><input id="channelFitc" type="text"></div>
+                                <div class="field"><label for="channelTritc">TRITC Channel Label</label><input id="channelTritc" type="text"></div>
+                                <div class="field"><label for="transmittedLightDevice">Brightness Control Device</label><input id="transmittedLightDevice" type="text" placeholder="Optional"></div>
+                                <div class="field"><label for="transmittedLightProperty">Brightness Intensity Property</label><input id="transmittedLightProperty" type="text" placeholder="Optional; detected after connection"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="actions">
-                        <button id="saveConfigBtn" class="btn-secondary">Save Configuration</button>
-                        <button id="startSystemBtn" class="btn-primary">Start System</button>
-                        <button id="refreshConfigBtn" class="btn-secondary">Refresh Current Configuration</button>
-                        <button id="shutdownServerBtn" class="btn-secondary">Shutdown Server</button>
+                </section>
+
+                <section class="panel settings-panel panel-startup">
+                    <header class="panel-heading">
+                        <span class="section-index">STEP 03</span>
+                        <h3>Startup Configuration</h3>
+                        <p class="panel-subtitle">Define safe operating limits and the microscope state EIMS should apply during initialization.</p>
+                    </header>
+                    <div class="panel-body startup-columns">
+                        <div class="settings-group">
+                            <h4>Motion, Brightness & Exposure Limits</h4>
+                            <p class="group-description">Constrain the values that runtime tools are allowed to request.</p>
+                            <div class="field-grid">
+                                <div class="field"><label for="minXPosition">Min X Position</label><input id="minXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxXPosition">Max X Position</label><input id="maxXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minYPosition">Min Y Position</label><input id="minYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxYPosition">Max Y Position</label><input id="maxYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minZPosition">Min Z Position</label><input id="minZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxZPosition">Max Z Position</label><input id="maxZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minBrightness">Min Brightness</label><input id="minBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="maxBrightness">Max Brightness</label><input id="maxBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="minExposure">Min Exposure</label><input id="minExposure" type="number" step="1"></div>
+                                <div class="field"><label for="maxExposure">Max Exposure</label><input id="maxExposure" type="number" step="1"></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Initial State</h4>
+                            <p class="group-description">Applied only when the user explicitly starts the system.</p>
+                            <div class="field-grid">
+                                <div class="field"><label for="startupObjective">Startup Objective</label><select id="startupObjective"></select></div>
+                                <div class="field"><label for="startupChannel">Startup Channel</label><select id="startupChannel"></select></div>
+                                <div class="field"><label for="startupXPosition">Startup X Position</label><input id="startupXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupYPosition">Startup Y Position</label><input id="startupYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupZPosition">Startup Z Position</label><input id="startupZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupBrightness">Startup Brightness</label><input id="startupBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="startupExposure">Startup Exposure</label><input id="startupExposure" type="number" step="any"></div>
+                                <div class="field"><label for="startupStartPreview">Startup Preview</label><select id="startupStartPreview">
+                                        <option value="true">Start preview after initialization</option>
+                                        <option value="false">Do not start preview automatically</option>
+                                    </select></div>
+                            </div>
+                        </div>
                     </div>
+                </section>
+
+            </div>
+            <div class="config-action-bar">
+                <div class="config-action-copy">
+                    <strong>Review, save, then start</strong>
+                    <p>Import and AI parsing only update this form. Save Configuration is the only action that writes runtime_config.json.</p>
                     <div id="configFeedback" class="feedback"></div>
-                </section>
-
+                </div>
+                <div class="actions">
+                    <button id="refreshConfigBtn" class="btn-secondary">Refresh</button>
+                    <button id="shutdownServerBtn" class="btn-secondary">Shutdown Server</button>
+                    <button id="saveConfigBtn" class="btn-secondary">Save Configuration</button>
+                    <button id="startSystemBtn" class="btn-primary">Start System</button>
+                </div>
             </div>
         </div>
     </section>
@@ -1163,6 +1566,7 @@
             previewStatus: null,
             systemPhase: "unconfigured",
             previewAutoRetried: false,
+            isCfgImporting: false,
             realHardwareConfigDraft: null,
             transmittedLightConfigDraft: {},
             demoManagedSystem: null,
@@ -1262,6 +1666,36 @@
             el.style.color = isError ? "#d32f2f" : "#5a67d8";
         }
 
+        function setModelTestState(kind, state, detail = "") {
+            const normalizedKind = kind === "vlm" ? "Vlm" : "Llm";
+            const label = kind === "vlm" ? "VLM" : "LLM";
+            const button = $(`test${normalizedKind}Btn`);
+            const icon = $(`test${normalizedKind}Icon`);
+            if (!button || !icon) return;
+            const lifecycleBusy = ["initializing", "executing", "releasing"].includes(uiState.systemPhase);
+            button.classList.remove("pending", "testing", "success", "failed");
+            button.classList.add(state);
+            button.disabled = state === "testing" || uiState.isCfgImporting || lifecycleBusy;
+            button.title = detail || `Test ${label} connection`;
+            icon.textContent = state === "success" ? "✓" : state === "failed" ? "×" : "";
+        }
+
+        function setLlmTestState(state, detail = "") {
+            setModelTestState("llm", state, detail);
+        }
+
+        function setVlmTestState(state, detail = "") {
+            setModelTestState("vlm", state, detail);
+        }
+
+        function resetLlmTestState() {
+            setLlmTestState("pending", "Test LLM connection");
+        }
+
+        function resetVlmTestState() {
+            setVlmTestState("pending", "Test VLM connection");
+        }
+
         function disconnectBackendStreams() {
             clearConfigStatusPolling();
             clearPreviewStatusPolling();
@@ -1288,6 +1722,7 @@
         }
 
         function fillConfigForm(data) {
+            clearConfigMappingDraftUi();
             const system = data.system || {};
             const realSystemDraft = data.real_system_draft || {};
             uiState.demoManagedSystem = cloneJson(data.demo_system || {});
@@ -1305,13 +1740,13 @@
             $("cameraDevice").value = system.camera_device || "";
             $("xyStageDevice").value = system.xy_stage_device || "";
             $("objectiveDevice").value = system.objective_device || "";
-            $("transmittedIllumination").value = system.transmittedIllumination || "";
             $("focusDrive").value = system.focus_drive || "";
             $("dichroicDevice").value = system.Dichroic || "";
             fillSemanticMappingFields(system);
             fillLimitFields(system);
             fillStartupFields(startup, currentSemanticMapping(system));
             $("microscopeMode").value = agent.microscope_mode || "demo";
+            applyRuntimeTransmittedLightInfo(data.transmitted_light_runtime || {});
             $("imageAnalysisMode").value = agent.image_analysis_mode || "mock";
             $("segmentationMode").value = agent.segmentation_mode || "mock";
             $("clarifyEnabled").value = String(agent.clarify_enabled ?? false);
@@ -1336,7 +1771,6 @@
                 camera_device: $("cameraDevice").value.trim(),
                 xy_stage_device: $("xyStageDevice").value.trim(),
                 objective_device: $("objectiveDevice").value.trim(),
-                transmittedIllumination: $("transmittedIllumination").value.trim(),
                 focus_drive: $("focusDrive").value.trim(),
                 Dichroic: $("dichroicDevice").value.trim(),
                 ...collectLimitPayload(),
@@ -1352,7 +1786,6 @@
             $("cameraDevice").value = draft.camera_device || "";
             $("xyStageDevice").value = draft.xy_stage_device || "";
             $("objectiveDevice").value = draft.objective_device || "";
-            $("transmittedIllumination").value = draft.transmittedIllumination || "";
             $("focusDrive").value = draft.focus_drive || "";
             $("dichroicDevice").value = draft.Dichroic || "";
             if (hasLimitFields(draft)) {
@@ -1377,6 +1810,8 @@
                 "Max_Z_position",
                 "Min_brightness",
                 "Max_brightness",
+                "Min_exposure",
+                "Max_exposure",
             ].some((key) => cfg[key] !== undefined && cfg[key] !== null);
         }
 
@@ -1390,6 +1825,8 @@
             setNumberValue("maxZPosition", cfg.Max_Z_position);
             setNumberValue("minBrightness", cfg.Min_brightness);
             setNumberValue("maxBrightness", cfg.Max_brightness);
+            setNumberValue("minExposure", cfg.Min_exposure);
+            setNumberValue("maxExposure", cfg.Max_exposure);
         }
 
         function collectLimitPayload() {
@@ -1402,6 +1839,8 @@
                 Max_Z_position: readNumberValue("maxZPosition"),
                 Min_brightness: readNumberValue("minBrightness"),
                 Max_brightness: readNumberValue("maxBrightness"),
+                Min_exposure: readNumberValue("minExposure"),
+                Max_exposure: readNumberValue("maxExposure"),
             };
         }
 
@@ -1483,6 +1922,36 @@
             }
         }
 
+        function setCfgImportBusy(isBusy, detail = "") {
+            uiState.isCfgImporting = isBusy;
+            const demoModeEnabled = $("microscopeMode").value === "demo";
+            const lifecycleBusy = ["initializing", "executing", "releasing"].includes(uiState.systemPhase);
+            const status = $("cfgImportStatus");
+            const detailElement = $("cfgImportStatusDetail");
+            const uploadButton = $("uploadCfgBtn");
+            const chooseButton = $("chooseCfgBtn");
+
+            if (status) {
+                status.classList.toggle("active", isBusy);
+                status.setAttribute("aria-hidden", String(!isBusy));
+            }
+            if (detailElement && detail) {
+                detailElement.textContent = detail;
+            }
+            if (uploadButton) {
+                uploadButton.disabled = isBusy || lifecycleBusy || demoModeEnabled;
+                uploadButton.textContent = isBusy ? "Inspecting..." : "Import, Inspect & AI Map";
+            }
+            if (chooseButton) {
+                chooseButton.disabled = isBusy || lifecycleBusy || demoModeEnabled;
+            }
+            $("cfgFile").disabled = isBusy || lifecycleBusy || demoModeEnabled;
+            $("testLlmBtn").disabled = isBusy;
+            $("testVlmBtn").disabled = isBusy;
+            $("saveConfigBtn").disabled = isBusy || lifecycleBusy;
+            $("startSystemBtn").disabled = isBusy || ["unconfigured", "initializing", "executing", "releasing"].includes(uiState.systemPhase);
+        }
+
         function syncMicroscopeModeUi() {
             const demoModeEnabled = $("microscopeMode").value === "demo";
             setElementsDisabled(
@@ -1494,7 +1963,6 @@
                     "cameraDevice",
                     "xyStageDevice",
                     "objectiveDevice",
-                    "transmittedIllumination",
                     "focusDrive",
                     "dichroicDevice",
                     "minXPosition",
@@ -1505,6 +1973,8 @@
                     "maxZPosition",
                     "minBrightness",
                     "maxBrightness",
+                    "minExposure",
+                    "maxExposure",
                     "startupObjective",
                     "startupChannel",
                     "startupXPosition",
@@ -1519,6 +1989,7 @@
                     "objective30x",
                     "objective40x",
                     "objective60x",
+                    "objective100x",
                     "channelBrightfield",
                     "channelDapi",
                     "channelFitc",
@@ -1528,6 +1999,13 @@
                 ],
                 demoModeEnabled
             );
+            for (const elementId of allMappingDraftInputIds()) {
+                const picker = document.getElementById(`${elementId}Candidates`);
+                if (picker) picker.disabled = demoModeEnabled;
+            }
+            if (uiState.isCfgImporting) {
+                setCfgImportBusy(true);
+            }
             $("microscopeConfigSubtitle").textContent = demoModeEnabled
                 ? "Demo mode is locked to the managed Micro-Manager demo configuration and verified device mapping. Switch to real mode to import a .cfg and edit hardware mappings."
                 : "Import your existing Micro-Manager config first, then configure EIMS to match its device names and state labels. Do not rename a working .cfg just for EIMS.";
@@ -1549,6 +2027,217 @@
             };
         }
 
+        function mappingDraftInputIds() {
+            return {
+                camera_device: "cameraDevice",
+                xy_stage_device: "xyStageDevice",
+                objective_device: "objectiveDevice",
+                focus_drive: "focusDrive",
+                Dichroic: "dichroicDevice",
+                "objective:4x": "objective4x",
+                "objective:10x": "objective10x",
+                "objective:20x": "objective20x",
+                "objective:30x": "objective30x",
+                "objective:40x": "objective40x",
+                "objective:60x": "objective60x",
+                "objective:100x": "objective100x",
+                "channel:brightfield": "channelBrightfield",
+                "channel:dapi": "channelDapi",
+                "channel:fitc": "channelFitc",
+                "channel:tritc": "channelTritc",
+                "transmitted_light:device": "transmittedLightDevice",
+                "transmitted_light:intensity_property": "transmittedLightProperty",
+            };
+        }
+
+        function allMappingDraftInputIds() {
+            return Object.values(mappingDraftInputIds());
+        }
+
+        function clearConfigMappingDraftUi() {
+            for (const elementId of allMappingDraftInputIds()) {
+                const input = $(elementId);
+                if (!input) continue;
+                const hint = document.getElementById(`${elementId}Hint`);
+                if (hint) {
+                    hint.textContent = "";
+                    hint.classList.remove("review");
+                    hint.hidden = true;
+                }
+                const picker = document.getElementById(`${elementId}Candidates`);
+                if (picker) {
+                    picker.innerHTML = "";
+                    picker.closest(".mapping-input-row")?.classList.remove("has-candidates");
+                }
+            }
+        }
+
+        function ensureMappingHint(elementId) {
+            let hint = document.getElementById(`${elementId}Hint`);
+            if (hint) return hint;
+            hint = document.createElement("div");
+            hint.id = `${elementId}Hint`;
+            hint.className = "mapping-hint";
+            hint.hidden = true;
+            const input = $(elementId);
+            const anchor = input.closest(".mapping-input-row") || input;
+            anchor.insertAdjacentElement("afterend", hint);
+            return hint;
+        }
+
+        function ensureCandidatePicker(elementId) {
+            let picker = document.getElementById(`${elementId}Candidates`);
+            if (picker) return picker;
+
+            const input = $(elementId);
+            const row = document.createElement("div");
+            row.className = "mapping-input-row";
+            input.parentNode.insertBefore(row, input);
+            row.appendChild(input);
+
+            picker = document.createElement("select");
+            picker.id = `${elementId}Candidates`;
+            picker.className = "mapping-candidate-picker";
+            picker.setAttribute("aria-label", `Choose an available candidate for ${elementId}`);
+            picker.title = "Choose from available candidates";
+            picker.addEventListener("change", () => {
+                if (!picker.value) return;
+                input.value = picker.value;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+                const hint = ensureMappingHint(elementId);
+                hint.textContent = "User selected an available mapping candidate.";
+                hint.classList.remove("review");
+                hint.hidden = false;
+                picker.selectedIndex = 0;
+            });
+            row.appendChild(picker);
+            return picker;
+        }
+
+        function formatDraftCandidateLabel(candidate, draft) {
+            const tags = [];
+            const value = String(candidate || "");
+            if ((value && value === String(draft?.ai_value || "")) || (draft?.source === "ai" && value === String(draft?.value || ""))) {
+                tags.push("AI recommended");
+            }
+            if (value && value === String(draft?.rule_value || "")) {
+                tags.push("rule match");
+            }
+            if (value && value === String(draft?.current_value || "")) {
+                tags.push("current config");
+            }
+            if (draft?.source === "runtime") {
+                tags.push(value === String(draft?.value || "") ? "runtime detected" : "runtime property");
+            }
+            return tags.length ? tags.join(", ") : "available candidate";
+        }
+
+        function applyDraftInput(elementId, draft) {
+            const input = $(elementId);
+            if (!input || !draft) return;
+            input.value = draft.value || "";
+            const candidates = Array.isArray(draft.candidates) ? draft.candidates.filter(Boolean) : [];
+            const existingPicker = document.getElementById(`${elementId}Candidates`);
+            if (existingPicker) {
+                existingPicker.innerHTML = "";
+                existingPicker.closest(".mapping-input-row")?.classList.remove("has-candidates");
+            }
+            if (candidates.length > 0) {
+                const picker = ensureCandidatePicker(elementId);
+                picker.innerHTML = "";
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Choose an available candidate";
+                picker.appendChild(placeholder);
+                for (const candidate of candidates) {
+                    const option = document.createElement("option");
+                    option.value = candidate;
+                    option.textContent = `${candidate} - ${formatDraftCandidateLabel(candidate, draft)}`;
+                    picker.appendChild(option);
+                }
+                picker.closest(".mapping-input-row")?.classList.add("has-candidates");
+            }
+
+            const hint = ensureMappingHint(elementId);
+            const parts = [];
+            if (draft.source === "ai") parts.push("AI recommended");
+            else if (draft.source === "rule") parts.push("Rule match");
+            else if (draft.source === "core") parts.push("Micro-Manager Core");
+            else if (draft.source === "runtime") parts.push("Micro-Manager runtime");
+            else if (draft.source === "current_config") parts.push("Current config");
+            else parts.push("Manual selection needed");
+            if (draft.confidence && draft.confidence !== "unknown") {
+                parts.push(`confidence: ${draft.confidence}`);
+            }
+            if (draft.reason) parts.push(draft.reason);
+            hint.textContent = parts.join(" - ");
+            hint.classList.toggle("review", Boolean(draft.needs_review));
+            hint.hidden = false;
+        }
+
+        function applyConfigMappingDraft(mapping) {
+            const fields = mapping?.fields || {};
+            const fieldIds = mappingDraftInputIds();
+            for (const [fieldName, elementId] of Object.entries(fieldIds)) {
+                if (fieldName.includes(":")) continue;
+                applyDraftInput(elementId, fields[fieldName]);
+            }
+
+            for (const [key, draft] of Object.entries(mapping?.objectives || {})) {
+                applyDraftInput(fieldIds[`objective:${key}`], draft);
+            }
+            for (const [key, draft] of Object.entries(mapping?.channels || {})) {
+                applyDraftInput(fieldIds[`channel:${key}`], draft);
+            }
+
+            const transmittedLight = mapping?.transmitted_light || {};
+            applyDraftInput("transmittedLightDevice", transmittedLight.device);
+            applyDraftInput("transmittedLightProperty", transmittedLight.intensity_property);
+            uiState.transmittedLightConfigDraft = {
+                min: transmittedLight.min ?? 0,
+                max: transmittedLight.max ?? 250,
+            };
+        }
+
+        function applyRuntimeTransmittedLightInfo(runtimeInfo) {
+            const info = runtimeInfo || {};
+            const device = String(info.device || "").trim();
+            if (!device || $("microscopeMode").value === "demo") return;
+            if ($("transmittedLightDevice").value.trim() !== device) return;
+
+            const selectedProperty = String(info.selected_property || "").trim();
+            const candidates = Array.isArray(info.candidates)
+                ? info.candidates.map((value) => String(value || "").trim()).filter(Boolean)
+                : [];
+            applyDraftInput("transmittedLightProperty", {
+                value: selectedProperty || $("transmittedLightProperty").value.trim(),
+                candidates,
+                source: "runtime",
+                confidence: info.available ? "high" : "unknown",
+                reason: String(info.reason || "Properties were queried from the loaded Micro-Manager device adapter."),
+                needs_review: !info.available || !selectedProperty,
+                current_value: String(info.configured_property || "").trim(),
+            });
+        }
+
+        function countReviewDrafts(mapping) {
+            let count = 0;
+            for (const draft of Object.values(mapping?.fields || {})) {
+                if (draft?.needs_review) count += 1;
+            }
+            for (const draft of Object.values(mapping?.objectives || {})) {
+                if (draft?.needs_review) count += 1;
+            }
+            for (const draft of Object.values(mapping?.channels || {})) {
+                if (draft?.needs_review) count += 1;
+            }
+            for (const draft of [mapping?.transmitted_light?.device, mapping?.transmitted_light?.intensity_property]) {
+                if (draft?.needs_review) count += 1;
+            }
+            return count;
+        }
+
         function fillSemanticMappingFields(system) {
             const mapping = currentSemanticMapping(system);
             const objectives = mapping.objectives || {};
@@ -1562,6 +2251,7 @@
             $("objective30x").value = objectives["30x"]?.label || "";
             $("objective40x").value = objectives["40x"]?.label || "";
             $("objective60x").value = objectives["60x"]?.label || "";
+            $("objective100x").value = objectives["100x"]?.label || "";
 
             $("channelBrightfield").value = channels["brightfield"]?.label || "";
             $("channelDapi").value = channels["dapi"]?.label || "";
@@ -1581,6 +2271,7 @@
                 ["30x", "objective30x"],
                 ["40x", "objective40x"],
                 ["60x", "objective60x"],
+                ["100x", "objective100x"],
             ];
             for (const [key, elementId] of objectiveFields) {
                 const label = $(elementId).value.trim();
@@ -1638,6 +2329,7 @@
                 "objective30x",
                 "objective40x",
                 "objective60x",
+                "objective100x",
                 "channelBrightfield",
                 "channelDapi",
                 "channelFitc",
@@ -1701,21 +2393,25 @@
             const phase = data?.system_phase || "unconfigured";
             const configured = Boolean(data?.configured);
             button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
-            button.disabled = !configured || ["initializing", "executing", "releasing"].includes(phase);
+            button.disabled = uiState.isCfgImporting || !configured || ["initializing", "executing", "releasing"].includes(phase);
         }
 
         function setLifecycleControlsDisabled(disabled) {
-            if (disabled) {
+            const shouldDisable = disabled || uiState.isCfgImporting;
+            const demoModeEnabled = $("microscopeMode").value === "demo";
+            if (shouldDisable) {
                 $("startSystemBtn").disabled = true;
             } else if (uiState.systemPhase === "ready") {
                 $("startSystemBtn").disabled = false;
             }
-            $("shutdownServerBtn").disabled = disabled;
-            $("shutdownServerRuntimeBtn").disabled = disabled;
-            $("restartPreviewBtn").disabled = disabled;
-            $("saveConfigBtn").disabled = disabled;
-            $("chooseCfgBtn").disabled = disabled;
-            $("uploadCfgBtn").disabled = disabled;
+            $("shutdownServerBtn").disabled = shouldDisable;
+            $("shutdownServerRuntimeBtn").disabled = shouldDisable;
+            $("restartPreviewBtn").disabled = shouldDisable;
+            $("saveConfigBtn").disabled = shouldDisable;
+            $("chooseCfgBtn").disabled = shouldDisable || demoModeEnabled;
+            $("uploadCfgBtn").disabled = shouldDisable || demoModeEnabled;
+            $("testLlmBtn").disabled = shouldDisable;
+            $("testVlmBtn").disabled = shouldDisable;
         }
 
         function setStartupConnectingState() {
@@ -1958,6 +2654,9 @@
         }
 
         async function uploadCfgFile() {
+            if (uiState.isCfgImporting) {
+                return;
+            }
             if ($("microscopeMode").value === "demo") {
                 showFeedback("Demo mode uses the managed Micro-Manager demo configuration. Switch to real mode to import a .cfg.", true);
                 return;
@@ -1967,26 +2666,106 @@
                 showFeedback("Please select a .cfg file first.", true);
                 return;
             }
-            showFeedback("Importing cfg and suggesting EIMS device mappings...");
-            const formData = new FormData();
-            formData.append("file", file);
-            const res = await fetch("/api/config/upload-cfg", { method: "POST", body: formData });
-            if (!res.ok) {
-                const error = await res.json().catch(() => ({}));
-                throw new Error(error.detail || "cfg import failed");
+            const confirmed = window.confirm(
+                "This operation loads the cfg in Micro-Manager to inspect the actual Device Adapter capabilities. "
+                + "It will release an active microscope runtime, and adapter initialization may perform hardware-specific actions. Continue?"
+            );
+            if (!confirmed) return;
+            setCfgImportBusy(true, "Uploading the cfg, connecting Micro-Manager, inspecting all device capabilities, and requesting AI recommendations. Keep this page open until inspection finishes.");
+            showFeedback("Inspecting cfg hardware and generating an editable mapping draft. The configuration has not been saved yet.");
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("microscope_mode", $("microscopeMode").value);
+                formData.append("inspect_hardware", "true");
+                formData.append("mm_dir", $("mmDir").value.trim());
+                formData.append("openai_api_key", $("openaiApiKey").value.trim());
+                formData.append("base_url", $("baseUrl").value.trim());
+                formData.append("model_name", $("modelName").value.trim());
+                const res = await fetch("/api/config/upload-cfg", { method: "POST", body: formData });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.detail || "cfg import failed");
+                }
+                const data = await res.json();
+                const mapping = data.mapping || {};
+                $("configPath").value = data.config_path || "";
+                applyConfigMappingDraft(mapping);
+                refreshStartupMappingOptions();
+                const warnings = mapping.warnings || [];
+                const reviewCount = countReviewDrafts(mapping);
+                const inspectionLead = mapping.hardware_inspection_status === "completed"
+                    ? `Micro-Manager inspected ${mapping.inspected_device_count || 0} loaded devices.`
+                    : "Hardware inspection was unavailable, so the draft uses cfg-only information.";
+                const statusLead = mapping.ai_status === "completed"
+                    ? "AI recommendations are included in the editable mapping draft."
+                    : (mapping.ai_status === "not_configured"
+                        ? "The cfg was parsed with deterministic rules; configure the Main LLM to add AI recommendations."
+                        : "The AI request failed, so the editable draft uses deterministic parser results.");
+                const message = `${inspectionLead} ${statusLead} ${reviewCount} fields are marked for review.${warnings.length ? ` ${warnings.join(" ")}` : ""}`;
+                showFeedback(message, false);
+                syncMicroscopeModeUi();
+            } finally {
+                setCfgImportBusy(false);
             }
-            const data = await res.json();
-            $("configPath").value = data.config_path || "";
-            $("cameraDevice").value = data.suggestions?.camera_device?.value || "";
-            $("xyStageDevice").value = data.suggestions?.xy_stage_device?.value || "";
-            $("objectiveDevice").value = data.suggestions?.objective_device?.value || "";
-            $("transmittedIllumination").value = data.suggestions?.transmittedIllumination?.value || "";
-            $("focusDrive").value = data.suggestions?.focus_drive?.value || "";
-            $("dichroicDevice").value = data.suggestions?.Dichroic?.value || "";
-            fillSemanticMappingFields(data);
-            refreshStartupMappingOptions();
-            showFeedback("cfg parsed. Check the device fields and suggested mapping fields, then save configuration.");
-            syncMicroscopeModeUi();
+        }
+
+        async function testLlmConnection() {
+            const button = $("testLlmBtn");
+            if (button.disabled) return;
+            setLlmTestState("testing", "Testing LLM connection...");
+            try {
+                const data = await fetchJson("/api/config/test-llm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        openai_api_key: $("openaiApiKey").value.trim(),
+                        base_url: $("baseUrl").value.trim(),
+                        model_name: $("modelName").value.trim(),
+                    }),
+                });
+                if (data.ok) {
+                    setLlmTestState("success", "LLM connection OK.");
+                    showFeedback("", false);
+                    return;
+                }
+                const detail = data.detail || "LLM connection failed.";
+                setLlmTestState("failed", detail);
+                showFeedback(`LLM test failed: ${detail}`, true);
+            } catch (error) {
+                const detail = error.message || "LLM connection failed.";
+                setLlmTestState("failed", detail);
+                showFeedback(`LLM test failed: ${detail}`, true);
+            }
+        }
+
+        async function testVlmConnection() {
+            const button = $("testVlmBtn");
+            if (button.disabled) return;
+            setVlmTestState("testing", "Testing VLM connection...");
+            try {
+                const data = await fetchJson("/api/config/test-vlm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        vlm_api_key: $("vlmApiKey").value.trim(),
+                        vlm_base_url: $("vlmBaseUrl").value.trim(),
+                        vlm_model_name: $("vlmModelName").value.trim(),
+                    }),
+                });
+                if (data.ok) {
+                    setVlmTestState("success", "VLM connection OK.");
+                    showFeedback("", false);
+                    return;
+                }
+                const detail = data.detail || "VLM connection failed.";
+                setVlmTestState("failed", detail);
+                showFeedback(`VLM test failed: ${detail}`, true);
+            } catch (error) {
+                const detail = error.message || "VLM connection failed.";
+                setVlmTestState("failed", detail);
+                showFeedback(`VLM test failed: ${detail}`, true);
+            }
         }
 
         function updateSelectedCfgFileName() {
@@ -2004,7 +2783,6 @@
                 camera_device: $("cameraDevice").value.trim(),
                 xy_stage_device: $("xyStageDevice").value.trim(),
                 objective_device: $("objectiveDevice").value.trim(),
-                transmittedIllumination: $("transmittedIllumination").value.trim(),
                 focus_drive: $("focusDrive").value.trim(),
                 Dichroic: $("dichroicDevice").value.trim(),
                 ...limitPayload,
@@ -2152,10 +2930,13 @@
             scrollToBottom();
         }
 
-        function finishStreamingMessage(streamId) {
+        function finishStreamingMessage(streamId, finalText = "") {
             const messageDiv = uiState.activeLlmStreams.get(streamId);
             if (!messageDiv) return;
             const contentDiv = messageDiv.querySelector(".message-content");
+            if (typeof finalText === "string" && finalText) {
+                contentDiv.textContent = finalText;
+            }
             contentDiv.classList.remove("cursor");
             uiState.activeLlmStreams.delete(streamId);
             scrollToBottom();
@@ -2437,7 +3218,7 @@
                 return;
             }
             if (msg.type === "llm_stream_end") {
-                finishStreamingMessage(msg.stream_id);
+                finishStreamingMessage(msg.stream_id, msg.text || "");
                 if (msg.final_type === "task_complete") {
                     resetTaskState();
                 }
@@ -2573,6 +3354,22 @@
                     showFeedback(error.message || "cfg import failed", true);
                 }
             });
+
+            $("testLlmBtn").addEventListener("click", async () => {
+                await testLlmConnection();
+            });
+
+            $("testVlmBtn").addEventListener("click", async () => {
+                await testVlmConnection();
+            });
+
+            for (const id of ["openaiApiKey", "baseUrl", "modelName"]) {
+                $(id).addEventListener("input", resetLlmTestState);
+            }
+
+            for (const id of ["vlmApiKey", "vlmBaseUrl", "vlmModelName"]) {
+                $(id).addEventListener("input", resetVlmTestState);
+            }
 
             $("saveConfigBtn").addEventListener("click", async () => {
                 try {

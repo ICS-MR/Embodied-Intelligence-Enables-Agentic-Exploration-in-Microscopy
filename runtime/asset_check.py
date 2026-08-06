@@ -244,7 +244,6 @@ def _check_microscope_assets(system: Mapping[str, Any], mode: str, issues: list[
         "camera_device",
         "xy_stage_device",
         "objective_device",
-        "transmittedIllumination",
         "focus_drive",
         "Dichroic",
     ):

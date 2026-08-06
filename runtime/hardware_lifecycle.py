@@ -50,7 +50,13 @@ def apply_startup_state(
     _check_cancelled(cancel_event)
     _call_if_available(env_olympus, "set_exposure", startup.exposure)
     _check_cancelled(cancel_event)
-    if _has_transmitted_light_brightness_control(system_config):
+    supports_brightness = getattr(env_olympus, "_supports_transmitted_brightness", None)
+    brightness_available = (
+        bool(supports_brightness())
+        if callable(supports_brightness)
+        else _has_transmitted_light_brightness_control(system_config)
+    )
+    if brightness_available:
         _call_if_available(env_olympus, "set_brightness", startup.brightness)
     _check_cancelled(cancel_event)
     _call_if_available(env_olympus, "set_x_y_position", startup.x_position, startup.y_position)

@@ -78,7 +78,6 @@ class ConfigSaveRequest(BaseModel):
     camera_device: str = ""
     xy_stage_device: str = ""
     objective_device: str = ""
-    transmittedIllumination: str = ""
     focus_drive: str = ""
     Dichroic: str = ""
     Max_X_position: float | None = None
@@ -89,6 +88,8 @@ class ConfigSaveRequest(BaseModel):
     Min_Z_position: float | None = None
     Max_brightness: int | None = None
     Min_brightness: int | None = None
+    Max_exposure: int | None = None
+    Min_exposure: int | None = None
     openai_api_key: str = ""
     base_url: str = ""
     model_name: str = ""
@@ -111,6 +112,28 @@ class ConfigSaveRequest(BaseModel):
     startup_x_position: float | None = None
     startup_y_position: float | None = None
     startup_start_preview: bool | None = None
+
+
+class LLMConnectionTestRequest(BaseModel):
+    openai_api_key: str = ""
+    base_url: str = ""
+    model_name: str = ""
+
+
+class LLMConnectionTestResponse(BaseModel):
+    ok: bool
+    detail: str = ""
+
+
+class VLMConnectionTestRequest(BaseModel):
+    vlm_api_key: str = ""
+    vlm_base_url: str = ""
+    vlm_model_name: str = ""
+
+
+class VLMConnectionTestResponse(BaseModel):
+    ok: bool
+    detail: str = ""
 
 
 class AgentConfigView(BaseModel):
@@ -152,6 +175,7 @@ class ConfigStatusResponse(BaseModel):
     real_system_draft: Dict[str, Any] = Field(default_factory=dict)
     demo_system: Dict[str, Any] = Field(default_factory=dict)
     demo_startup: Dict[str, Any] = Field(default_factory=dict)
+    transmitted_light_runtime: Dict[str, Any] = Field(default_factory=dict)
     agent: AgentConfigView
     startup: StartupConfigView
 
@@ -167,14 +191,42 @@ class ConfigSaveResponse(BaseModel):
     failure_step: str = ""
 
 
+MappingDraftSource = Literal["core", "rule", "runtime", "ai", "current_config", "manual_required"]
+MappingDraftConfidence = Literal["high", "medium", "low", "unknown"]
+
+
+class ConfigMappingDraftField(BaseModel):
+    value: str = ""
+    candidates: list[str] = Field(default_factory=list)
+    source: MappingDraftSource = "manual_required"
+    confidence: MappingDraftConfidence = "unknown"
+    reason: str = ""
+    needs_review: bool = True
+    rule_value: str = ""
+    ai_value: str = ""
+    current_value: str = ""
+
+    class Config:
+        extra = "forbid"
+
+
+class ConfigMappingAnalysis(BaseModel):
+    ai_status: Literal["completed", "not_configured", "unavailable"] = "not_configured"
+    hardware_inspection_status: Literal["completed", "skipped", "unavailable"] = "skipped"
+    inspected_device_count: int = 0
+    fields: Dict[str, ConfigMappingDraftField] = Field(default_factory=dict)
+    objectives: Dict[str, ConfigMappingDraftField] = Field(default_factory=dict)
+    channels: Dict[str, ConfigMappingDraftField] = Field(default_factory=dict)
+    transmitted_light: Dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+    class Config:
+        extra = "forbid"
+
+
 class ConfigUploadResponse(BaseModel):
     config_path: str
-    stored_config_path: str = ""
-    original_filename: str = ""
-    suggestions: Dict[str, Dict[str, Any]]
-    objectives: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    channels: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    transmitted_light: Dict[str, Any] = Field(default_factory=dict)
+    mapping: ConfigMappingAnalysis
 
 
 class PreviewStatusResponse(BaseModel):

@@ -51,8 +51,7 @@ def _resolve_microscope_prompt_source(prompt_source: str, system_config: Any) ->
 
     transmitted_light = dict(getattr(system_config, "transmitted_light", {}) or {})
     brightness_device = str(transmitted_light.get("device") or "").strip()
-    brightness_property = str(transmitted_light.get("intensity_property") or "").strip()
-    if brightness_device and brightness_property:
+    if brightness_device:
         return full_prompt_source
     return no_brightness_prompt_source
 
@@ -60,8 +59,7 @@ def _resolve_microscope_prompt_source(prompt_source: str, system_config: Any) ->
 def _has_transmitted_light_brightness_control(system_config: Any) -> bool:
     transmitted_light = dict(getattr(system_config, "transmitted_light", {}) or {})
     brightness_device = str(transmitted_light.get("device") or "").strip()
-    brightness_property = str(transmitted_light.get("intensity_property") or "").strip()
-    return bool(brightness_device and brightness_property)
+    return bool(brightness_device)
 
 
 def _resolve_planner_prompt_text(system_config: Any) -> str:

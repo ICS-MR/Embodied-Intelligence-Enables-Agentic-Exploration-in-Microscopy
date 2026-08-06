@@ -42,7 +42,7 @@ def create_chat_completion(
     normalized_max_tokens = _normalize_max_tokens(max_tokens, model=model)
     normalized_seed = _normalize_seed(seed)
     _apply_reasoning_controls(model, extra_kwargs)
-    if not stream and "qwen" in model.lower():
+    if "qwen" in model.lower():
         extra_body = dict(extra_kwargs.get("extra_body") or {})
         extra_body.setdefault("enable_thinking", False)
         extra_kwargs["extra_body"] = extra_body

@@ -36,6 +36,7 @@ AUTOFOCUS_TIMEOUT_SEC = 60.0
 AUTOBRIGHTNESS_TIMEOUT_SEC = 20.0
 ACQUISITION_TIMEOUT_BASE_SEC = 120.0
 ACQUISITION_TIMEOUT_PER_POSITION_SEC = 30.0
+TRANSMITTED_LIGHT_PROPERTY_TOKENS = ("brightness", "intensity", "power", "level", "percent")
 
 
 # ====== MMCore console noise suppression ======
@@ -372,12 +373,15 @@ class MicroscopeController(BaseTool):
         self.camera_device = getattr(system_config, "camera_device", "")
         self.xy_stage_device = getattr(system_config, "xy_stage_device", "")
         self.objective_device = getattr(system_config, "objective_device", "")
-        transmitted_illumination = getattr(system_config, "transmittedIllumination", "")
         self.focus_drive = getattr(system_config, "focus_drive", "")
         self.Dichroic = getattr(system_config, "Dichroic", "")
         transmitted_light = dict(getattr(system_config, "transmitted_light", {}) or {})
-        self.brightness_device = str(transmitted_light.get("device") or transmitted_illumination or "").strip()
+        self.brightness_device = str(transmitted_light.get("device") or "").strip()
         self.brightness_property = str(transmitted_light.get("intensity_property") or "").strip()
+        self._configured_brightness_property = self.brightness_property
+        self.brightness_property_source = "configured" if self.brightness_property else "unavailable"
+        self.brightness_property_candidates: List[str] = []
+        self.brightness_property_discovery_reason = ""
         self.brightness_control_kind = str(transmitted_light.get("control_kind") or "").strip()
         self.brightness_surrogate_min_property_value = float(
             transmitted_light.get("surrogate_min_property_value", 0.5)
@@ -765,6 +769,210 @@ class MicroscopeController(BaseTool):
                 self.Max_brightness,
             )
 
+    @staticmethod
+    def _intensity_property_score(property_name: str) -> int:
+        normalized = str(property_name or "").strip().lower()
+        if not normalized or any(
+            token in normalized for token in ("mode", "status", "enable", "description")
+        ):
+            return 0
+        for index, token in enumerate(TRANSMITTED_LIGHT_PROPERTY_TOKENS):
+            if normalized == token:
+                return 200 - index
+        for index, token in enumerate(TRANSMITTED_LIGHT_PROPERTY_TOKENS):
+            if token in normalized:
+                return 100 - index
+        return 0
+
+    def _is_writable_numeric_runtime_property(self, device: str, property_name: str) -> bool:
+        try:
+            if self.core.isPropertyReadOnly(device, property_name):
+                return False
+        except Exception:
+            logger.debug(
+                "MMCore could not report whether %s.%s is read-only",
+                device,
+                property_name,
+                exc_info=True,
+            )
+        try:
+            if self.core.isPropertyPreInit(device, property_name):
+                return False
+        except Exception:
+            logger.debug(
+                "MMCore could not report whether %s.%s is PreInit-only",
+                device,
+                property_name,
+                exc_info=True,
+            )
+
+        metadata_methods_available = any(
+            callable(getattr(self.core, method_name, None))
+            for method_name in (
+                "getPropertyType",
+                "hasPropertyLimits",
+                "getAllowedPropertyValues",
+            )
+        )
+        if not metadata_methods_available:
+            return True
+
+        property_type = ""
+        try:
+            property_type = str(self.core.getPropertyType(device, property_name) or "").lower()
+        except Exception:
+            logger.debug(
+                "MMCore could not report the type of %s.%s",
+                device,
+                property_name,
+                exc_info=True,
+            )
+        if any(token in property_type for token in ("integer", "float", "double")):
+            return True
+
+        try:
+            if self.core.hasPropertyLimits(device, property_name):
+                return True
+        except Exception:
+            logger.debug(
+                "MMCore could not report limits for %s.%s",
+                device,
+                property_name,
+                exc_info=True,
+            )
+
+        try:
+            allowed_values = list(self.core.getAllowedPropertyValues(device, property_name))
+            if allowed_values:
+                for value in allowed_values:
+                    float(str(value))
+                return True
+        except (TypeError, ValueError):
+            return False
+        except Exception:
+            logger.debug(
+                "MMCore could not report allowed values for %s.%s",
+                device,
+                property_name,
+                exc_info=True,
+            )
+        return False
+
+    def _discover_writable_intensity_properties(self, device: str) -> List[str]:
+        if not device:
+            return []
+        try:
+            property_names = [str(name) for name in self.core.getDevicePropertyNames(device)]
+        except Exception as exc:
+            self.brightness_property_discovery_reason = (
+                f"MMCore could not enumerate properties for '{device}': {exc}"
+            )
+            logger.warning(self.brightness_property_discovery_reason)
+            return []
+
+        candidates: List[str] = []
+        for property_name in property_names:
+            if self._intensity_property_score(property_name) <= 0:
+                continue
+            if not self._is_writable_numeric_runtime_property(device, property_name):
+                continue
+            candidates.append(property_name)
+        return sorted(
+            dict.fromkeys(candidates),
+            key=lambda name: (-self._intensity_property_score(name), name.lower()),
+        )
+
+    def _resolve_transmitted_light_property_from_core(self) -> None:
+        self.brightness_property_candidates = []
+        if not self.brightness_device:
+            self.brightness_property_source = "unavailable"
+            self.brightness_property_discovery_reason = (
+                "No transmitted-light intensity-control device is configured."
+            )
+            return
+
+        candidates = self._discover_writable_intensity_properties(self.brightness_device)
+        configured_property = str(self._configured_brightness_property or "").strip()
+        if configured_property:
+            try:
+                property_exists = bool(
+                    self.core.hasProperty(self.brightness_device, configured_property)
+                )
+            except Exception:
+                property_exists = configured_property in candidates
+            if not property_exists:
+                raise RuntimeError(
+                    f"Configured transmitted-light property "
+                    f"'{self.brightness_device}.{configured_property}' is not exposed by the "
+                    "loaded Micro-Manager device adapter."
+                )
+            if not self._is_writable_numeric_runtime_property(
+                self.brightness_device,
+                configured_property,
+            ):
+                raise RuntimeError(
+                    f"Configured transmitted-light property "
+                    f"'{self.brightness_device}.{configured_property}' is not a writable, "
+                    "runtime-settable numeric control."
+                )
+            if configured_property not in candidates:
+                candidates.insert(0, configured_property)
+            self.brightness_property = configured_property
+            self.brightness_property_candidates = list(dict.fromkeys(candidates))
+            self.brightness_property_source = "configured"
+            self.brightness_property_discovery_reason = (
+                "The configured property was verified against the loaded Micro-Manager device adapter."
+            )
+            return
+
+        self.brightness_property_candidates = candidates
+        if not candidates:
+            self.brightness_property = ""
+            self.brightness_property_source = "unavailable"
+            if not self.brightness_property_discovery_reason:
+                self.brightness_property_discovery_reason = (
+                    "The loaded device exposes no writable brightness, intensity, power, level, "
+                    "or percent property."
+                )
+            return
+
+        top_score = self._intensity_property_score(candidates[0])
+        equally_ranked = [
+            name for name in candidates if self._intensity_property_score(name) == top_score
+        ]
+        if len(equally_ranked) > 1:
+            self.brightness_property = ""
+            self.brightness_property_source = "unavailable"
+            self.brightness_property_discovery_reason = (
+                "Multiple equally ranked writable intensity properties were detected; select one "
+                "in the configuration form."
+            )
+            return
+
+        self.brightness_property = candidates[0]
+        self.brightness_property_source = "runtime"
+        self.brightness_property_discovery_reason = (
+            "Detected from the loaded Micro-Manager device adapter with getDevicePropertyNames()."
+        )
+        logger.info(
+            "Using runtime-detected transmitted-light property %s.%s",
+            self.brightness_device,
+            self.brightness_property,
+        )
+
+    def get_transmitted_light_runtime_info(self) -> Dict[str, Any]:
+        return {
+            "available": self._supports_transmitted_brightness(),
+            "device": self.brightness_device,
+            "configured_property": str(self._configured_brightness_property or ""),
+            "selected_property": self.brightness_property,
+            "source": self.brightness_property_source,
+            "candidates": list(self.brightness_property_candidates),
+            "reason": self.brightness_property_discovery_reason,
+            "min": self.Min_brightness,
+            "max": self.Max_brightness,
+        }
+
     def initialize(self):
         self._hardware_shutdown_complete = False
         if self.shutdown_event.is_set():
@@ -783,6 +991,8 @@ class MicroscopeController(BaseTool):
         if self.shutdown_event.is_set():
             raise RuntimeError("microscope initialization cancelled")
 
+        self._resolve_transmitted_light_property_from_core()
+
         loaded_devices = self.core.getLoadedDevices()
         required_devices = [
             self.camera_device,
@@ -791,7 +1001,7 @@ class MicroscopeController(BaseTool):
             self.focus_drive,
             self.Dichroic,
         ]
-        if self._supports_transmitted_brightness():
+        if self.brightness_device:
             required_devices.append(self.brightness_device)
         _validate_loaded_devices(loaded_devices, required_devices)
         self._sync_axis_limits_from_core()
@@ -955,7 +1165,6 @@ class MicroscopeController(BaseTool):
                 camera_device=self.camera_device,
                 xy_stage_device=self.xy_stage_device,
                 objective_device=self.objective_device,
-                transmitted_illumination=getattr(self.system_config, "transmittedIllumination", ""),
                 focus_drive=self.focus_drive,
                 dichroic=self.Dichroic,
                 objectives=self.objectives,

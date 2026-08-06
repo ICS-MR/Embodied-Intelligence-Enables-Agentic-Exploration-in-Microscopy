@@ -10,21 +10,22 @@ from typing import Any, AsyncGenerator, Dict
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from core_tool.microscope import MicroscopeController
 from api.models import ConfigSaveRequest
-from bootstrap.config import read_config_snapshot, read_public_config_snapshot, save_env_secrets, save_runtime_settings
-from runtime.asset_check import AssetCheckResult, check_snapshot_assets
-from system_config_wizard import (
-    build_channels,
-    build_objectives,
-    build_transmitted_light_mapping,
-    parse_mm_config,
-    suggest_values,
+from bootstrap.config import (
+    load_runtime_settings,
+    read_config_snapshot,
+    read_public_config_snapshot,
+    save_env_secrets,
+    save_runtime_settings,
 )
+from runtime.asset_check import AssetCheckResult, check_snapshot_assets
+from services.config_mapping_ai import analyze_config_mapping
+from system_config_wizard import build_cfg_inventory
 
 
 ROOT_DIR = Path(__file__).parent
@@ -57,6 +58,7 @@ class MockSession:
             "failure_step": "",
         }
         self.output_queue: asyncio.Queue = asyncio.Queue()
+        self.output_subscribers: set[asyncio.Queue] = set()
         self.task_running: bool = False
         self.is_asking_user: bool = False
         self.first_connection_made: bool = False
@@ -134,14 +136,22 @@ def terminate_current_process() -> None:
 
 
 async def robot_say(message: str) -> None:
-    await session.output_queue.put({"type": "robot_say", "text": message})
+    publish_output_message({"type": "robot_say", "text": message})
     await asyncio.sleep(0)
 
 
 async def robot_action_log(message: str) -> None:
     logger.info("Robot action: %s", message)
-    await session.output_queue.put({"type": "robot_action", "text": message})
+    publish_output_message({"type": "robot_action", "text": message})
     await asyncio.sleep(0)
+
+
+def publish_output_message(message: Dict[str, Any]) -> None:
+    if session.output_subscribers:
+        for subscriber in tuple(session.output_subscribers):
+            subscriber.put_nowait(dict(message))
+        return
+    session.output_queue.put_nowait(message)
 
 
 def build_mock_runtime() -> Dict[str, Any]:
@@ -581,9 +591,9 @@ async def simulate_task(command: str) -> None:
         for step in fake_steps:
             await robot_action_log(step)
             await asyncio.sleep(0.9)
-        await session.output_queue.put({"type": "task_complete", "text": f"Task execution completed: {command}"})
+        publish_output_message({"type": "task_complete", "text": f"Task execution completed: {command}"})
     except Exception as exc:
-        await session.output_queue.put({"type": "error", "text": f"Execution failed: {exc}"})
+        publish_output_message({"type": "error", "text": f"Execution failed: {exc}"})
     finally:
         session.task_running = False
 
@@ -643,27 +653,40 @@ async def preview_status() -> Dict[str, Any]:
 
 
 @app.post("/api/config/upload-cfg")
-async def upload_cfg(file: UploadFile = File(...)) -> Dict[str, Any]:
-    if not file.filename.lower().endswith(".cfg"):
+async def upload_cfg(
+    file: UploadFile = File(...),
+    microscope_mode: str = Form("real"),
+    openai_api_key: str = Form(""),
+    base_url: str = Form(""),
+    model_name: str = Form(""),
+) -> Dict[str, Any]:
+    if str(microscope_mode or "real").strip().lower() != "real":
+        raise HTTPException(status_code=409, detail="External Micro-Manager cfg import is available only in Real microscope mode.")
+    filename = str(file.filename or "")
+    if not filename.lower().endswith(".cfg"):
         raise HTTPException(status_code=400, detail="Please upload a .cfg file.")
 
     UPLOADED_CFG_DIR.mkdir(parents=True, exist_ok=True)
-    saved_path = UPLOADED_CFG_DIR / Path(file.filename).name
+    saved_path = UPLOADED_CFG_DIR / Path(filename).name
     with saved_path.open("wb") as target:
         shutil.copyfileobj(file.file, target)
 
-    suggestions = suggest_values(saved_path)
-    cfg_data = parse_mm_config(saved_path)
-    objectives = build_objectives(cfg_data, suggestions["objective_device"]["value"], {})
-    channels = build_channels(cfg_data, suggestions["Dichroic"]["value"], {})
-    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
+    settings = load_runtime_settings(apply_demo_overlay=False)
+    if str(openai_api_key or "").strip():
+        settings.model.openai_api_key = str(openai_api_key).strip()
+    if str(base_url or "").strip():
+        settings.model.base_url = str(base_url).strip()
+    if str(model_name or "").strip():
+        settings.model.model_name = str(model_name).strip()
+    mapping = analyze_config_mapping(
+        inventory=build_cfg_inventory(saved_path),
+        model_config=settings.model,
+        current_system=settings.system,
+    )
 
     return {
         "config_path": str(saved_path),
-        "suggestions": suggestions,
-        "objectives": objectives,
-        "channels": channels,
-        "transmitted_light": transmitted_light,
+        "mapping": mapping,
     }
 
 
@@ -681,7 +704,6 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
         "camera_device": coalesce_text(req.camera_device, system_current["camera_device"]),
         "xy_stage_device": coalesce_text(req.xy_stage_device, system_current["xy_stage_device"]),
         "objective_device": coalesce_text(req.objective_device, system_current["objective_device"]),
-        "transmittedIllumination": coalesce_text(req.transmittedIllumination, system_current["transmittedIllumination"]),
         "focus_drive": coalesce_text(req.focus_drive, system_current["focus_drive"]),
         "Dichroic": coalesce_text(req.Dichroic, system_current["Dichroic"]),
     }
@@ -691,8 +713,25 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
         system_updates["channels"] = req.channels
     if req.transmitted_light:
         system_updates["transmitted_light"] = req.transmitted_light
+    for field_name in (
+        "Max_X_position",
+        "Min_X_position",
+        "Max_Y_position",
+        "Min_Y_position",
+        "Max_Z_position",
+        "Min_Z_position",
+        "Max_brightness",
+        "Min_brightness",
+        "Max_exposure",
+        "Min_exposure",
+    ):
+        value = getattr(req, field_name)
+        if value is not None:
+            system_updates[field_name] = value
     model_updates = {
-        "Simulation_mode": req.simulation_mode,
+        "microscope_mode": req.microscope_mode,
+        "image_analysis_mode": req.image_analysis_mode,
+        "segmentation_mode": req.segmentation_mode,
         "base_url": coalesce_text(req.base_url, agent_current["base_url"]),
         "model_name": coalesce_text(req.model_name, agent_current["model_name"]),
         "vlm_base_url": coalesce_text(req.vlm_base_url, agent_current["vlm_base_url"]),
@@ -705,6 +744,9 @@ async def save_config(req: ConfigSaveRequest) -> Dict[str, Any]:
         "channel": coalesce_text(req.startup_channel, startup_current["channel"]),
         "exposure": coalesce_number(req.startup_exposure, startup_current["exposure"]),
         "brightness": coalesce_number(req.startup_brightness, startup_current["brightness"]),
+        "z_position": coalesce_number(req.startup_z_position, startup_current["z_position"]),
+        "x_position": coalesce_number(req.startup_x_position, startup_current["x_position"]),
+        "y_position": coalesce_number(req.startup_y_position, startup_current["y_position"]),
         "start_preview": req.startup_start_preview,
     }
 
@@ -787,21 +829,31 @@ async def get_system_status() -> Dict[str, Any]:
 
 @app.get("/api/stream/global")
 async def global_message_stream() -> StreamingResponse:
+    subscriber: asyncio.Queue = asyncio.Queue()
+    while True:
+        try:
+            subscriber.put_nowait(session.output_queue.get_nowait())
+        except asyncio.QueueEmpty:
+            break
+    session.output_subscribers.add(subscriber)
     if not session.first_connection_made:
         session.first_connection_made = True
         if session.system_status["initialized"]:
-            await robot_say("The mock microscope is ready. Enter a command to try the frontend workflow.")
+            publish_output_message({"type": "robot_say", "text": "The mock microscope is ready. Enter a command to try the frontend workflow."})
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        while True:
-            try:
-                msg = await session.output_queue.get()
-                yield f"data: {json.dumps(msg, ensure_ascii=False)}\n\n"
-            except asyncio.CancelledError:
-                break
-            except Exception as exc:
-                logger.exception("SSE error: %s", exc)
-                yield f"data: {json.dumps({'type': 'error', 'text': str(exc)})}\n\n"
+        try:
+            while True:
+                try:
+                    msg = await subscriber.get()
+                    yield f"data: {json.dumps(msg, ensure_ascii=False)}\n\n"
+                except asyncio.CancelledError:
+                    break
+                except Exception as exc:
+                    logger.exception("SSE error: %s", exc)
+                    yield f"data: {json.dumps({'type': 'error', 'text': str(exc)})}\n\n"
+        finally:
+            session.output_subscribers.discard(subscriber)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

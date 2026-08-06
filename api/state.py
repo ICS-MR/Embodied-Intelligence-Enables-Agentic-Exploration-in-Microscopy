@@ -8,8 +8,10 @@ from api.models import TaskExecutionResponse
 @dataclass
 class SessionState:
     output_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    output_subscribers: set[asyncio.Queue] = field(default_factory=set, repr=False)
     input_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     is_asking_user: bool = False
+    pending_user_prompt: dict | None = None
     first_connection_made: bool = False
 
 

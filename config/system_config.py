@@ -11,7 +11,6 @@ dichroic_colors = _config.dichroic_colors
 camera_device = _config.camera_device
 xy_stage_device = _config.xy_stage_device
 objective_device = _config.objective_device
-transmittedIllumination = _config.transmittedIllumination
 focus_drive = _config.focus_drive
 Dichroic = _config.Dichroic
 Max_X_position = _config.Max_X_position

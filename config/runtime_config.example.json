@@ -62,13 +62,10 @@
       }
     },
     "transmitted_light": {
-      "device": "Camera",
-      "intensity_property": "BeadBrightness",
+      "device": "",
+      "intensity_property": "",
       "min": 0,
-      "max": 250,
-      "control_kind": "demo_camera_bead_brightness",
-      "surrogate_min_property_value": 0.5,
-      "surrogate_scale": 100.0
+      "max": 250
     },
     "Min_X_position": 0.0,
     "Max_X_position": 500.0,
@@ -78,6 +75,8 @@
     "Max_Z_position": 300.0,
     "Min_brightness": 0,
     "Max_brightness": 250,
+    "Min_exposure": 0,
+    "Max_exposure": 1000,
     "fiji_executor_timeout_seconds": 300.0
   },
   "model": {
@@ -93,8 +92,8 @@
     "vlm_model_name": "gpt-4.1"
   },
   "startup": {
-    "objective": "2-SOB",
-    "channel": "1-NONE",
+    "objective": "10x",
+    "channel": "brightfield",
     "exposure": 10.0,
     "brightness": 100,
     "z_position": 50.0,

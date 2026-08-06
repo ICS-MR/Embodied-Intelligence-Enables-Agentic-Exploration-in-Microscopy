@@ -1,12 +1,18 @@
 ﻿import json
 import os
+import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from dotenv import dotenv_values
 
-from bootstrap.microscope_semantics import derived_dichroic_colors, derived_objective_labels
+from bootstrap.microscope_semantics import (
+    derived_dichroic_colors,
+    derived_objective_labels,
+    resolve_channel_input,
+    resolve_objective_input,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -77,6 +83,7 @@ DEFAULT_TRANSMITTED_LIGHT: Dict[str, Any] = {
     "min": 0,
     "max": 250,
 }
+PUBLIC_TRANSMITTED_LIGHT_FIELDS = ("device", "intensity_property", "min", "max")
 
 DEMO_OBJECTIVES: Dict[str, Dict[str, Any]] = {
     "4x": {"label": "1-UPLFLN4XPH", "magnification": 4, "display_name": "4x objective"},
@@ -181,7 +188,6 @@ class SystemConfig:
     camera_device: str = ""
     xy_stage_device: str = ""
     objective_device: str = ""
-    transmittedIllumination: str = ""
     focus_drive: str = ""
     Dichroic: str = ""
     objective_labels: Dict[str, int] = field(default_factory=lambda: dict(DEFAULT_OBJECTIVE_LABELS))
@@ -237,7 +243,6 @@ def build_demo_system_overrides() -> Dict[str, Any]:
         "camera_device": "DCam",
         "xy_stage_device": "DXYStage",
         "objective_device": "DObjective",
-        "transmittedIllumination": "DLightPath",
         "focus_drive": "DStage",
         "Dichroic": "DStateDevice",
         "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
@@ -251,6 +256,8 @@ def build_demo_system_overrides() -> Dict[str, Any]:
         "Max_Z_position": 300.0,
         "Min_brightness": 0,
         "Max_brightness": 250,
+        "Min_exposure": 0,
+        "Max_exposure": 1000,
     }
 
 
@@ -352,6 +359,22 @@ def _normalize_system_semantics(system_config: SystemConfig) -> None:
     system_config.dichroic_colors = derived_dichroic_colors(system_config)
 
 
+def _normalize_startup_semantics(settings: RuntimeSettings) -> None:
+    _label, objective_key, _entry = resolve_objective_input(
+        settings.startup.objective,
+        settings.system,
+    )
+    if objective_key:
+        settings.startup.objective = objective_key
+
+    _label, channel_key, _entry = resolve_channel_input(
+        settings.startup.channel,
+        settings.system,
+    )
+    if channel_key:
+        settings.startup.channel = channel_key
+
+
 def _apply_demo_system_overrides(system_config: SystemConfig) -> None:
     _update_dataclass(system_config, build_demo_system_overrides())
     _normalize_system_semantics(system_config)
@@ -409,7 +432,23 @@ def _apply_file_overrides(settings: RuntimeSettings, payload: Mapping[str, Any])
     startup_payload = payload.get("startup", {})
     detection_payload = payload.get("detection_targets", {})
     if isinstance(system_payload, Mapping):
-        _update_dataclass(settings.system, system_payload)
+        system_updates = dict(system_payload)
+        legacy_light_device = str(system_updates.pop("transmittedIllumination", "") or "").strip()
+        transmitted_light = system_updates.get("transmitted_light")
+        transmitted_light_updates = (
+            {
+                key: transmitted_light[key]
+                for key in PUBLIC_TRANSMITTED_LIGHT_FIELDS
+                if key in transmitted_light
+            }
+            if isinstance(transmitted_light, Mapping)
+            else {}
+        )
+        if legacy_light_device and not str(transmitted_light_updates.get("device") or "").strip():
+            transmitted_light_updates["device"] = legacy_light_device
+        if transmitted_light_updates:
+            system_updates["transmitted_light"] = transmitted_light_updates
+        _update_dataclass(settings.system, system_updates)
         if "objective_labels" in system_payload and "objectives" not in system_payload:
             settings.system.objectives = _objectives_from_legacy_labels(settings.system.objective_labels)
         if "dichroic_colors" in system_payload and "channels" not in system_payload:
@@ -456,7 +495,7 @@ def _apply_env_overrides(settings: RuntimeSettings, env_values: Mapping[str, str
                 setattr(settings.model, field_name, value)
                 break
 
-    checker_env = os.environ.get("EIMS_CHECKER_ENABLED")
+    checker_env = env_values.get("EIMS_CHECKER_ENABLED")
     if checker_env is not None:
         settings.model.checker_enabled = _coerce_bool(checker_env, settings.model.checker_enabled)
 
@@ -476,7 +515,6 @@ def _normalized_demo_mapping_payload() -> Dict[str, Any]:
         "camera_device": "DCam",
         "xy_stage_device": "DXYStage",
         "objective_device": "DObjective",
-        "transmittedIllumination": "DLightPath",
         "focus_drive": "DStage",
         "Dichroic": "DStateDevice",
         "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
@@ -491,7 +529,6 @@ def is_demo_mapping_payload(
     camera_device: str,
     xy_stage_device: str,
     objective_device: str,
-    transmitted_illumination: str,
     focus_drive: str,
     dichroic: str,
     objectives: Mapping[str, Any],
@@ -504,7 +541,6 @@ def is_demo_mapping_payload(
         and str(camera_device).strip() == str(demo["camera_device"]).strip()
         and str(xy_stage_device).strip() == str(demo["xy_stage_device"]).strip()
         and str(objective_device).strip() == str(demo["objective_device"]).strip()
-        and str(transmitted_illumination).strip() == str(demo["transmittedIllumination"]).strip()
         and str(focus_drive).strip() == str(demo["focus_drive"]).strip()
         and str(dichroic).strip() == str(demo["Dichroic"]).strip()
         and dict(objectives or {}) == dict(demo["objectives"])
@@ -571,9 +607,11 @@ def load_runtime_settings(
     payload = _read_json(target_path)
     _apply_file_overrides(settings, payload)
     _normalize_system_semantics(settings.system)
+    _normalize_startup_semantics(settings)
     if apply_env:
         _apply_env_overrides(settings, _load_env_values(include_dotenv=target_path == RUNTIME_CONFIG_PATH))
         _normalize_system_semantics(settings.system)
+        _normalize_startup_semantics(settings)
     if apply_demo_overlay and is_demo_mode_settings(settings):
         _apply_demo_system_overrides(settings.system)
         _apply_demo_startup_overrides(settings.startup)
@@ -591,6 +629,13 @@ def _system_config_payload(system_config: SystemConfig) -> Dict[str, Any]:
     payload = _dataclass_dict(system_config)
     payload.pop("objective_labels", None)
     payload.pop("dichroic_colors", None)
+    transmitted_light = payload.get("transmitted_light")
+    if isinstance(transmitted_light, Mapping):
+        payload["transmitted_light"] = {
+            key: transmitted_light[key]
+            for key in PUBLIC_TRANSMITTED_LIGHT_FIELDS
+            if key in transmitted_light
+        }
     return payload
 
 
@@ -611,6 +656,7 @@ def save_runtime_settings(
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _normalize_system_semantics(settings.system)
+    _normalize_startup_semantics(settings)
     payload = {
         "system": _system_config_payload(settings.system),
         "model": _dataclass_dict(settings.model),
@@ -620,7 +666,22 @@ def save_runtime_settings(
     payload["model"].pop("Simulation_mode", None)
     payload["model"].pop("openai_api_key", None)
     payload["model"].pop("vlm_api_key", None)
-    target_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=target_path.parent,
+            prefix=f".{target_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            handle.write(json.dumps(payload, indent=2, ensure_ascii=False))
+            temp_path = Path(handle.name)
+        temp_path.replace(target_path)
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
     return settings
 
 
@@ -683,7 +744,6 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "camera_device": settings.system.camera_device,
             "xy_stage_device": settings.system.xy_stage_device,
             "objective_device": settings.system.objective_device,
-            "transmittedIllumination": settings.system.transmittedIllumination,
             "focus_drive": settings.system.focus_drive,
             "Dichroic": settings.system.Dichroic,
             "objectives": settings.system.objectives,

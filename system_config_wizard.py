@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 import re
 import shutil
@@ -89,10 +90,9 @@ FIELD_RULES: List[FieldRule] = [
         require_labels=True,
     ),
     FieldRule(
-        name="transmittedIllumination",
-        description="Transmitted-light illuminator",
+        name="transmitted_light_device",
+        description="Optional transmitted-light intensity-control device",
         label_tokens=("transmittedillumination", "transmitted", "illumination", "lamp", "led", "white light", "shutter"),
-        numeric_suffix_preference="highest",
     ),
     FieldRule(
         name="Dichroic",
@@ -105,11 +105,13 @@ FIELD_RULES: List[FieldRule] = [
 
 def parse_mm_config(cfg_path: Path) -> MMConfigData:
     data = MMConfigData()
-    for raw_line in cfg_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
+    text = cfg_path.read_text(encoding="utf-8", errors="ignore")
+    for raw_parts in csv.reader(text.splitlines()):
+        if not raw_parts:
             continue
-        parts = [part.strip() for part in line.split(",")]
+        parts = [part.strip() for part in raw_parts]
+        if not parts or not parts[0] or parts[0].startswith("#"):
+            continue
         keyword = parts[0].lower()
 
         if keyword == "device" and len(parts) >= 4 and parts[1]:
@@ -159,12 +161,13 @@ def score_device(record: DeviceRecord, rule: FieldRule, data: MMConfigData) -> i
         score += 10
     if record.label in data.focus_directions:
         score += 120
-    if rule.name == "transmittedIllumination":
+    if rule.name == "transmitted_light_device":
         props = data.device_props.get(record.label, {})
-        if any(
+        has_declared_intensity_property = any(
             any(token in str(prop_name).lower() for token in INTENSITY_PROPERTY_HINTS)
             for prop_name in props
-        ):
+        )
+        if has_declared_intensity_property:
             # Prefer devices that actually expose an intensity-like control property
             # over shutters or path selectors whose names happen to match light tokens.
             score += 160
@@ -200,6 +203,10 @@ def infer_device(rule: FieldRule, data: MMConfigData) -> Tuple[Optional[str], st
 
     if not best:
         return None, "No confident match", candidates
+
+    top_score = max(score for score, _record in scored)
+    if sum(1 for score, _record in scored if score == top_score) > 1:
+        return None, "Ambiguous heuristic match", candidates
 
     if len(scored) > 1 and rule.numeric_suffix_preference == "highest":
         return best.label, "Heuristic match with highest numeric suffix preference", candidates
@@ -363,7 +370,12 @@ def build_channels(
 
 def build_transmitted_light_mapping(data: MMConfigData, transmitted_device: Optional[str]) -> Dict[str, Any]:
     if not transmitted_device:
-        return {}
+        return {
+            "device": "",
+            "intensity_property": "",
+            "min": 0,
+            "max": 250,
+        }
     props = data.device_props.get(transmitted_device, {})
     selected_property = ""
     for prop_name in props:
@@ -383,6 +395,44 @@ def build_transmitted_light_mapping(data: MMConfigData, transmitted_device: Opti
         "intensity_property": selected_property,
         "min": 0,
         "max": 250,
+    }
+
+
+def build_cfg_inventory(cfg_path: Path) -> Dict[str, Any]:
+    """Return the cfg-derived identifiers that may be shown to an external mapper.
+
+    The inventory intentionally excludes the original cfg text, comments, and filesystem
+    path. Callers can safely send this structure to an AI service after user consent.
+    """
+    data = parse_mm_config(cfg_path)
+    suggestions = suggest_values(cfg_path)
+    objective_device = suggestions.get("objective_device", {}).get("value")
+    dichroic_device = suggestions.get("Dichroic", {}).get("value")
+    transmitted_device = suggestions.get("transmitted_light_device", {}).get("value")
+    devices = []
+    for device in data.devices:
+        devices.append(
+            {
+                "name": device.label,
+                "adapter": device.adapter,
+                "device_type": device.device_name,
+                "state_labels": list(data.labels.get(device.label, [])),
+                "properties": sorted(data.device_props.get(device.label, {}).keys()),
+            }
+        )
+
+    return {
+        "core_roles": dict(data.core_props),
+        "devices": devices,
+        "suggestions": suggestions,
+        "rule_mapping": {
+            "objectives": build_objectives(data, objective_device, {}),
+            "channels": build_channels(data, dichroic_device, {}),
+            "transmitted_light": build_transmitted_light_mapping(data, transmitted_device),
+        },
+        "unresolved_fields": [
+            name for name, suggestion in suggestions.items() if not suggestion.get("value")
+        ],
     }
 
 
@@ -1157,18 +1207,12 @@ def main() -> None:
         "--mm-config",
         type=Path,
         default=None,
-        help="Path to the Micro-Manager system configuration (.cfg). Defaults to CONFIG_PATH in system_config.py.",
-    )
-    parser.add_argument(
-        "--system-config",
-        type=Path,
-        default=Path("config/system_config.py"),
-        help="Path to config/system_config.py.",
+        help="Path to the Micro-Manager system configuration (.cfg). Defaults to system.CONFIG_PATH in config/runtime_config.json.",
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply detected device-name updates to system_config.py.",
+        help="Apply detected device and semantic mapping updates to config/runtime_config.json.",
     )
     parser.add_argument(
         "--install-mmcore",
@@ -1316,12 +1360,8 @@ def main() -> None:
             raise SystemExit(1) from exc
         return
 
-    system_config_path = args.system_config
-    if not system_config_path.exists():
-        raise FileNotFoundError(f"system_config.py not found at {system_config_path}")
-
     system_config = load_system_config()
-    cfg_path = load_system_config_path(system_config_path, args.mm_config)
+    cfg_path = load_system_config_path(Path("config/runtime_config.json"), args.mm_config)
     if not cfg_path.exists():
         raise FileNotFoundError(f"Micro-Manager config not found: {cfg_path}")
 
@@ -1334,7 +1374,7 @@ def main() -> None:
 
     objectives = build_objectives(cfg_data, objective_device, {})
     channels = build_channels(cfg_data, dichroic_device, {})
-    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmittedIllumination"]["value"])
+    transmitted_light = build_transmitted_light_mapping(cfg_data, suggestions["transmitted_light_device"]["value"])
 
     print_mapping_preview("objectives semantic mapping preview", objectives)
     print_mapping_preview("channels semantic mapping preview", channels)
@@ -1346,23 +1386,24 @@ def main() -> None:
             for field, info in suggestions.items()
             if info["value"]
         }
-        applied = apply_updates(system_config_path, updates)
+        runtime_config_path = Path("config/runtime_config.json")
+        applied = apply_updates(runtime_config_path, updates)
         dict_updates: List[str] = []
-        if objectives and apply_dict_update(system_config_path, "objectives", objectives):
+        if objectives and apply_dict_update(runtime_config_path, "objectives", objectives):
             dict_updates.append("objectives")
-        if channels and apply_dict_update(system_config_path, "channels", channels):
+        if channels and apply_dict_update(runtime_config_path, "channels", channels):
             dict_updates.append("channels")
-        if transmitted_light and apply_dict_update(system_config_path, "transmitted_light", transmitted_light):
+        if transmitted_light and apply_dict_update(runtime_config_path, "transmitted_light", transmitted_light):
             dict_updates.append("transmitted_light")
 
         all_updates = applied + dict_updates
         if all_updates:
-            print(f"\nUpdated {system_config_path}: {', '.join(all_updates)}")
+            print(f"\nUpdated {runtime_config_path}: {', '.join(all_updates)}")
         else:
             print("\nNo changes were applied. Please check the candidates manually.")
     else:
         print("\nDry-run only. Re-run with:")
-        print("    python system_config_wizard.py --mm-config <your.cfg> --apply")
+        print("    uv run python system_config_wizard.py --mm-config <your.cfg> --apply")
 
 
 if __name__ == "__main__":
