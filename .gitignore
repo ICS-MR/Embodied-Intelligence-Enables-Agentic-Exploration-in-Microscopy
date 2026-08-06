@@ -16,6 +16,9 @@ wheels/
 .env
 config/runtime_config.json
 
+# Large local backups (not for repository)
+docs.rar
+
 # Test and runtime artifacts
 .pytest_cache/
 history/
