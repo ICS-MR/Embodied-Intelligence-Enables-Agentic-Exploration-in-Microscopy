@@ -1567,12 +1567,15 @@
             systemPhase: "unconfigured",
             previewAutoRetried: false,
             isCfgImporting: false,
+            configured: false,
             realHardwareConfigDraft: null,
             transmittedLightConfigDraft: {},
             demoManagedSystem: null,
             demoManagedStartup: null,
             taskProgress: null,
             taskProgressClearTimer: null,
+            configStatusRequestController: null,
+            configStatusEpoch: 0,
         };
 
         function $(id) { return document.getElementById(id); }
@@ -1755,6 +1758,8 @@
             $("modelName").value = agent.model_name || "";
             $("vlmBaseUrl").value = agent.vlm_base_url || "";
             $("vlmModelName").value = agent.vlm_model_name || "";
+            $("openaiApiKey").value = agent.openai_api_key || "";
+            $("vlmApiKey").value = agent.vlm_api_key || "";
             $("openaiApiKey").placeholder = agent.masked?.openai_api_key || "sk-...";
             $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
             syncMicroscopeModeUi();
@@ -1923,6 +1928,63 @@
             }
         }
 
+        function captureConfigUiState(source) {
+            const ids = allMappingDraftInputIds();
+            const controls = ids.map((id) => {
+                const input = $(id);
+                const picker = document.getElementById(`${id}Candidates`);
+                return {
+                    id,
+                    disabled: Boolean(input?.disabled),
+                    pickerDisabled: picker ? Boolean(picker.disabled) : null,
+                };
+            });
+            const state = {
+                source,
+                mode: $("microscopeMode")?.value || "",
+                importing: uiState.isCfgImporting,
+                phase: uiState.systemPhase,
+                configured: uiState.configured,
+                activeElement: document.activeElement?.id || "",
+                controls,
+            };
+            $("configScreen").dataset.uiState = JSON.stringify(state);
+            console.debug("[EIMS config UI]", state);
+            return state;
+        }
+
+        function startConfigUiPerformanceMonitor() {
+            let lastTick = performance.now();
+            window.setInterval(() => {
+                const now = performance.now();
+                const lag = Math.max(0, now - lastTick - 250);
+                lastTick = now;
+                if (lag < 100) return;
+                $("configScreen").dataset.uiLag = JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    lagMs: Math.round(lag),
+                });
+                console.warn("[EIMS config UI long event-loop delay]", Math.round(lag), "ms");
+            }, 250);
+            if (window.PerformanceObserver) {
+                try {
+                    const observer = new PerformanceObserver((list) => {
+                        const entry = list.getEntries().at(-1);
+                        if (!entry) return;
+                        $("configScreen").dataset.uiLongTask = JSON.stringify({
+                            timestamp: new Date().toISOString(),
+                            durationMs: Math.round(entry.duration),
+                            name: entry.name,
+                        });
+                        console.warn("[EIMS config UI long task]", Math.round(entry.duration), "ms");
+                    });
+                    observer.observe({ type: "longtask", buffered: true });
+                } catch (_error) {
+                    // Long Task monitoring is not available in every browser context.
+                }
+            }
+        }
+
         function setCfgImportBusy(isBusy, detail = "") {
             uiState.isCfgImporting = isBusy;
             const demoModeEnabled = $("microscopeMode").value === "demo";
@@ -1950,7 +2012,7 @@
             $("testLlmBtn").disabled = isBusy;
             $("testVlmBtn").disabled = isBusy;
             $("saveConfigBtn").disabled = isBusy || lifecycleBusy;
-            $("startSystemBtn").disabled = isBusy || ["unconfigured", "initializing", "executing", "releasing"].includes(uiState.systemPhase);
+            updateStartSystemButton({ system_phase: uiState.systemPhase });
         }
 
         function syncMicroscopeModeUi() {
@@ -2018,6 +2080,7 @@
             } else if (!$("cfgFile").files[0]) {
                 $("cfgFileName").textContent = "No file selected";
             }
+            captureConfigUiState("syncMicroscopeModeUi");
         }
 
         function currentSemanticMapping(system) {
@@ -2148,7 +2211,6 @@
             }
             if (candidates.length > 0) {
                 const picker = ensureCandidatePicker(elementId);
-                picker.innerHTML = "";
                 const placeholder = document.createElement("option");
                 placeholder.value = "";
                 placeholder.textContent = "Choose an available candidate";
@@ -2406,6 +2468,14 @@
             }
         }
 
+        function invalidateConfigStatusRequests() {
+            uiState.configStatusEpoch += 1;
+            if (uiState.configStatusRequestController) {
+                uiState.configStatusRequestController.abort();
+                uiState.configStatusRequestController = null;
+            }
+        }
+
         function clearPreviewAutoRetryTimer() {
             if (uiState.previewAutoRetryTimer) {
                 clearTimeout(uiState.previewAutoRetryTimer);
@@ -2420,7 +2490,10 @@
         function updateStartSystemButton(data) {
             const button = $("startSystemBtn");
             const phase = data?.system_phase || "unconfigured";
-            const configured = Boolean(data?.configured);
+            if (typeof data?.configured === "boolean") {
+                uiState.configured = data.configured;
+            }
+            const configured = uiState.configured;
             button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
             button.disabled = uiState.isCfgImporting || !configured || ["initializing", "executing", "releasing"].includes(phase);
             button.title = button.disabled ? (data?.status_message || "Configuration is incomplete.") : "";
@@ -2466,7 +2539,19 @@
         }
 
         function requestConfigStatus() {
-            return fetchJson("/api/config/status");
+            const epoch = uiState.configStatusEpoch;
+            const controller = new AbortController();
+            uiState.configStatusRequestController = controller;
+            return fetchJson("/api/config/status", { signal: controller.signal }).then((data) => {
+                if (epoch !== uiState.configStatusEpoch || uiState.isCfgImporting) {
+                    return null;
+                }
+                return data;
+            }).finally(() => {
+                if (uiState.configStatusRequestController === controller) {
+                    uiState.configStatusRequestController = null;
+                }
+            });
         }
 
         function requestPreviewStatus() {
@@ -2626,6 +2711,7 @@
         }
 
         async function applyConfigStatus(data, options = {}) {
+            if (!data || uiState.isCfgImporting) return data;
             fillConfigForm(data);
             uiState.systemPhase = data?.system_phase || "unconfigured";
             updateStartSystemButton(data);
@@ -2708,6 +2794,8 @@
             );
             if (!confirmed) return;
             setCfgImportBusy(true, "Uploading the cfg, connecting Micro-Manager, inspecting all device capabilities, and requesting AI recommendations. Keep this page open until inspection finishes.");
+            clearConfigStatusPolling();
+            invalidateConfigStatusRequests();
             showFeedback("Inspecting cfg hardware and generating an editable mapping draft. The configuration has not been saved yet.");
             try {
                 const formData = new FormData();
@@ -2726,6 +2814,8 @@
                 const data = await res.json();
                 const mapping = data.mapping || {};
                 $("configPath").value = data.config_path || "";
+                uiState.systemPhase = "ready_to_start";
+                uiState.configured = false;
                 applyConfigMappingDraft(mapping);
                 try {
                     localStorage.setItem("eimsMappingDraft", JSON.stringify(mapping));
@@ -2733,6 +2823,11 @@
                     // localStorage may be unavailable; candidate restore is best-effort.
                 }
                 refreshStartupMappingOptions();
+                updateStartSystemButton({
+                    configured: false,
+                    system_phase: uiState.systemPhase,
+                    status_message: "Save configuration to persist the imported cfg mapping before starting the system.",
+                });
                 const warnings = mapping.warnings || [];
                 const reviewCount = countReviewDrafts(mapping);
                 const inspectionLead = mapping.hardware_inspection_status === "completed"
@@ -2751,6 +2846,7 @@
                 showFeedback(message, false);
                 $("configFeedback").style.whiteSpace = "pre-line";
                 syncMicroscopeModeUi();
+                captureConfigUiState("uploadCfgFile:response-applied");
             } finally {
                 setCfgImportBusy(false);
             }
@@ -3479,10 +3575,25 @@
             });
         }
 
+        window.addEventListener("error", (event) => {
+            const detail = `${event.message || "Unknown frontend error"} at ${event.filename || "inline script"}:${event.lineno || 0}`;
+            $("configScreen").dataset.uiError = detail;
+            console.error("[EIMS config UI error]", detail, event.error);
+            captureConfigUiState("window:error");
+        });
+
+        window.addEventListener("unhandledrejection", (event) => {
+            const reason = event.reason?.stack || event.reason?.message || String(event.reason || "Unknown promise rejection");
+            $("configScreen").dataset.uiError = reason;
+            console.error("[EIMS config UI rejection]", reason);
+            captureConfigUiState("window:unhandledrejection");
+        });
+
         window.addEventListener("DOMContentLoaded", async () => {
             bindConfigEvents();
             bindChatEvents();
             bindVideoEvents();
+            startConfigUiPerformanceMonitor();
             await initializeStartupFlow();
         });
 

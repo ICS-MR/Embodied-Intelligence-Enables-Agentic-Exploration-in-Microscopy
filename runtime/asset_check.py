@@ -178,11 +178,11 @@ def _check_agent_fields(agent: Mapping[str, Any], issues: list[AssetIssue]) -> N
         "openai_api_key",
         "base_url",
         "model_name",
-        "vlm_api_key",
-        "vlm_base_url",
-        "vlm_model_name",
     ):
         _require_text(agent, field_name, issues, category="agent_config", mode="agent")
+    if bool(agent.get("checker_enabled", False)):
+        for field_name in ("vlm_api_key", "vlm_base_url", "vlm_model_name"):
+            _require_text(agent, field_name, issues, category="agent_config", mode="checker")
 
 
 def _check_microscope_assets(system: Mapping[str, Any], mode: str, issues: list[AssetIssue]) -> None:

@@ -22,6 +22,7 @@ from bootstrap.config import (
     build_demo_startup_overrides,
     build_demo_system_overrides,
     is_demo_mapping_payload,
+    read_config_snapshot,
     load_runtime_settings,
     read_public_config_snapshot,
     save_env_secrets,
@@ -87,7 +88,7 @@ def _clean_form_text(value: Any) -> str:
 
 @router.get("/api/config/status", response_model=ConfigStatusResponse)
 async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> ConfigStatusResponse:
-    snapshot = read_public_config_snapshot()
+    snapshot = read_config_snapshot()
     persisted_snapshot = read_public_config_snapshot(apply_env=False, apply_demo_overlay=False)
     preview_phase = runtime_manager.get_preview_status().get("preview_phase", "idle")
     asset_check = check_snapshot_assets(runtime_manager.current_snapshot())
