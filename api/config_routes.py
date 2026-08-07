@@ -1,6 +1,7 @@
 ﻿import shutil
 from os import path as os_path
 import asyncio
+import logging
 from pathlib import Path
 from typing import Any, Dict
 
@@ -36,6 +37,9 @@ from services.llm_health import (
 from services.mm_hardware_inventory import inspect_micro_manager_config, merge_runtime_inventory
 from services.runtime_manager import LifecycleConflictError
 from system_config_wizard import build_cfg_inventory
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -157,12 +161,17 @@ async def upload_cfg(
             inspected_device_count = len(runtime_inventory.get("devices", []))
         except LifecycleConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except OSError as exc:
+            inspection_status = "unavailable"
+            logger.warning("Micro-Manager hardware inspection failed: %s", exc)
+            inspection_warning = (
+                "Micro-Manager hardware inspection failed: the cfg could not be loaded. "
+                "The hardware may not be connected or a device adapter failed to initialize."
+            )
         except Exception as exc:
             inspection_status = "unavailable"
-            inspection_warning = (
-                "Micro-Manager hardware inspection was unavailable; AI used cfg-only inventory: "
-                f"{_format_llm_connection_error(exc)}"
-            )
+            logger.warning("Micro-Manager hardware inspection failed: %s", exc)
+            inspection_warning = "Micro-Manager hardware inspection failed."
     analysis = analyze_config_mapping(
         inventory=inventory,
         model_config=runtime_settings.model,

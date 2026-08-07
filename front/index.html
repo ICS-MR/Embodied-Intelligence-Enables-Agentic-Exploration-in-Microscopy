@@ -1758,6 +1758,7 @@
             $("openaiApiKey").placeholder = agent.masked?.openai_api_key || "sk-...";
             $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
             syncMicroscopeModeUi();
+            restoreMappingDraftCandidates();
         }
 
         function cloneJson(value) {
@@ -2133,10 +2134,12 @@
             return tags.length ? tags.join(", ") : "available candidate";
         }
 
-        function applyDraftInput(elementId, draft) {
+        function applyDraftInput(elementId, draft, options = {}) {
             const input = $(elementId);
             if (!input || !draft) return;
-            input.value = draft.value || "";
+            if (!options.preserveValue) {
+                input.value = draft.value || "";
+            }
             const candidates = Array.isArray(draft.candidates) ? draft.candidates.filter(Boolean) : [];
             const existingPicker = document.getElementById(`${elementId}Candidates`);
             if (existingPicker) {
@@ -2174,6 +2177,32 @@
             hint.textContent = parts.join(" - ");
             hint.classList.toggle("review", Boolean(draft.needs_review));
             hint.hidden = false;
+        }
+
+        function restoreMappingDraftCandidates() {
+            if ($("microscopeMode").value === "demo") return;
+            let draft = null;
+            try {
+                const raw = localStorage.getItem("eimsMappingDraft");
+                if (raw) draft = JSON.parse(raw);
+            } catch (_error) {
+                draft = null;
+            }
+            if (!draft || typeof draft !== "object") return;
+
+            const fieldIds = mappingDraftInputIds();
+            for (const [fieldName, elementId] of Object.entries(fieldIds)) {
+                if (fieldName.includes(":")) continue;
+                applyDraftInput(elementId, draft.fields?.[fieldName], { preserveValue: true });
+            }
+            for (const [key, entry] of Object.entries(draft.objectives || {})) {
+                applyDraftInput(fieldIds[`objective:${key}`], entry, { preserveValue: true });
+            }
+            for (const [key, entry] of Object.entries(draft.channels || {})) {
+                applyDraftInput(fieldIds[`channel:${key}`], entry, { preserveValue: true });
+            }
+            applyDraftInput("transmittedLightDevice", draft.transmitted_light?.device, { preserveValue: true });
+            applyDraftInput("transmittedLightProperty", draft.transmitted_light?.intensity_property, { preserveValue: true });
         }
 
         function applyConfigMappingDraft(mapping) {
@@ -2394,6 +2423,7 @@
             const configured = Boolean(data?.configured);
             button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
             button.disabled = uiState.isCfgImporting || !configured || ["initializing", "executing", "releasing"].includes(phase);
+            button.title = button.disabled ? (data?.status_message || "Configuration is incomplete.") : "";
         }
 
         function setLifecycleControlsDisabled(disabled) {
@@ -2465,7 +2495,13 @@
                 updateConfigStatus("Ready to Start", data.status_message || "Configuration complete. Start the system when ready.", true, false);
                 return;
             }
-            updateConfigStatus("Waiting for Configuration", data.status_message || "Please complete configuration.", false, false);
+            const detail = data.status_message || "Please complete configuration.";
+            updateConfigStatus("Waiting for Configuration", detail, false, false);
+            const statusText = $("configStatusText");
+            if (statusText) {
+                statusText.style.whiteSpace = "pre-line";
+                statusText.textContent = detail.replace(/;\s*/g, ";\n");
+            }
         }
 
         function applyPreviewStatus(status) {
@@ -2691,19 +2727,29 @@
                 const mapping = data.mapping || {};
                 $("configPath").value = data.config_path || "";
                 applyConfigMappingDraft(mapping);
+                try {
+                    localStorage.setItem("eimsMappingDraft", JSON.stringify(mapping));
+                } catch (_error) {
+                    // localStorage may be unavailable; candidate restore is best-effort.
+                }
                 refreshStartupMappingOptions();
                 const warnings = mapping.warnings || [];
                 const reviewCount = countReviewDrafts(mapping);
                 const inspectionLead = mapping.hardware_inspection_status === "completed"
                     ? `Micro-Manager inspected ${mapping.inspected_device_count || 0} loaded devices.`
-                    : "Hardware inspection was unavailable, so the draft uses cfg-only information.";
+                    : "Hardware inspection failed; the draft uses cfg-only information.";
                 const statusLead = mapping.ai_status === "completed"
                     ? "AI recommendations are included in the editable mapping draft."
                     : (mapping.ai_status === "not_configured"
                         ? "The cfg was parsed with deterministic rules; configure the Main LLM to add AI recommendations."
-                        : "The AI request failed, so the editable draft uses deterministic parser results.");
-                const message = `${inspectionLead} ${statusLead} ${reviewCount} fields are marked for review.${warnings.length ? ` ${warnings.join(" ")}` : ""}`;
+                        : "The AI request failed; the draft uses deterministic parser results.");
+                const messageParts = [inspectionLead, statusLead, `${reviewCount} fields are marked for review.`];
+                if (warnings.length) {
+                    messageParts.push("", "Warnings:", warnings.map((w) => `• ${w}`).join("\n"));
+                }
+                const message = messageParts.join("\n");
                 showFeedback(message, false);
+                $("configFeedback").style.whiteSpace = "pre-line";
                 syncMicroscopeModeUi();
             } finally {
                 setCfgImportBusy(false);

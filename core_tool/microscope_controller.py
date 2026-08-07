@@ -450,7 +450,7 @@ class MicroscopeController(BaseTool):
         self._last_task_progress: Optional[Dict[str, Any]] = None
 
         # Auto contrast
-        self.auto_contrast_enabled = True
+        self.auto_contrast_enabled = self.microscope_mode != "demo"
         self.contrast_percentile = 0.1
         self._detection_models: Dict[str, Any] = {}
         self._demo_objective_crop_fractions: Dict[int, float] = {
@@ -1554,8 +1554,11 @@ class MicroscopeController(BaseTool):
                 normalized = np.clip(image_array, low, high)
                 normalized = (normalized - low) / (high - low + 1e-8)
             else:
-                image_max = float(np.max(image_array))
-                normalized = image_array / image_max if image_max > 0 else image_array
+                if np.issubdtype(image_array.dtype, np.integer):
+                    full_scale = float(np.iinfo(image_array.dtype).max)
+                else:
+                    full_scale = 1.0
+                normalized = image_array.astype(np.float32) / full_scale
 
             if self.is_16bit or normalized.dtype != np.uint8:
                 display_img = (normalized * 255).astype(np.uint8)

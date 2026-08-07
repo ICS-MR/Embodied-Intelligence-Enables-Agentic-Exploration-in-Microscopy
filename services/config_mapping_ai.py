@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Mapping
 
 from adapters.llm_clients import create_chat_completion
 from api.models import ConfigMappingAnalysis, ConfigMappingDraftField
 from runtime.agent_factory import build_clients
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigMappingAIError(RuntimeError):
@@ -34,17 +38,65 @@ _CONFIDENCE_VALUES = {"high", "medium", "low", "unknown"}
 
 def _parse_json_response(content: str) -> dict[str, Any]:
     text = str(content or "").strip()
+    if not text:
+        raise ConfigMappingAIError("The mapping model returned an empty response.")
+    # Strip markdown code fences (``` or ```json).
     if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else ""
-        if text.rstrip().endswith("```"):
-            text = text.rstrip()[:-3].rstrip()
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1 :].strip()
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ConfigMappingAIError("The mapping model did not return valid JSON.") from exc
+        try:
+            payload = _extract_json_object(text)
+        except ConfigMappingAIError:
+            raise ConfigMappingAIError("The mapping model did not return valid JSON.") from exc
     if not isinstance(payload, dict):
         raise ConfigMappingAIError("The mapping model returned a JSON value instead of an object.")
     return payload
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    """Extract the first balanced JSON object from model output."""
+    start = text.find("{")
+    if start == -1:
+        raise ConfigMappingAIError("The mapping model did not return valid JSON (no object found).")
+    depth = 0
+    in_string = False
+    escape = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = text[start : index + 1]
+                try:
+                    payload = json.loads(candidate)
+                except json.JSONDecodeError as exc:
+                    raise ConfigMappingAIError(
+                        "The mapping model did not return valid JSON."
+                    ) from exc
+                if isinstance(payload, dict):
+                    return payload
+                raise ConfigMappingAIError(
+                    "The mapping model returned a JSON value instead of an object."
+                )
+    raise ConfigMappingAIError("The mapping model did not return valid JSON (unbalanced object).")
 
 
 def _response_content(completion: Any) -> str:
@@ -55,17 +107,11 @@ def _response_content(completion: Any) -> str:
 
 
 def _validate_analysis_payload(payload: dict[str, Any]) -> ConfigMappingAnalysis:
-    validator = getattr(ConfigMappingAnalysis, "model_validate", None)
-    if callable(validator):
-        return validator(payload)
-    return ConfigMappingAnalysis.parse_obj(payload)
+    return ConfigMappingAnalysis.model_validate(payload)
 
 
 def _model_dump(value: Any) -> dict[str, Any]:
-    dump = getattr(value, "model_dump", None)
-    if callable(dump):
-        return dump()
-    return value.dict()
+    return value.model_dump()
 
 
 def _current_value(current_system: Any, name: str) -> str:
@@ -535,10 +581,7 @@ def _field_from_ai(value: Any) -> ConfigMappingDraftField:
     if isinstance(value, ConfigMappingDraftField):
         return value
     if isinstance(value, Mapping):
-        validator = getattr(ConfigMappingDraftField, "model_validate", None)
-        if callable(validator):
-            return validator(dict(value))
-        return ConfigMappingDraftField.parse_obj(dict(value))
+        return ConfigMappingDraftField.model_validate(dict(value))
     return ConfigMappingDraftField(value=str(value or ""), source="ai")
 
 
@@ -567,24 +610,37 @@ def _merge_valid_ai_value(
     ai_field: ConfigMappingDraftField,
     *,
     candidates: list[str],
-) -> ConfigMappingDraftField:
-    if (
-        field.source == "rule"
-        and not field.needs_review
-        and ai_field.value == field.value
-    ):
-        return _draft_field(
-            value=field.value,
-            candidates=candidates,
-            source=field.source,
-            confidence=field.confidence,
-            reason=field.reason,
-            needs_review=False,
-            rule_value=field.rule_value,
-            ai_value=ai_field.value,
-            current_value=field.current_value,
-        )
-    return _replace_with_ai(field, ai_field, candidates=candidates)
+) -> tuple[ConfigMappingDraftField, str]:
+    """Merge an AI suggestion into a draft field.
+
+    Verified facts (source core/runtime/rule with needs_review=False) are
+    authoritative and cannot be replaced by AI; AI only fills empty or
+    ambiguous fields. Returns (merged_field, warning_text).
+    """
+    ai_value = str(ai_field.value or "").strip()
+    if field.source in {"core", "runtime", "rule"} and not field.needs_review:
+        if ai_value and ai_value != field.value:
+            return field, (
+                f"AI suggestion '{ai_value}' was ignored because '{field.value}' "
+                f"is already verified by {field.source}."
+            )
+        if ai_value == field.value:
+            return (
+                _draft_field(
+                    value=field.value,
+                    candidates=candidates,
+                    source=field.source,
+                    confidence=field.confidence,
+                    reason=field.reason,
+                    needs_review=False,
+                    rule_value=field.rule_value,
+                    ai_value=ai_value,
+                    current_value=field.current_value,
+                ),
+                "",
+            )
+        return field, ""
+    return _replace_with_ai(field, ai_field, candidates=candidates), ""
 
 
 def _merge_ai_analysis(
@@ -605,14 +661,13 @@ def _merge_ai_analysis(
         if not ai_field.value:
             continue
         base_field = fields[key]
-        if base_field.source == "core":
-            if ai_field.value != base_field.value:
-                warnings.append(f"AI suggestion for '{key}' was ignored because Micro-Manager Core binds it to '{base_field.value}'.")
-            continue
         if ai_field.value not in device_names:
             warnings.append(f"AI suggestion for '{key}' was ignored because '{ai_field.value}' is not a cfg device.")
             continue
-        fields[key] = _merge_valid_ai_value(base_field, ai_field, candidates=_device_names(inventory))
+        merged_field, merge_warning = _merge_valid_ai_value(base_field, ai_field, candidates=_device_names(inventory))
+        fields[key] = merged_field
+        if merge_warning:
+            warnings.append(merge_warning)
 
     objectives = _build_objective_drafts(inventory, current_system, fields["objective_device"].value)
     objective_labels = set(_state_labels(inventory, fields["objective_device"].value))
@@ -626,11 +681,14 @@ def _merge_ai_analysis(
         if ai_field.value not in objective_labels:
             warnings.append(f"AI objective suggestion '{key}' was ignored because '{ai_field.value}' is not a label on '{fields['objective_device'].value}'.")
             continue
-        objectives[key] = _merge_valid_ai_value(
+        merged_field, merge_warning = _merge_valid_ai_value(
             objectives[key],
             ai_field,
             candidates=_state_labels(inventory, fields["objective_device"].value),
         )
+        objectives[key] = merged_field
+        if merge_warning:
+            warnings.append(merge_warning)
 
     channels = _build_channel_drafts(inventory, current_system, fields["Dichroic"].value)
     channel_labels = set(_state_labels(inventory, fields["Dichroic"].value))
@@ -644,11 +702,14 @@ def _merge_ai_analysis(
         if ai_field.value not in channel_labels:
             warnings.append(f"AI channel suggestion '{key}' was ignored because '{ai_field.value}' is not a label on '{fields['Dichroic'].value}'.")
             continue
-        channels[key] = _merge_valid_ai_value(
+        merged_field, merge_warning = _merge_valid_ai_value(
             channels[key],
             ai_field,
             candidates=_state_labels(inventory, fields["Dichroic"].value),
         )
+        channels[key] = merged_field
+        if merge_warning:
+            warnings.append(merge_warning)
 
     transmitted_light = _build_transmitted_light_draft(inventory, current_system)
     ai_light = dict(ai.transmitted_light or {})
@@ -656,25 +717,35 @@ def _merge_ai_analysis(
     if ai_light_device is not None:
         ai_field = _field_from_ai(ai_light_device)
         if ai_field.value and ai_field.value in device_names:
-            transmitted_light["device"] = _merge_valid_ai_value(
-                _field_from_ai(transmitted_light["device"]),
+            base_device_field = _field_from_ai(transmitted_light["device"])
+            merged_device, device_warning = _merge_valid_ai_value(
+                base_device_field,
                 ai_field,
                 candidates=_device_names(inventory),
             )
-            selected_device = ai_field.value
-            current_property = _current_transmitted_light(current_system, "intensity_property")
+            if device_warning:
+                warnings.append(device_warning)
+            transmitted_light["device"] = merged_device
+            selected_device = _field_from_ai(transmitted_light["device"]).value
             allowed_properties = _intensity_properties(inventory, selected_device)
-            if current_property not in set(allowed_properties):
-                current_property = ""
-            transmitted_light["intensity_property"] = _draft_field(
-                value=current_property if current_property in allowed_properties else "",
-                candidates=allowed_properties,
-                source="current_config" if current_property in allowed_properties else "manual_required",
-                confidence="unknown",
-                reason="Optional. Select a verified writable numeric intensity property to enable EIMS brightness control.",
-                needs_review=True,
-                current_value=current_property,
-            )
+            base_property_field = _field_from_ai(transmitted_light["intensity_property"])
+            if selected_device != base_device_field.value or base_property_field.value not in set(allowed_properties):
+                # Device changed (or the base property is not valid for it):
+                # re-derive the intensity property for the selected device.
+                current_property = _current_transmitted_light(current_system, "intensity_property")
+                if current_property not in set(allowed_properties):
+                    current_property = ""
+                transmitted_light["intensity_property"] = _draft_field(
+                    value=current_property if current_property in allowed_properties else "",
+                    candidates=allowed_properties,
+                    source="current_config" if current_property in allowed_properties else "manual_required",
+                    confidence="unknown",
+                    reason="Optional. Select a verified writable numeric intensity property to enable EIMS brightness control.",
+                    needs_review=True,
+                    current_value=current_property,
+                )
+            # Device unchanged and the rule/runtime property draft is still
+            # valid for it: preserve the verified property instead of wiping it.
         elif ai_field.value:
             warnings.append(f"AI transmitted-light device was ignored because '{ai_field.value}' is not a cfg device.")
 
@@ -685,11 +756,14 @@ def _merge_ai_analysis(
         allowed_properties = _intensity_properties(inventory, selected_device)
         allowed = set(allowed_properties)
         if ai_field.value and ai_field.value in allowed:
-            transmitted_light["intensity_property"] = _merge_valid_ai_value(
+            merged_property, property_warning = _merge_valid_ai_value(
                 transmitted_light["intensity_property"],
                 ai_field,
                 candidates=allowed_properties,
             )
+            transmitted_light["intensity_property"] = merged_property
+            if property_warning:
+                warnings.append(property_warning)
         elif ai_field.value:
             warnings.append(
                 f"AI transmitted-light property was ignored because '{ai_field.value}' is not a verified writable numeric intensity property on '{selected_device}'."
@@ -703,34 +777,6 @@ def _merge_ai_analysis(
         transmitted_light=transmitted_light,
         warnings=warnings,
     )
-
-
-def flatten_mapping_analysis(analysis: ConfigMappingAnalysis) -> dict[str, Any]:
-    fields = analysis.fields
-    transmitted_light = dict(analysis.transmitted_light or {})
-    return {
-        "camera_device": fields.get("camera_device", ConfigMappingDraftField()).value,
-        "xy_stage_device": fields.get("xy_stage_device", ConfigMappingDraftField()).value,
-        "objective_device": fields.get("objective_device", ConfigMappingDraftField()).value,
-        "focus_drive": fields.get("focus_drive", ConfigMappingDraftField()).value,
-        "Dichroic": fields.get("Dichroic", ConfigMappingDraftField()).value,
-        "objectives": {
-            key: {"label": field.value, "magnification": int(key.rstrip("x")), "display_name": f"{key} objective"}
-            for key, field in analysis.objectives.items()
-            if field.value
-        },
-        "channels": {
-            key: {"label": field.value, "display_name": key, "illumination": "transmitted" if key == "brightfield" else "fluorescence"}
-            for key, field in analysis.channels.items()
-            if field.value
-        },
-        "transmitted_light": {
-            "device": _field_from_ai(transmitted_light.get("device", {})).value,
-            "intensity_property": _field_from_ai(transmitted_light.get("intensity_property", {})).value,
-            "min": transmitted_light.get("min", 0),
-            "max": transmitted_light.get("max", 250),
-        },
-    }
 
 
 def analyze_config_mapping(
@@ -777,7 +823,7 @@ Each recommended item must include value, confidence, and reason. Use confidence
 Generic labels may still be recommended when useful, but explain that the user must verify them.
 """.strip()
 
-    try:
+    def request_ai_mapping() -> ConfigMappingAnalysis:
         llm_client, _ = build_clients(model_config)
         completion = create_chat_completion(
             llm_client,
@@ -791,14 +837,32 @@ Generic labels may still be recommended when useful, but explain that the user m
             max_tokens=1800,
             retries=1,
         )
-        ai = _validate_analysis_payload(_parse_json_response(_response_content(completion)))
-    except Exception as exc:
+        return _validate_analysis_payload(_parse_json_response(_response_content(completion)))
+
+    def unavailable_analysis(reason: str) -> ConfigMappingAnalysis:
         return ConfigMappingAnalysis(
             ai_status="unavailable",
             fields=base.fields,
             objectives=base.objectives,
             channels=base.channels,
             transmitted_light=base.transmitted_light,
-            warnings=base.warnings + [f"AI mapping was unavailable; parser candidates were used instead: {exc}"],
+            warnings=base.warnings
+            + [f"AI mapping was unavailable; parser candidates were used instead: {reason}"],
         )
+
+    try:
+        ai = request_ai_mapping()
+    except ConfigMappingAIError as exc:
+        logger.warning("AI cfg mapping returned malformed output; retrying once: %s", exc)
+        try:
+            ai = request_ai_mapping()
+        except ConfigMappingAIError as retry_exc:
+            logger.error("AI cfg mapping returned malformed output on retry: %s", retry_exc)
+            return unavailable_analysis("the model returned an invalid response format after a retry.")
+        except Exception as retry_exc:
+            logger.error("AI cfg mapping retry failed: %s", retry_exc)
+            return unavailable_analysis("the model request failed on retry.")
+    except Exception as exc:
+        logger.error("AI cfg mapping request failed: %s", exc)
+        return unavailable_analysis("the model request failed.")
     return _merge_ai_analysis(base, ai, inventory, current_system)

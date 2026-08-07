@@ -207,7 +207,10 @@ class ConfigMappingDraftField(BaseModel):
     current_value: str = ""
 
     class Config:
-        extra = "forbid"
+        # AI model responses occasionally include extra keys (e.g. a nested
+        # transmitted_light block). Tolerate them instead of failing validation;
+        # the merge logic only reads the known fields.
+        extra = "allow"
 
 
 class ConfigMappingAnalysis(BaseModel):
