@@ -13,7 +13,8 @@ def load_ome_spatial_metadata(
     file_path: str | Path,
     *,
     require_stage_positions: bool = False,
-) -> dict[str, float | bool]:
+    require_pixel_sizes: bool = False,
+) -> dict[str, float | bool | int]:
     resolved = Path(file_path).expanduser().resolve()
     if not resolved.exists():
         raise FileNotFoundError(f"Source image file does not exist: {resolved}")
@@ -24,6 +25,9 @@ def load_ome_spatial_metadata(
     pixel_size_x_um = 1.0
     pixel_size_y_um = 1.0
     stage_positions_present = False
+    pixel_sizes_present = False
+    image_width_px = 0
+    image_height_px = 0
 
     with tifffile.TiffFile(str(resolved)) as tif:
         ome_xml = tif.ome_metadata or ""
@@ -40,8 +44,15 @@ def load_ome_spatial_metadata(
             plane = root.find(".//Plane")
 
         if pixels is not None:
-            pixel_size_x_um = float(pixels.attrib.get("PhysicalSizeX") or 1.0)
-            pixel_size_y_um = float(pixels.attrib.get("PhysicalSizeY") or 1.0)
+            raw_size_x = pixels.attrib.get("PhysicalSizeX")
+            raw_size_y = pixels.attrib.get("PhysicalSizeY")
+            pixel_sizes_present = bool(raw_size_x and raw_size_y)
+            if raw_size_x:
+                pixel_size_x_um = float(raw_size_x)
+            if raw_size_y:
+                pixel_size_y_um = float(raw_size_y)
+            image_width_px = int(pixels.attrib.get("SizeX") or 0)
+            image_height_px = int(pixels.attrib.get("SizeY") or 0)
         if plane is not None:
             has_x = "PositionX" in plane.attrib
             has_y = "PositionY" in plane.attrib
@@ -59,6 +70,14 @@ def load_ome_spatial_metadata(
             f"cannot convert image-space detections into stage coordinates for {resolved}"
         )
 
+    if require_pixel_sizes and not pixel_sizes_present:
+        raise ValueError(
+            "OME physical pixel size metadata is missing Pixels PhysicalSizeX/PhysicalSizeY; "
+            f"cannot convert image pixels into physical coordinates for {resolved}"
+        )
+    if require_pixel_sizes and (pixel_size_x_um <= 0 or pixel_size_y_um <= 0):
+        raise ValueError(f"OME physical pixel sizes must be positive for {resolved}")
+
     if not stage_positions_present:
         logger.warning("OME stage position metadata is missing for %s", resolved)
 
@@ -69,4 +88,7 @@ def load_ome_spatial_metadata(
         "pixel_size_x_um": pixel_size_x_um,
         "pixel_size_y_um": pixel_size_y_um,
         "stage_positions_present": stage_positions_present,
+        "pixel_sizes_present": pixel_sizes_present,
+        "image_width_px": image_width_px,
+        "image_height_px": image_height_px,
     }
