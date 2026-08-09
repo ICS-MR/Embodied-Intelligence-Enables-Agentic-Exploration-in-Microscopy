@@ -187,7 +187,7 @@ class Frap(BaseTool):
     ) -> None:
         self.storage_manager = storage_manager
         self.output_dir = output_dir
-        self._default_profile_filename = "frap_ui_profile.json"
+        self._profile_path = Path(__file__).resolve().parents[1] / "docs" / "frap_ui_profile.json"
         self._laser_enabled = False
         self._launch_command = self._normalize_launch_command(launch_command)
         self._launch_workdir = str(launch_workdir).strip()
@@ -336,9 +336,9 @@ class Frap(BaseTool):
         return instance
 
     def _load_profile(self) -> dict:
-        path = Path(self.output_dir, self._default_profile_filename).expanduser().resolve()
+        path = self._profile_path.expanduser().resolve()
         if not path.exists():
-            raise FileNotFoundError(f"Default FRAP UI profile not found: {path}")
+            raise FileNotFoundError(f"FRAP UI profile not found: {path}")
 
         payload = json.loads(path.read_text(encoding="utf-8"))
         image_region = payload.get("image_region", {})

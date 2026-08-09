@@ -26,8 +26,8 @@
       "tool_id": "frap",
       "class_path": "tool.frap:Frap",
       "enabled": true,
-      "planning_hint": "Use for local GUI-driven FRAP workflows through a commercial external application window. This tool first opens the FRAP tab, then starts FRAP, can analyze the current field with cell_detection or cell_contourextraction, clicks a target point in the live field of view, and closes cellSens.",
-      "execution_hint": "This tool is a local GUI adapter, not a hardware SDK. It requires a visible FRAP application window and a valid frap_ui_profile.json in the output directory. The FRAP tab is selected first, laser_on starts FRAP, cell_detection and cell_contourextraction inspect the live field image, laser_position performs a single click in the active operation area, and laser_off closes cellSens."
+      "planning_hint": "Use for local GUI-driven FRAP workflows through a commercial external application window. This tool first opens the FRAP tab, then starts FRAP, can analyze the current field with cell_detection or cell_contour_extraction, clicks a target point in the live field of view, and closes cellSens.",
+      "execution_hint": "This tool is a local GUI adapter, not a hardware SDK. It requires a visible FRAP application window and the repository profile docs/frap_ui_profile.json. The FRAP tab is selected first, laser_on starts FRAP, cell_detection and cell_contour_extraction inspect the live field image, laser_position performs a single click in the active operation area, and laser_off closes cellSens."
     },
     {
       "tool_id": "mp285_controller",

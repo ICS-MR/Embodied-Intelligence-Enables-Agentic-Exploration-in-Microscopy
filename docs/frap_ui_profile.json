@@ -1,0 +1,46 @@
+{
+  "window_title_keyword": "olympus",
+  "image_region": {
+    "left": 1170,
+    "top": 224,
+    "right": 2982,
+    "bottom": 2039,
+    "source_width": 2048,
+    "source_height": 2048
+  },
+  "controls": {
+    "bottom_frap_tab_button": {
+      "type": "point",
+      "x": 3684,
+      "y": 2014
+    },
+    "single_click_fade_multi_point_button": {
+      "type": "point",
+      "x": 3425,
+      "y": 1055
+    },
+    "laser_on": {
+      "type": "point",
+      "x": 3521,
+      "y": 288
+    },
+    "frap_start_button": {
+      "type": "point",
+      "x": 3521,
+      "y": 288
+    }
+  },
+  "workflow": {
+    "pre_point_actions": [],
+    "post_point_actions": []
+  },
+  "options": {
+    "activate_before_action": true,
+    "click_interval_sec": 0.15,
+    "move_duration_sec": 0.0,
+    "flip_x": false,
+    "flip_y": false,
+    "stage_axis_sign_x": null,
+    "stage_axis_sign_y": null
+  }
+}
