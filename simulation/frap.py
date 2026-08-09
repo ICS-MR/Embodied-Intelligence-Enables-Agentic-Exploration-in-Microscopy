@@ -10,7 +10,7 @@ class Frap(BaseTool):
 
     planning_hint = (
         "Use laser_on before laser_position, then use laser_off when the FRAP "
-        "sequence is complete. Coordinates are absolute stage positions in microns."
+        "sequence is complete. Coordinates are in microns relative to the field center."
     )
     execution_hint = (
         "This simulation validates the public FRAP call sequence without controlling cellSens."
@@ -52,8 +52,8 @@ class Frap(BaseTool):
         Set laser focal point coordinates.
 
         Args:
-            x: Absolute X-axis stage position in microns.
-            y: Absolute Y-axis stage position in microns.
+            x: X-axis position in microns relative to the field center.
+            y: Y-axis position in microns relative to the field center.
         """
         del x, y
         instance = Frap._require_active_instance()
@@ -63,14 +63,14 @@ class Frap(BaseTool):
     @tool_func
     @staticmethod
     def cell_detection() -> dict:
-        """Detect and return the target cell absolute stage position in microns."""
+        """Detect and return the target position relative to the field center in microns."""
         Frap._require_active_instance()
         return {"x": 0.0, "y": 0.0}
 
     @tool_func
     @staticmethod
     def cell_contour_extraction() -> dict:
-        """Extract absolute stage contour points, area, and perimeter in microns."""
+        """Extract field-centered contour points, area, and perimeter in microns."""
         Frap._require_active_instance()
         return {
             "points": [(-10.0, -10.0), (10.0, -10.0), (10.0, 10.0), (-10.0, 10.0)],

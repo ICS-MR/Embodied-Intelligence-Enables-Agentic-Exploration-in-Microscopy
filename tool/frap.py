@@ -11,7 +11,6 @@ from typing import Any
 
 import numpy as np
 
-from core_tool.spatial_metadata import load_ome_spatial_metadata
 from tool.base import BaseTool, tool_func
 
 
@@ -49,10 +48,6 @@ class _FrapCoordinateTransform:
     display_bottom: int
     display_flip_x: bool
     display_flip_y: bool
-    stage_axis_sign_x: int
-    stage_axis_sign_y: int
-    center_x_um: float
-    center_y_um: float
     pixel_size_x_um: float
     pixel_size_y_um: float
 
@@ -61,8 +56,6 @@ class _FrapCoordinateTransform:
             raise ValueError("FRAP source image dimensions must be greater than one pixel.")
         if self.display_right <= self.display_left or self.display_bottom <= self.display_top:
             raise ValueError("FRAP display region must have positive width and height.")
-        if self.stage_axis_sign_x not in {-1, 1} or self.stage_axis_sign_y not in {-1, 1}:
-            raise ValueError("FRAP stage axis signs must each be either -1 or 1.")
         if self.pixel_size_x_um <= 0 or self.pixel_size_y_um <= 0:
             raise ValueError("FRAP physical pixel sizes must be positive.")
 
@@ -100,35 +93,29 @@ class _FrapCoordinateTransform:
             int(round(float(self.display_top) + display_y)),
         )
 
-    def source_to_stage(self, x_px: float, y_px: float) -> tuple[float, float]:
+    def source_to_view_um(self, x_px: float, y_px: float) -> tuple[float, float]:
         self._validate_source_point(x_px, y_px)
         center_x_px = float(self.source_width - 1) / 2.0
         center_y_px = float(self.source_height - 1) / 2.0
         return (
-            self.center_x_um
-            + self.stage_axis_sign_x * (float(x_px) - center_x_px) * self.pixel_size_x_um,
-            self.center_y_um
-            + self.stage_axis_sign_y * (float(y_px) - center_y_px) * self.pixel_size_y_um,
+            (float(x_px) - center_x_px) * self.pixel_size_x_um,
+            (float(y_px) - center_y_px) * self.pixel_size_y_um,
         )
 
-    def stage_to_source(self, x_um: float, y_um: float) -> tuple[float, float]:
+    def view_um_to_source(self, x_um: float, y_um: float) -> tuple[float, float]:
         center_x_px = float(self.source_width - 1) / 2.0
         center_y_px = float(self.source_height - 1) / 2.0
-        source_x = center_x_px + self.stage_axis_sign_x * (
-            float(x_um) - self.center_x_um
-        ) / self.pixel_size_x_um
-        source_y = center_y_px + self.stage_axis_sign_y * (
-            float(y_um) - self.center_y_um
-        ) / self.pixel_size_y_um
-        self._validate_source_point(source_x, source_y, coordinate_name="stage target")
+        source_x = center_x_px + float(x_um) / self.pixel_size_x_um
+        source_y = center_y_px + float(y_um) / self.pixel_size_y_um
+        self._validate_source_point(source_x, source_y, coordinate_name="view target")
         return source_x, source_y
 
-    def display_to_stage(self, x_px: float, y_px: float) -> tuple[float, float]:
+    def display_to_view_um(self, x_px: float, y_px: float) -> tuple[float, float]:
         source_x, source_y = self.display_to_source(x_px, y_px)
-        return self.source_to_stage(source_x, source_y)
+        return self.source_to_view_um(source_x, source_y)
 
-    def stage_to_screen(self, x_um: float, y_um: float) -> tuple[int, int]:
-        source_x, source_y = self.stage_to_source(x_um, y_um)
+    def view_um_to_screen(self, x_um: float, y_um: float) -> tuple[int, int]:
+        source_x, source_y = self.view_um_to_source(x_um, y_um)
         return self.source_to_screen(source_x, source_y)
 
     def _validate_source_point(
@@ -185,8 +172,7 @@ class Frap(BaseTool):
         launch_command: str | list[str] | None = None,
         launch_workdir: str = "",
     ) -> None:
-        self.storage_manager = storage_manager
-        self.output_dir = output_dir
+        del storage_manager, output_dir
         self._profile_path = Path(__file__).resolve().parents[1] / "docs" / "frap_ui_profile.json"
         self._laser_enabled = False
         self._launch_command = self._normalize_launch_command(launch_command)
@@ -237,8 +223,8 @@ class Frap(BaseTool):
         Set laser focal point coordinates.
 
         Args:
-            x: Absolute X-axis stage position in microns.
-            y: Absolute Y-axis stage position in microns.
+            x: X-axis position in microns relative to the field center.
+            y: Y-axis position in microns relative to the field center.
         """
         instance = Frap._require_active_instance()
         instance._laser_position_impl(x, y)
@@ -252,7 +238,7 @@ class Frap(BaseTool):
 
         options = self._profile["options"]
         transform = self._build_coordinate_transform()
-        target_x, target_y = transform.stage_to_screen(float(x), float(y))
+        target_x, target_y = transform.view_um_to_screen(float(x), float(y))
         self._click_screen_absolute(
             self._window_info,
             absolute_x=target_x,
@@ -270,8 +256,9 @@ class Frap(BaseTool):
         Detect and return the position of the target cell.
 
         Returns:
-            Dictionary containing absolute stage ``x`` and ``y`` coordinates in
-            microns. Returns an empty dictionary when no usable cell is detected.
+            Dictionary containing ``x`` and ``y`` coordinates in microns relative
+            to the field center. Returns an empty dictionary when no usable cell
+            is detected.
         """
         instance = Frap._require_active_instance()
         return instance._cell_detection_impl()
@@ -286,7 +273,7 @@ class Frap(BaseTool):
         transform = self._build_coordinate_transform()
         self._validate_captured_frame(frame, transform)
         center_px = analysis["best_candidate"]["center_px"]
-        x_um, y_um = transform.display_to_stage(
+        x_um, y_um = transform.display_to_view_um(
             float(center_px["x"]),
             float(center_px["y"]),
         )
@@ -299,7 +286,7 @@ class Frap(BaseTool):
         Extract the target cell membrane contour from the current image.
 
         Returns:
-            Dictionary containing absolute stage contour ``points`` in microns,
+            Dictionary containing contour ``points`` in field-centered microns,
             ``area`` in square microns, and ``perimeter`` in microns. Returns an
             empty dictionary when no usable cell is detected.
         """
@@ -319,7 +306,7 @@ class Frap(BaseTool):
         candidate = analysis["best_candidate"]
         contour_px = np.asarray(candidate["contour"], dtype=float).reshape(-1, 2)
         points = [
-            transform.display_to_stage(float(point[0]), float(point[1]))
+            transform.display_to_view_um(float(point[0]), float(point[1]))
             for point in contour_px
         ]
         return {
@@ -371,32 +358,16 @@ class Frap(BaseTool):
                 "move_duration_sec": float(options.get("move_duration_sec", 0.0)),
                 "flip_x": bool(options.get("flip_x", False)),
                 "flip_y": bool(options.get("flip_y", False)),
-                "stage_axis_sign_x": options.get("stage_axis_sign_x"),
-                "stage_axis_sign_y": options.get("stage_axis_sign_y"),
+                "pixel_size_x_um": float(options.get("pixel_size_x_um", 0.0)),
+                "pixel_size_y_um": float(options.get("pixel_size_y_um", 0.0)),
             },
         }
 
     def _build_coordinate_transform(self) -> _FrapCoordinateTransform:
         region = self._profile["image_region"]
         options = self._profile["options"]
-        stage_axis_sign_x = self._parse_stage_axis_sign(options.get("stage_axis_sign_x"), "x")
-        stage_axis_sign_y = self._parse_stage_axis_sign(options.get("stage_axis_sign_y"), "y")
-        image_path = self._resolve_latest_ome_image_path()
-        metadata = load_ome_spatial_metadata(
-            image_path,
-            require_stage_positions=True,
-            require_pixel_sizes=True,
-        )
         source_width = int(region["source_width"])
         source_height = int(region["source_height"])
-        metadata_width = int(metadata.get("image_width_px", 0))
-        metadata_height = int(metadata.get("image_height_px", 0))
-        if metadata_width != source_width or metadata_height != source_height:
-            raise ValueError(
-                "FRAP source image dimensions do not match the latest OME image: "
-                f"profile=({source_width}, {source_height}) "
-                f"OME=({metadata_width}, {metadata_height}) path={image_path}"
-            )
         return _FrapCoordinateTransform(
             source_width=source_width,
             source_height=source_height,
@@ -406,62 +377,9 @@ class Frap(BaseTool):
             display_bottom=int(region["bottom"]),
             display_flip_x=bool(options.get("flip_x", False)),
             display_flip_y=bool(options.get("flip_y", False)),
-            stage_axis_sign_x=stage_axis_sign_x,
-            stage_axis_sign_y=stage_axis_sign_y,
-            center_x_um=float(metadata["center_x_um"]),
-            center_y_um=float(metadata["center_y_um"]),
-            pixel_size_x_um=float(metadata["pixel_size_x_um"]),
-            pixel_size_y_um=float(metadata["pixel_size_y_um"]),
+            pixel_size_x_um=float(options["pixel_size_x_um"]),
+            pixel_size_y_um=float(options["pixel_size_y_um"]),
         )
-
-    @staticmethod
-    def _parse_stage_axis_sign(raw_value: Any, axis_name: str) -> int:
-        if raw_value is None:
-            raise RuntimeError(
-                f"FRAP stage_axis_sign_{axis_name} is not calibrated. "
-                "Set it to 1 or -1 in frap_ui_profile.json before using physical coordinates."
-            )
-        numeric_value = float(raw_value)
-        if numeric_value not in {-1.0, 1.0}:
-            raise ValueError(f"FRAP stage_axis_sign_{axis_name} must be either 1 or -1.")
-        return int(numeric_value)
-
-    def _resolve_latest_ome_image_path(self) -> Path:
-        registered_candidates: list[Path] = []
-        if self.storage_manager is not None and hasattr(self.storage_manager, "read_log"):
-            try:
-                registered = self.storage_manager.read_log(include_temp=True)
-            except Exception:
-                registered = {}
-            if isinstance(registered, dict):
-                for metadata in registered.values():
-                    if not isinstance(metadata, dict):
-                        continue
-                    if metadata.get("created_by") != "microscope" or metadata.get("file_type") != "ome-tiff":
-                        continue
-                    filename = str(metadata.get("filename", "") or "").strip()
-                    candidate = Path(self.output_dir, filename).expanduser().resolve()
-                    if self._is_ome_tiff(candidate) and candidate.is_file():
-                        registered_candidates.append(candidate)
-        if registered_candidates:
-            return max(set(registered_candidates), key=lambda path: path.stat().st_mtime)
-
-        output_root = Path(self.output_dir).expanduser().resolve()
-        filesystem_candidates = [
-            path.resolve()
-            for path in output_root.rglob("*")
-            if path.is_file() and self._is_ome_tiff(path)
-        ] if output_root.exists() else []
-        if filesystem_candidates:
-            return max(set(filesystem_candidates), key=lambda path: path.stat().st_mtime)
-        raise FileNotFoundError(
-            "FRAP coordinate conversion requires a current microscope OME-TIFF in the output directory."
-        )
-
-    @staticmethod
-    def _is_ome_tiff(path: Path) -> bool:
-        lowered_name = path.name.lower()
-        return lowered_name.endswith(".ome.tif") or lowered_name.endswith(".ome.tiff")
 
     @staticmethod
     def _validate_captured_frame(frame: np.ndarray, transform: _FrapCoordinateTransform) -> None:

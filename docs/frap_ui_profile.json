@@ -40,7 +40,7 @@
     "move_duration_sec": 0.0,
     "flip_x": false,
     "flip_y": false,
-    "stage_axis_sign_x": null,
-    "stage_axis_sign_y": null
+    "pixel_size_x_um": 0.32468,
+    "pixel_size_y_um": 0.32468
   }
 }
