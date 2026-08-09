@@ -21,13 +21,13 @@
     },
     "laser_on": {
       "type": "point",
-      "x": 3521,
-      "y": 288
+      "x": 3440,
+      "y": 240
     },
     "frap_start_button": {
       "type": "point",
-      "x": 3521,
-      "y": 288
+      "x": 3440,
+      "y": 240
     }
   },
   "workflow": {
@@ -36,8 +36,8 @@
   },
   "options": {
     "activate_before_action": true,
-    "click_interval_sec": 0.15,
-    "move_duration_sec": 0.0,
+    "click_interval_sec": 1.5,
+    "move_duration_sec": 0.1,
     "flip_x": false,
     "flip_y": false,
     "pixel_size_x_um": 0.32468,

@@ -180,6 +180,7 @@ class Frap(BaseTool):
         self._profile = self._load_profile()
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._prepare_frap_console(self._profile, self._window_info)
         type(self)._active_instance = self
 
@@ -199,7 +200,7 @@ class Frap(BaseTool):
 
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
-        self._prepare_frap_console(self._profile, self._window_info)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._run_control_sequence(
             profile=self._profile,
             window_info=self._window_info,
@@ -213,6 +214,7 @@ class Frap(BaseTool):
         """Close cellSens."""
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._laser_enabled = False
         self._close_window(self._window_info)
 
@@ -235,6 +237,7 @@ class Frap(BaseTool):
 
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
 
         options = self._profile["options"]
         transform = self._build_coordinate_transform()
@@ -266,6 +269,7 @@ class Frap(BaseTool):
     def _cell_detection_impl(self) -> dict:
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         frame = self._capture_image_region(self._profile)
         analysis = self._analyze_cell_candidates(frame)
         if not analysis:
@@ -296,6 +300,7 @@ class Frap(BaseTool):
     def _cell_contour_extraction_impl(self) -> dict:
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         frame = self._capture_image_region(self._profile)
         analysis = self._analyze_cell_candidates(frame)
         if not analysis:
@@ -645,7 +650,31 @@ class Frap(BaseTool):
                 window for window in windows
                 if getattr(window, "width", 0) > 0 and getattr(window, "height", 0) > 0
             ]
+            minimized = [
+                window for window in visible
+                if bool(getattr(window, "isMinimized", False))
+            ]
+            if minimized:
+                for window in minimized:
+                    try:
+                        window.restore()
+                    except Exception:
+                        pass
+                time.sleep(0.2)
+                windows = _import_pygetwindow().getWindowsWithTitle(str(title_keyword))
+                visible = [
+                    window for window in windows
+                    if getattr(window, "width", 0) > 0 and getattr(window, "height", 0) > 0
+                ]
             if visible:
+                visible.sort(
+                    key=lambda window: (
+                        not bool(getattr(window, "isMinimized", False)),
+                        int(getattr(window, "width", 0)) * int(getattr(window, "height", 0)),
+                        bool(getattr(window, "isActive", False)),
+                    ),
+                    reverse=True,
+                )
                 window = visible[0]
                 return {
                     "title": str(getattr(window, "title", "")),
@@ -752,24 +781,24 @@ class Frap(BaseTool):
         button: str = "left",
         clicks: int = 1,
     ) -> None:
-        window_left = int(window_info["left"])
-        window_top = int(window_info["top"])
-        window_width = int(window_info["width"])
-        window_height = int(window_info["height"])
-        if not (
-            window_left <= int(absolute_x) < window_left + window_width
-            and window_top <= int(absolute_y) < window_top + window_height
-        ):
-            raise ValueError(
-                f"Absolute click position is outside the window bounds: position=({absolute_x}, {absolute_y}) "
-                f"window=({window_left}, {window_top}, {window_width}, {window_height})"
-            )
+        del window_info
         pyautogui = _import_pyautogui()
+        screen_width, screen_height = pyautogui.size()
+        if not (0 <= int(absolute_x) < int(screen_width) and 0 <= int(absolute_y) < int(screen_height)):
+            raise ValueError(
+                f"Absolute click position is outside the screen bounds: position=({absolute_x}, {absolute_y}) "
+                f"screen=({screen_width}, {screen_height})"
+            )
         original_pause = getattr(pyautogui, "PAUSE", 0.0)
         try:
             pyautogui.PAUSE = 0.0
             pyautogui.moveTo(int(absolute_x), int(absolute_y), duration=max(float(move_duration_sec), 0.0))
-            pyautogui.click(int(absolute_x), int(absolute_y), clicks=max(int(clicks), 1), button=str(button))
+            time.sleep(0.1)
+            for _ in range(max(int(clicks), 1)):
+                pyautogui.mouseDown(int(absolute_x), int(absolute_y), button=str(button))
+                time.sleep(0.05)
+                pyautogui.mouseUp(int(absolute_x), int(absolute_y), button=str(button))
+                time.sleep(0.05)
         finally:
             pyautogui.PAUSE = original_pause
 
