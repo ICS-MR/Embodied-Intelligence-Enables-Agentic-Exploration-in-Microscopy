@@ -3082,7 +3082,8 @@ class MicroscopeController(BaseTool):
             cy_px = (y1 + y2) / 2.0
 
             offset_x_um = (cx_px - img_center_x_px) * pixel_size
-            offset_y_um = -(cy_px - img_center_y_px) * pixel_size
+            # Match the OME, Cellpose, Fiji, and MP285 image-to-stage convention.
+            offset_y_um = (cy_px - img_center_y_px) * pixel_size
             center_x_um = image_center_x_um + offset_x_um
             center_y_um = image_center_y_um + offset_y_um
 
