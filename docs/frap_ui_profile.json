@@ -1,5 +1,9 @@
 {
   "window_title_keyword": "olympus",
+  "launch_command": [
+    "C:\\Program Files\\cellSens Dimension\\SisXV.exe"
+  ],
+  "launch_workdir": "C:\\Program Files\\cellSens Dimension",
   "image_region": {
     "left": 1170,
     "top": 224,
@@ -19,20 +23,16 @@
       "x": 3425,
       "y": 1055
     },
-    "laser_on": {
-      "type": "point",
-      "x": 3440,
-      "y": 240
-    },
     "frap_start_button": {
       "type": "point",
       "x": 3440,
       "y": 240
+    },
+    "frap_stop_button": {
+      "type": "point",
+      "x": 3713,
+      "y": 227
     }
-  },
-  "workflow": {
-    "pre_point_actions": [],
-    "post_point_actions": []
   },
   "options": {
     "activate_before_action": true,
@@ -41,6 +41,11 @@
     "flip_x": false,
     "flip_y": false,
     "pixel_size_x_um": 0.32468,
-    "pixel_size_y_um": 0.32468
+    "pixel_size_y_um": 0.32468,
+    "cellpose_channel": 1,
+    "cellpose_diameter": null,
+    "cellpose_area_percentile": 60.0,
+    "cellpose_min_area_px": 3000.0,
+    "cellpose_distance_weight": 0.5
   }
 }

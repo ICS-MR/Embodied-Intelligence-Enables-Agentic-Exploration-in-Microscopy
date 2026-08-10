@@ -38,6 +38,14 @@ def _import_cv2():
     return cv2
 
 
+def _import_cellpose_2d():
+    try:
+        from core_tool.cellpose_tool import Cellpose2D
+    except Exception as exc:
+        raise RuntimeError("Cellpose is required for FRAP cell detection.") from exc
+    return Cellpose2D
+
+
 @dataclass(frozen=True)
 class _FrapCoordinateTransform:
     source_width: int
@@ -151,6 +159,7 @@ class Frap(BaseTool):
     """cellSens FRAP GUI helper."""
 
     _active_instance: Frap | None = None
+    _ELLIPSE_POINT_COUNT = 36
 
     planning_hint = (
         "Use this tool for cellSens FRAP control through the FRAP panel: "
@@ -161,8 +170,8 @@ class Frap(BaseTool):
         "Instantiate the tool to ensure cellSens is available and focused. "
         "After opening cellSens, select the FRAP tab first. laser_on clicks the "
         "FRAP start button, laser_position performs a single click inside the live "
-        "field-of-view region, laser_off closes cellSens, and cell_detection / "
-        "cell_contour_extraction analyze the current field image for a usable target."
+        "field-of-view region, laser_off clicks the FRAP stop button, and cell_detection / "
+        "cell_contour_extraction return all usable cells in the current field image."
     )
 
     def __init__(
@@ -171,18 +180,59 @@ class Frap(BaseTool):
         output_dir: str = "./output",
         launch_command: str | list[str] | None = None,
         launch_workdir: str = "",
+        cellpose_model_type: str = "cpsam",
+        cellpose_device: str | None = None,
     ) -> None:
-        del storage_manager, output_dir
         self._profile_path = Path(__file__).resolve().parents[1] / "docs" / "frap_ui_profile.json"
         self._laser_enabled = False
-        self._launch_command = self._normalize_launch_command(launch_command)
-        self._launch_workdir = str(launch_workdir).strip()
+        self._closed = False
+        self._storage_manager = storage_manager
+        self._output_dir = str(output_dir)
+        self._cellpose_model_type = str(cellpose_model_type).strip() or "cpsam"
+        self._cellpose_device = str(cellpose_device).strip() if cellpose_device else None
+        self._cellpose = None
         self._profile = self._load_profile()
+        profile_launch_command = self._profile.get("launch_command") or None
+        profile_launch_workdir = str(self._profile.get("launch_workdir", "")).strip()
+        self._launch_command = self._normalize_launch_command(
+            launch_command if launch_command is not None else profile_launch_command
+        )
+        self._launch_workdir = str(launch_workdir or profile_launch_workdir).strip()
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._prepare_frap_console(self._profile, self._window_info)
         type(self)._active_instance = self
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def __enter__(self) -> Frap:
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        del exc_type, exc_value, traceback
+        self.close()
+
+    def close(self) -> None:
+        """Close the current cellSens window used by this FRAP helper."""
+        if bool(getattr(self, "_closed", True)):
+            return
+        self._closed = True
+        if type(self)._active_instance is self:
+            type(self)._active_instance = None
+        try:
+            profile = getattr(self, "_profile", None)
+            if not profile:
+                return
+            window_info = self._wait_for_window(profile["window_title_keyword"], timeout_sec=1.0)
+            self._activate_window_if_needed(profile, window_info=window_info)
+            self._close_window(window_info)
+        except Exception:
+            pass
 
     @tool_func
     def laser_on(self, power: float, duration: float) -> None:
@@ -203,20 +253,21 @@ class Frap(BaseTool):
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._run_control_sequence(
             profile=self._profile,
-            window_info=self._window_info,
             control_names=("frap_start_button",),
-            fallback_names=(("frap_start_button", "laser_on", "start", "FRAP"),),
         )
         self._laser_enabled = True
 
     @tool_func
     def laser_off(self) -> None:
-        """Close cellSens."""
+        """Stop FRAP mode in cellSens."""
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._run_control_sequence(
+            profile=self._profile,
+            control_names=("frap_stop_button",),
+        )
         self._laser_enabled = False
-        self._close_window(self._window_info)
 
     @tool_func
     @staticmethod
@@ -243,7 +294,6 @@ class Frap(BaseTool):
         transform = self._build_coordinate_transform()
         target_x, target_y = transform.view_um_to_screen(float(x), float(y))
         self._click_screen_absolute(
-            self._window_info,
             absolute_x=target_x,
             absolute_y=target_y,
             move_duration_sec=float(options.get("move_duration_sec", 0.0)),
@@ -256,12 +306,11 @@ class Frap(BaseTool):
     @staticmethod
     def cell_detection() -> dict:
         """
-        Detect and return the position of the target cell.
+        Detect all usable cells in the current field of view.
 
         Returns:
-            Dictionary containing ``x`` and ``y`` coordinates in microns relative
-            to the field center. Returns an empty dictionary when no usable cell
-            is detected.
+            Dictionary containing a ``cells`` list. Each item contains ``cell_id``
+            plus ``x`` and ``y`` coordinates in microns relative to the field center.
         """
         instance = Frap._require_active_instance()
         return instance._cell_detection_impl()
@@ -271,28 +320,36 @@ class Frap(BaseTool):
         self._activate_window_if_needed(self._profile)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         frame = self._capture_image_region(self._profile)
-        analysis = self._analyze_cell_candidates(frame)
+        analysis = self._segment_and_analyze_cells(frame)
         if not analysis:
-            return {}
+            return {"cells": []}
         transform = self._build_coordinate_transform()
         self._validate_captured_frame(frame, transform)
-        center_px = analysis["best_candidate"]["center_px"]
-        x_um, y_um = transform.display_to_view_um(
-            float(center_px["x"]),
-            float(center_px["y"]),
-        )
-        return {"x": x_um, "y": y_um}
+        cells = []
+        for cell_id, candidate in enumerate(analysis["candidates"], start=1):
+            center_px = candidate["center_px"]
+            x_um, y_um = transform.display_to_view_um(
+                float(center_px["x"]),
+                float(center_px["y"]),
+            )
+            cells.append(
+                {
+                    "cell_id": int(cell_id),
+                    "x": x_um,
+                    "y": y_um,
+                }
+            )
+        return {"cells": cells}
 
     @tool_func
     @staticmethod
     def cell_contour_extraction() -> dict:
         """
-        Extract the target cell membrane contour from the current image.
+        Extract all usable cell contours from the current field of view.
 
         Returns:
-            Dictionary containing contour ``points`` in field-centered microns,
-            ``area`` in square microns, and ``perimeter`` in microns. Returns an
-            empty dictionary when no usable cell is detected.
+            Dictionary containing a ``cells`` list. Each item contains ``cell_id``,
+            and fitted ellipse ``points`` in field-centered microns.
         """
         instance = Frap._require_active_instance()
         return instance._cell_contour_extraction_impl()
@@ -302,23 +359,68 @@ class Frap(BaseTool):
         self._activate_window_if_needed(self._profile)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         frame = self._capture_image_region(self._profile)
-        analysis = self._analyze_cell_candidates(frame)
+        analysis = self._segment_and_analyze_cells(frame)
         if not analysis:
-            return {}
+            return {"cells": []}
 
         transform = self._build_coordinate_transform()
         self._validate_captured_frame(frame, transform)
-        candidate = analysis["best_candidate"]
-        contour_px = np.asarray(candidate["contour"], dtype=float).reshape(-1, 2)
-        points = [
-            transform.display_to_view_um(float(point[0]), float(point[1]))
-            for point in contour_px
-        ]
-        return {
-            "points": points,
-            "area": self._polygon_area_um2(points),
-            "perimeter": self._contour_perimeter_um(points),
-        }
+        cells = []
+        for candidate in analysis["candidates"]:
+            contour_px = np.asarray(candidate["contour"], dtype=float).reshape(-1, 2)
+            contour_points = [
+                transform.display_to_view_um(float(point[0]), float(point[1]))
+                for point in contour_px
+            ]
+            points = self._fit_ellipse_points(contour_points)
+            if points is None:
+                continue
+            cells.append(
+                {
+                    "cell_id": int(len(cells) + 1),
+                    "points": [[float(x), float(y)] for x, y in points],
+                }
+            )
+        return {"cells": cells}
+
+    @classmethod
+    def _fit_ellipse_points(
+        cls,
+        contour_points: list[tuple[float, float]],
+    ) -> list[tuple[float, float]] | None:
+        if len(contour_points) < 5:
+            return None
+
+        cv2 = _import_cv2()
+        contour = np.asarray(contour_points, dtype=np.float32).reshape(-1, 1, 2)
+        try:
+            (center_x, center_y), (axis_x, axis_y), angle_degrees = cv2.fitEllipse(contour)
+        except cv2.error:
+            return None
+
+        if axis_x <= 0 or axis_y <= 0:
+            return None
+
+        angle = np.deg2rad(float(angle_degrees))
+        cos_angle = float(np.cos(angle))
+        sin_angle = float(np.sin(angle))
+        theta_values = np.linspace(
+            0.0,
+            2.0 * np.pi,
+            num=cls._ELLIPSE_POINT_COUNT,
+            endpoint=False,
+        )
+        points = []
+        for theta in theta_values:
+            local_x = 0.5 * float(axis_x) * float(np.cos(theta))
+            local_y = 0.5 * float(axis_y) * float(np.sin(theta))
+            points.append(
+                (
+                    float(center_x + local_x * cos_angle - local_y * sin_angle),
+                    float(center_y + local_x * sin_angle + local_y * cos_angle),
+                )
+            )
+        return points
 
     @classmethod
     def _require_active_instance(cls) -> Frap:
@@ -348,6 +450,8 @@ class Frap(BaseTool):
 
         return {
             "window_title_keyword": str(payload.get("window_title_keyword", "")).strip(),
+            "launch_command": payload.get("launch_command"),
+            "launch_workdir": str(payload.get("launch_workdir", "")).strip(),
             "image_region": {
                 "left": int(image_region.get("left", 0)),
                 "top": int(image_region.get("top", 0)),
@@ -365,6 +469,15 @@ class Frap(BaseTool):
                 "flip_y": bool(options.get("flip_y", False)),
                 "pixel_size_x_um": float(options.get("pixel_size_x_um", 0.0)),
                 "pixel_size_y_um": float(options.get("pixel_size_y_um", 0.0)),
+                "cellpose_channel": int(options.get("cellpose_channel", 1)),
+                "cellpose_diameter": (
+                    float(options["cellpose_diameter"])
+                    if options.get("cellpose_diameter") is not None
+                    else None
+                ),
+                "cellpose_area_percentile": float(options.get("cellpose_area_percentile", 60.0)),
+                "cellpose_min_area_px": float(options.get("cellpose_min_area_px", 3000.0)),
+                "cellpose_distance_weight": float(options.get("cellpose_distance_weight", 0.5)),
             },
         }
 
@@ -395,30 +508,6 @@ class Frap(BaseTool):
                 f"captured=({width}, {height}) "
                 f"configured=({transform.display_width}, {transform.display_height})"
             )
-
-    @staticmethod
-    def _polygon_area_um2(points: list[tuple[float, float]]) -> float:
-        if len(points) < 3:
-            return 0.0
-        coordinates = np.asarray(points, dtype=float)
-        x_values = coordinates[:, 0]
-        y_values = coordinates[:, 1]
-        return float(
-            0.5
-            * abs(
-                np.dot(x_values, np.roll(y_values, -1))
-                - np.dot(y_values, np.roll(x_values, -1))
-            )
-        )
-
-    @staticmethod
-    def _contour_perimeter_um(points: list[tuple[float, float]]) -> float:
-        if len(points) < 2:
-            return 0.0
-        coordinates = np.asarray(points, dtype=float)
-        closed = np.vstack((coordinates, coordinates[0]))
-        segment_lengths = np.linalg.norm(np.diff(closed, axis=0), axis=1)
-        return float(segment_lengths.sum())
 
     def _normalize_launch_command(self, launch_command: Any) -> list[str]:
         if launch_command is None:
@@ -459,9 +548,7 @@ class Frap(BaseTool):
     def _prepare_frap_console(self, profile: dict, window_info: dict) -> None:
         self._run_control_sequence(
             profile=profile,
-            window_info=window_info,
             control_names=("bottom_frap_tab_button",),
-            fallback_names=(("bottom_frap_tab_button", "frap_tab_button"),),
         )
 
     def _capture_image_region(self, profile: dict) -> np.ndarray:
@@ -482,112 +569,99 @@ class Frap(BaseTool):
             return frame[:, :, :3]
         raise RuntimeError(f"Unsupported screenshot shape for FRAP detection: {frame.shape}")
 
-    def _analyze_cell_candidates(self, frame: np.ndarray) -> dict[str, Any] | None:
-        cv2 = _import_cv2()
+    def _get_cellpose(self):
+        if self._cellpose is None:
+            cellpose_class = _import_cellpose_2d()
+            self._cellpose = cellpose_class(self._storage_manager, self._output_dir)
+            self._cellpose.cellpose_initialize(
+                model_type=self._cellpose_model_type,
+                device=self._cellpose_device,
+            )
+        return self._cellpose
+
+    def _segment_and_analyze_cells(self, frame: np.ndarray) -> dict[str, Any] | None:
         image = np.asarray(frame)
-        if image.ndim == 3 and image.shape[2] >= 3:
-            gray = cv2.cvtColor(image[:, :, :3], cv2.COLOR_RGB2GRAY)
-        elif image.ndim == 2:
-            gray = image
-        else:
+        if image.ndim not in (2, 3):
             raise ValueError(f"Unsupported FRAP frame shape: {image.shape}")
 
-        if gray.dtype != np.uint8:
-            gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        options = self._profile["options"]
+        diameter = options.get("cellpose_diameter")
+        masks = self._get_cellpose().segment(
+            image,
+            diameter=float(diameter) if diameter is not None else None,
+            tile_size=max(image.shape[:2]),
+            normalize={
+                "lowhigh": None,
+                "percentile": [1.0, 99.0],
+                "normalize": True,
+                "norm3D": True,
+                "sharpen_radius": 0.0,
+                "smooth_radius": 0.0,
+                "tile_norm_blocksize": 0.0,
+                "tile_norm_smooth3D": 0.0,
+                "invert": False,
+            },
+        )
+        return self._analyze_cellpose_masks(
+            masks,
+            image,
+            fluorescence_channel=int(options.get("cellpose_channel", 1)),
+            intensity_percentile=float(options.get("cellpose_area_percentile", 60.0)),
+            min_area_px=float(options.get("cellpose_min_area_px", 3000.0)),
+            distance_weight=float(options.get("cellpose_distance_weight", 0.5)),
+        )
 
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
-        blurred = cv2.GaussianBlur(enhanced, (0, 0), 1.2)
-        height, width = blurred.shape[:2]
+    @staticmethod
+    def _analyze_cellpose_masks(
+        masks: np.ndarray,
+        frame: np.ndarray | None = None,
+        *,
+        fluorescence_channel: int = 1,
+        intensity_percentile: float = 60.0,
+        min_area_px: float | None = 3000.0,
+        distance_weight: float = 0.5,
+    ) -> dict[str, Any] | None:
+        if not 0.0 <= float(intensity_percentile) <= 100.0:
+            raise ValueError("Cellpose area intensity percentile must be between 0 and 100.")
+        if min_area_px is not None and float(min_area_px) < 0.0:
+            raise ValueError("Cellpose minimum area must be non-negative.")
+        if not 0.0 <= float(distance_weight) <= 1.0:
+            raise ValueError("Cellpose distance weight must be between 0 and 1.")
+        cv2 = _import_cv2()
+        mask_array = np.squeeze(np.asarray(masks))
+        if mask_array.ndim != 2:
+            raise ValueError(f"Cellpose masks must be 2D, got shape {mask_array.shape}")
+
+        height, width = mask_array.shape
         center_x = (float(width) - 1.0) / 2.0
         center_y = (float(height) - 1.0) / 2.0
-        min_area = max(12.0, float(width * height) * 0.00001)
-        max_area = max(min_area + 1.0, float(width * height) * 0.02)
+        min_area = max(64.0, float(width * height) * 0.00002)
+        if min_area_px is not None:
+            min_area = max(min_area, float(min_area_px))
+        max_area = max(min_area + 1.0, float(width * height) * 0.25)
         edge_margin = max(5, int(round(min(width, height) * 0.01)))
-
-        modes = (
-            ("bright", cv2.THRESH_BINARY),
-            ("dark", cv2.THRESH_BINARY_INV),
-        )
-        mode_candidates: list[dict[str, Any]] = []
-        for mode_name, threshold_type in modes:
-            _, mask = cv2.threshold(blurred, 0, 255, threshold_type + cv2.THRESH_OTSU)
-            candidates = self._extract_contour_candidates(
-                mask,
-                cv2=cv2,
-                center_x=center_x,
-                center_y=center_y,
-                min_area=min_area,
-                max_area=max_area,
-                edge_margin=edge_margin,
-                mode_name=mode_name,
-            )
-            if candidates:
-                mode_candidates.append(
-                    {
-                        "mode": mode_name,
-                        "candidates": candidates,
-                        "best_score": float(candidates[0]["score"]),
-                    }
-                )
-
-        if not mode_candidates:
-            return None
-
-        mode_candidates.sort(key=lambda item: item["best_score"], reverse=True)
-        best_mode = mode_candidates[0]
-        best_candidate = dict(best_mode["candidates"][0])
-        ranked_candidates = list(best_mode["candidates"][:10])
-        return {
-            "frame": {
-                "width": int(width),
-                "height": int(height),
-                "center_x": float(center_x),
-                "center_y": float(center_y),
-            },
-            "mode": str(best_mode["mode"]),
-            "candidates": ranked_candidates,
-            "best_candidate": best_candidate,
-            "candidate_count": len(best_mode["candidates"]),
-        }
-
-    def _extract_contour_candidates(
-        self,
-        mask: np.ndarray,
-        *,
-        cv2: Any,
-        center_x: float,
-        center_y: float,
-        min_area: float,
-        max_area: float,
-        edge_margin: int,
-        mode_name: str,
-    ) -> list[dict[str, Any]]:
-        working_mask = np.asarray(mask).copy()
-        kernel_open = np.ones((3, 3), np.uint8)
-        kernel_close = np.ones((5, 5), np.uint8)
-        working_mask = cv2.morphologyEx(working_mask, cv2.MORPH_OPEN, kernel_open, iterations=1)
-        working_mask = cv2.morphologyEx(working_mask, cv2.MORPH_CLOSE, kernel_close, iterations=1)
-
-        contours, _ = cv2.findContours(working_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        intensity = None
+        if frame is not None:
+            frame_array = np.asarray(frame)
+            if frame_array.ndim == 2:
+                intensity = frame_array.astype(np.float32, copy=False)
+            elif frame_array.ndim == 3 and 0 <= fluorescence_channel < frame_array.shape[2]:
+                intensity = frame_array[:, :, fluorescence_channel].astype(np.float32, copy=False)
+            else:
+                raise ValueError(f"Unsupported FRAP fluorescence frame shape: {frame_array.shape}")
         candidates: list[dict[str, Any]] = []
-        height, width = working_mask.shape[:2]
-
-        for contour in contours:
-            area = float(cv2.contourArea(contour))
+        labels = np.unique(mask_array)
+        for label in labels[labels > 0]:
+            instance_mask = (mask_array == label).astype(np.uint8)
+            area = float(np.count_nonzero(instance_mask))
             if area < float(min_area) or area > float(max_area):
                 continue
 
+            contours, _ = cv2.findContours(instance_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                continue
+            contour = max(contours, key=cv2.contourArea)
             x, y, w, h = cv2.boundingRect(contour)
-            moments = cv2.moments(contour)
-            if abs(float(moments.get("m00", 0.0))) < 1e-9:
-                continue
-
-            centroid_x = float(moments["m10"] / moments["m00"])
-            centroid_y = float(moments["m01"] / moments["m00"])
-            if not (0.0 <= centroid_x < float(width) and 0.0 <= centroid_y < float(height)):
-                continue
-
             touches_edge = (
                 x <= edge_margin
                 or y <= edge_margin
@@ -596,21 +670,69 @@ class Frap(BaseTool):
             )
             if touches_edge:
                 continue
-            shape_ratio = float(min(w, h)) / float(max(w, h)) if max(w, h) > 0 else 0.0
-            distance = float(np.hypot(centroid_x - center_x, centroid_y - center_y))
-            score = (1.0 + area / 250.0) * (0.5 + 0.5 * shape_ratio) / (1.0 + distance / 25.0)
 
+            refined_mask = instance_mask
+            if intensity is not None:
+                instance_values = intensity[instance_mask > 0]
+                threshold = float(np.percentile(instance_values, intensity_percentile))
+                bright_mask = ((instance_mask > 0) & (intensity >= threshold)).astype(np.uint8)
+                bright_mask = cv2.morphologyEx(
+                    bright_mask,
+                    cv2.MORPH_OPEN,
+                    np.ones((5, 5), np.uint8),
+                    iterations=1,
+                )
+                bright_mask = cv2.morphologyEx(
+                    bright_mask,
+                    cv2.MORPH_CLOSE,
+                    np.ones((3, 3), np.uint8),
+                    iterations=1,
+                )
+                bright_contours, _ = cv2.findContours(
+                    bright_mask,
+                    cv2.RETR_EXTERNAL,
+                    cv2.CHAIN_APPROX_SIMPLE,
+                )
+                if bright_contours:
+                    largest = max(bright_contours, key=cv2.contourArea)
+                    largest = cv2.convexHull(largest)
+                    refined_mask = np.zeros_like(instance_mask)
+                    cv2.drawContours(refined_mask, [largest], -1, 1, thickness=-1)
+
+            refined_area = float(np.count_nonzero(refined_mask))
+            if refined_area < float(min_area):
+                continue
+            refined_contours, _ = cv2.findContours(
+                refined_mask,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            if not refined_contours:
+                continue
+            contour = max(refined_contours, key=cv2.contourArea)
+            refined_x, refined_y, refined_w, refined_h = cv2.boundingRect(contour)
+            ys, xs = np.nonzero(refined_mask)
+            centroid_x = float(xs.mean())
+            centroid_y = float(ys.mean())
+            distance = float(np.hypot(centroid_x - center_x, centroid_y - center_y))
+            fluorescence = (
+                float(np.sum(intensity[refined_mask > 0]))
+                if intensity is not None
+                else float(refined_area)
+            )
             contour_points = contour.reshape(-1, 2).astype(int)
             candidates.append(
                 {
-                    "mode": mode_name,
-                    "score": float(score),
-                    "area_px": float(area),
+                    "label": int(label),
+                    "distance_to_center_px": distance,
+                    "area_px": refined_area,
+                    "cellpose_area_px": float(area),
+                    "fluorescence_signal": fluorescence,
                     "bbox_px": {
-                        "left": int(x),
-                        "top": int(y),
-                        "width": int(w),
-                        "height": int(h),
+                        "left": int(refined_x),
+                        "top": int(refined_y),
+                        "width": int(refined_w),
+                        "height": int(refined_h),
                     },
                     "center_px": {
                         "x": float(centroid_x),
@@ -621,13 +743,39 @@ class Frap(BaseTool):
                         "y": float(centroid_y - center_y),
                     },
                     "touches_edge": bool(touches_edge),
-                    "shape_ratio": float(shape_ratio),
                     "contour": contour_points,
                 }
             )
 
+        if not candidates:
+            return None
+
+        max_distance = float(np.hypot(center_x, center_y)) or 1.0
+        max_fluorescence = max(float(item["fluorescence_signal"]) for item in candidates) or 1.0
+        for item in candidates:
+            distance_score = max(
+                0.0,
+                1.0 - float(item["distance_to_center_px"]) / max_distance,
+            )
+            fluorescence_score = float(item["fluorescence_signal"]) / max_fluorescence
+            item["distance_score"] = distance_score
+            item["fluorescence_score"] = fluorescence_score
+            item["score"] = (
+                float(distance_weight) * distance_score
+                + (1.0 - float(distance_weight)) * fluorescence_score
+            )
+
         candidates.sort(key=lambda item: (float(item["score"]), float(item["area_px"])), reverse=True)
-        return candidates
+        return {
+            "frame": {
+                "width": int(width),
+                "height": int(height),
+                "center_x": float(center_x),
+                "center_y": float(center_y),
+            },
+            "candidates": candidates,
+            "candidate_count": len(candidates),
+        }
 
     def _close_window(self, window_info: dict) -> None:
         window_width = int(window_info["width"])
@@ -687,10 +835,11 @@ class Frap(BaseTool):
                 raise RuntimeError(f"No visible window matched title keyword within {timeout_sec:.2f}s: {title_keyword}")
             time.sleep(float(poll_interval_sec))
 
-    def _activate_window_if_needed(self, profile: dict) -> None:
+    def _activate_window_if_needed(self, profile: dict, window_info: dict | None = None) -> None:
         if not bool(profile["options"].get("activate_before_action", True)):
             return
-        window_info = self._wait_for_window(profile["window_title_keyword"])
+        if window_info is None:
+            window_info = self._wait_for_window(profile["window_title_keyword"])
         matched = _import_pygetwindow().getWindowsWithTitle(window_info["title"])
         if not matched:
             raise RuntimeError(f"Window disappeared before activation: {window_info['title']}")
@@ -707,73 +856,32 @@ class Frap(BaseTool):
         self,
         *,
         profile: dict,
-        window_info: dict,
         control_names: tuple[str, ...],
-        fallback_names: tuple[tuple[str, ...], ...],
     ) -> None:
-        for index, control_name in enumerate(control_names):
-            action = self._resolve_control_action(
-                profile["controls"],
-                control_name,
-                fallback_names[index] if index < len(fallback_names) else (control_name,),
+        for control_name in control_names:
+            action = self._get_point_control(profile["controls"], control_name)
+            self._click_screen_absolute(
+                absolute_x=int(action["x"]),
+                absolute_y=int(action["y"]),
+                move_duration_sec=float(profile["options"]["move_duration_sec"]),
+                button=str(action.get("button", "left")),
+                clicks=int(action.get("clicks", 1)),
             )
-            self._run_actions([action], profile, window_info)
-
-    def _resolve_control_action(
-        self,
-        controls: dict,
-        preferred_name: str,
-        fallback_names: tuple[str, ...],
-    ) -> dict:
-        for name in (preferred_name, *fallback_names):
-            if name in controls:
-                return dict(controls[name])
-        fallback_display = ", ".join(repr(name) for name in (preferred_name, *fallback_names))
-        raise ValueError(f"FRAP profile does not define any of: {fallback_display}")
-
-    def _run_actions(self, action_items: list[Any], profile: dict, window_info: dict) -> None:
-        for item in action_items:
-            action = self._resolve_action(item, profile)
-            action_type = str(action.get("type", "")).strip().lower()
-
-            if action_type == "point":
-                self._click_screen_absolute(
-                    window_info,
-                    absolute_x=int(action["x"]),
-                    absolute_y=int(action["y"]),
-                    move_duration_sec=float(profile["options"]["move_duration_sec"]),
-                    button=str(action.get("button", "left")),
-                    clicks=int(action.get("clicks", 1)),
-                )
-            elif action_type == "hotkey":
-                self._press_hotkey(action.get("keys", []))
-            elif action_type == "text":
-                self._type_text(str(action.get("text", "")), float(action.get("interval_sec", 0.0)))
-            elif action_type == "wait":
-                time.sleep(max(float(action.get("seconds", 0.0)), 0.0))
-            else:
-                raise ValueError(f"Unsupported FRAP action type: {action_type}")
-
-            if action_type == "point" and float(profile["options"]["click_interval_sec"]) > 0:
+            if float(profile["options"]["click_interval_sec"]) > 0:
                 time.sleep(float(profile["options"]["click_interval_sec"]))
 
-    def _resolve_action(self, item: Any, profile: dict) -> dict:
-        if isinstance(item, str):
-            if item not in profile["controls"]:
-                raise ValueError(f"FRAP profile control not found: {item}")
-            return dict(profile["controls"][item])
-        if isinstance(item, dict) and "control" in item:
-            name = str(item.get("control", "")).strip()
-            if name not in profile["controls"]:
-                raise ValueError(f"FRAP profile control not found: {name}")
-            return dict(profile["controls"][name])
-        if not isinstance(item, dict):
-            raise ValueError("FRAP workflow actions must be strings or action dictionaries")
-        return item
+    @staticmethod
+    def _get_point_control(controls: dict, control_name: str) -> dict:
+        if control_name not in controls:
+            raise ValueError(f"FRAP profile control not found: {control_name}")
+        action = dict(controls[control_name])
+        action_type = str(action.get("type", "")).strip().lower()
+        if action_type != "point":
+            raise ValueError(f"FRAP control must be a point action: {control_name}")
+        return action
 
     def _click_screen_absolute(
         self,
-        window_info: dict,
         *,
         absolute_x: int,
         absolute_y: int,
@@ -781,7 +889,6 @@ class Frap(BaseTool):
         button: str = "left",
         clicks: int = 1,
     ) -> None:
-        del window_info
         pyautogui = _import_pyautogui()
         screen_width, screen_height = pyautogui.size()
         if not (0 <= int(absolute_x) < int(screen_width) and 0 <= int(absolute_y) < int(screen_height)):
@@ -802,26 +909,3 @@ class Frap(BaseTool):
         finally:
             pyautogui.PAUSE = original_pause
 
-    def _press_hotkey(self, keys: list[str] | tuple[str, ...] | str) -> None:
-        if isinstance(keys, str):
-            key_list = [keys]
-        else:
-            key_list = [str(item).strip() for item in keys if str(item).strip()]
-        if not key_list:
-            raise ValueError("At least one hotkey key is required")
-        pyautogui = _import_pyautogui()
-        original_pause = getattr(pyautogui, "PAUSE", 0.0)
-        try:
-            pyautogui.PAUSE = 0.0
-            pyautogui.hotkey(*key_list, interval=0.0)
-        finally:
-            pyautogui.PAUSE = original_pause
-
-    def _type_text(self, text: str, interval_sec: float = 0.0) -> None:
-        pyautogui = _import_pyautogui()
-        original_pause = getattr(pyautogui, "PAUSE", 0.0)
-        try:
-            pyautogui.PAUSE = 0.0
-            pyautogui.write(str(text), interval=max(float(interval_sec), 0.0))
-        finally:
-            pyautogui.PAUSE = original_pause
