@@ -1,0 +1,36 @@
+# Experiment Record
+
+## 1. Input
+
+Microscope imaging of the sample in its initial state(image_data1_url) and following perturbation(image_data2_url).
+
+## 2. Biological Specimen
+
+Organoid (Fluorescence)
+
+## 3. Anticipated Outcomes
+
+Motorized stage drift.
+Focal plane drift.
+
+## 4. Results and Failure Analysis
+
+Overall Assessment: Successful.
+
+## 5. Raw Execution Log
+
+```
+Observed Changes
+
+Relative to the initial reference state, a pronounced global displacement of the specimen towards the lower-right quadrant of the field of view was observed. Concurrently, the image exhibited marked blurring, with diminished resolution of fine structural detail consistent with a defocus condition. Fluorescence signal intensity was reduced compared with baseline. Illumination intensity remained broadly comparable to the baseline, with no discernible lighting irregularities or contamination detected.
+
+Detected Anomalies
+
+Three anomalies were identified:
+
+Specimen translation — a global positional shift attributable to drift of the motorized stage.
+
+Focal plane drift — manifesting as a pronounced defocus blur across the image.
+
+Fluorescence attenuation — a reduction in fluorescence signal intensity relative to the reference state.
+```

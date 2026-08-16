@@ -1,0 +1,2951 @@
+﻿{
+    "dataset":  "imaging_perturbation_dataset",
+    "content_scope":  "Perturbation samples, images, and state metadata only. Full detection result records are excluded.",
+    "source":  "docs/experiment_records/06_different_disturbance_detection/",
+    "image_count":  327,
+    "records":  [
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_BF",
+                        "sample_group":  "2D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_BF/2D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "2D_CELL_FLU",
+                        "sample_group":  "2D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "2D_CELL_FLU/2D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_BF",
+                        "sample_group":  "3D_CELL_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_BF/3D_CELL_BF_L/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  null,
+                        "image_file":  "Y+100.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Y+100.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  null,
+                        "image_file":  "Y+200.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Y+200.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  null,
+                        "image_file":  "Y+400.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift/Y+400.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "3D_CELL_FLU",
+                        "sample_group":  "3D_CELL_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "3D_CELL_FLU/3D_CELL_FLU_L/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  5,
+                        "image_file":  "Sample 5.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 5.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  6,
+                        "image_file":  "Sample 6.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 6.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  7,
+                        "image_file":  "Sample 7.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 7.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  8,
+                        "image_file":  "Sample 8.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 8.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_BF",
+                        "sample_group":  "SLIDE_BF_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_BF/SLIDE_BF_L/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_H",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_H/Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "initial_state",
+                        "sample_id":  null,
+                        "image_file":  "Initial state.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly/Initial state.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Microscope illumination anomaly and Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  4,
+                        "image_file":  "Sample 4.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Microscope illumination anomaly and Motorized stage drift and Focal plane drift/Sample 4.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Motorized stage drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Motorized stage drift/Sample 2.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Motorized stage drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  3,
+                        "image_file":  "Sample 3.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Motorized stage drift/Sample 3.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  1,
+                        "image_file":  "Sample 1.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Motorized stage drift and Focal plane drift/Sample 1.jpg"
+                    },
+                    {
+                        "sample_model_type":  "SLIDE_FLU",
+                        "sample_group":  "SLIDE_FLU_L",
+                        "perturbation_type":  "Motorized stage drift and Focal plane drift",
+                        "state_type":  "perturbed_sample",
+                        "sample_id":  2,
+                        "image_file":  "Sample 2.jpg",
+                        "relative_path":  "SLIDE_FLU/SLIDE_FLU_L/Motorized stage drift and Focal plane drift/Sample 2.jpg"
+                    }
+                ]
+}

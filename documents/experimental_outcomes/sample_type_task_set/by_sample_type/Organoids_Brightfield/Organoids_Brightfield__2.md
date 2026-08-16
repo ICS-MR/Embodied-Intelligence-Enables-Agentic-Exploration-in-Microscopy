@@ -1,0 +1,109 @@
+﻿# Experiment Record
+## 1. User Input
+
+```text
+Imaging target: Organoids; perform imaging of organoids in 96-well plates using a 20× objective
+```
+
+## 2. Biological Samples Used
+
+Organoids
+
+## 3. Expected Results
+
+The expectation is to achieve rapid 20× imaging of organoid samples in a 96-well plate, generate coordinates covering all 96 wells, configure suitable imaging channels and exposure parameters, confirm or adjust brightfield brightness and focus at representative wells, and then acquire images from each well. As organoids are 3D samples, the acquisition protocol should include or explicitly address Z-stack to capture image data that spans the sample thickness.
+
+## 4. Execution Results
+
+Execution result: The process generated positions for a 96-well plate under 20× brightfield conditions, moved to the first well for automatic brightness, autofocus, and Z-stack range recommendation, and configured positions, channels, exposure, and Z-stack for all 96 wells before performing automatic acquisition.
+Failure analysis: None.
+
+Overall assessment: Successful
+
+
+
+## Original Execution Record
+
+### Task Decomposition Input
+
+```text
+Imaging target: Organoids; perform imaging of organoids in 96-well plates using a 20× objective
+```
+
+### Planning Output
+
+```text
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary Operation: Obtain the position information of the 96-well plate; \n#Position Control: Move to the position of the first well; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary Operation: Perform autofocus on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate'}]
+```
+
+### Module: Microscope Operation Platform
+
+#### Current Environment
+
+```text
+Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
+```
+
+#### Execution Instructions
+
+```text
+Auxiliary Operation: Obtain the position information of the 96-well plate;
+Position Control: Move to the position of the first well;
+Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level;
+Auxiliary Operation: Perform autofocus on the current field of view containing organoids;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D imaging;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images of organoids in all wells of the 96-well plate.
+```
+
+#### Execute Code
+
+```python
+say("[INFO] Starting 96-well plate organoid imaging workflow")
+
+say("[ACTION] Obtaining 96-well plate position information")
+wells_positions = create_96_wells_positions()
+say(f"[INFO] Generated {len(wells_positions)} positions for 96-well plate")
+
+first_well_x, first_well_y = wells_positions[0]
+say(f"[ACTION] Moving to first well position: X={first_well_x} μm, Y={first_well_y} μm")
+set_x_y_position(first_well_x, first_well_y)
+
+say("[INFO] Automatically adjusting halogen lamp brightness")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Brightness automatically adjusted to optimal level: {optimal_brightness}")
+
+say("[INFO] Performing autofocus on organoid field of view")
+optimal_z = perform_autofocus()
+set_z_position(optimal_z)
+say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
+z_max, z_min = z_stack_range()
+z_step = 1.5
+say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
+
+say("[INFO] Configuring automatic acquisition parameters for 96-well plate")
+current_exposure = get_exposure()
+well_size = 6500
+
+for i, (well_x, well_y) in enumerate(wells_positions):
+    well_name = f"well_{i+1:02d}"
+    add_acquisition_position(name=well_name, x=well_x, y=well_y, width=well_size, height=well_size)
+
+say(f"[INFO] Added {len(wells_positions)} acquisition positions covering all 96 wells")
+
+add_channels(channel='1-NONE', exposure=current_exposure)
+say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
+
+set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
+say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
+
+say("[INFO] Starting automatic image acquisition for all 96 wells")
+acquisition_results = run_acquisition()
+say(f"[INFO] Automatic acquisition completed successfully for all {len(acquisition_results)} wells")
+```
+
+
+

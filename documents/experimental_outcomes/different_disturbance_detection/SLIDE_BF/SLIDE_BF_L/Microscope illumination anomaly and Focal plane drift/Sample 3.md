@@ -1,0 +1,31 @@
+# Experiment Record
+
+## 1. Input
+
+Microscope imaging of the sample in its initial state(image_data1_url) and following perturbation(image_data2_url).
+
+## 2. Biological Specimen
+
+Tissue section (Brigbtfield)
+
+## 3. Anticipated Outcomes
+
+Focal plane drift.
+
+## 4. Results and Failure Analysis
+
+Overall Assessment: Successful.
+
+## 5. Raw Execution Log
+
+```
+Observed Changes
+
+Relative to the initial reference state, the specimen exhibited no appreciable displacement or alteration of its tissue architecture. However, a marked decline in overall image sharpness was evident: fine structural detail was substantially attenuated, resulting in a pronounced defocus blur across the field of view. Illumination intensity remained broadly comparable to the baseline, with no discernible lighting irregularities or contamination detected.
+
+Detected Anomalies
+
+A single anomaly was identified:
+
+Focal plane drift — manifesting as a pronounced defocus blur across the image.
+```
