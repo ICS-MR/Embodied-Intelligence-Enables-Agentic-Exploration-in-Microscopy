@@ -4,7 +4,7 @@ This file records FRAP settings that are specific to the current cellSens workst
 
 ## Workstation-Specific UI Profile
 
-The active profile is `docs/frap_ui_profile.json`.
+The active profile is `docs/frap/frap_ui_profile.json`.
 
 Current cellSens launch configuration:
 

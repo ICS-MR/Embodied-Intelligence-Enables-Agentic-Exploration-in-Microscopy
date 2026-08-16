@@ -160,7 +160,7 @@ class StorageManager:
         with self._lock:
             try:
                 with open(self.meta_file, "w", encoding="utf-8") as f:
-                    json.dump(self._meta_storage, f, indent=2)
+                    json.dump(self._meta_storage, f, indent=2, ensure_ascii=False)
             except Exception as e:
                 raise
 

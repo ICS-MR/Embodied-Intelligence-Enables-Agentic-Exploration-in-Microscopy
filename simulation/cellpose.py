@@ -84,7 +84,6 @@ class Cellpose2D(BaseTool):
     @tool_func
     def save_masks(self, masks: np.ndarray, filename: str | Path, description) -> Path:
         print("Running function: save_masks")
-        del masks
         output_path = Path(self.output_directory, filename).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.touch(exist_ok=True)
@@ -92,14 +91,23 @@ class Cellpose2D(BaseTool):
         return output_path
 
     @tool_func
-    def save_csv(self, df: pd.DataFrame, filename: str | Path) -> Path:
+    def save_csv(
+        self,
+        df: pd.DataFrame,
+        filename: str | Path,
+        *,
+        description: str,
+    ) -> Path:
         print("Running function: save_csv")
         output_path = Path(self.output_directory, filename).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input must be a pandas DataFrame")
         df.to_csv(output_path, index=False)
-        self._storagemanger.register_file(output_path.name, "Cellpose analysis CSV", 'cellpose', 'csv')
+        task_context = str(description or "").strip()
+        csv_details = f"Cellpose analysis CSV; rows: {len(df)}; columns: {len(df.columns)}"
+        csv_description = f"{task_context}; {csv_details}" if task_context else csv_details
+        self._storagemanger.register_file(output_path.name, csv_description, 'cellpose', 'csv')
         return output_path
 
     @tool_func
@@ -146,19 +154,33 @@ class Cellpose2D(BaseTool):
         return colored
 
     @tool_func
-    def export_results(self, masks: np.ndarray, base_filename: str, image: np.ndarray | None = None):
+    def export_results(
+        self,
+        masks: np.ndarray,
+        base_filename: str,
+        image: np.ndarray | None = None,
+        *,
+        description: str,
+    ):
         print("Running function: export_results")
         self._require_real_runtime("export_results")
-        self.save_masks(masks, f"{base_filename}_masks.tif", "Cellpose segmentation mask")
+        task_context = str(description or "").strip()
+        label_count = len([label for label in np.unique(masks) if int(label) != 0])
+        mask_details = f"Cellpose segmentation mask; label_count: {label_count}"
+        mask_description = f"{task_context}; {mask_details}" if task_context else mask_details
+        self.save_masks(masks, f"{base_filename}_masks.tif", mask_description)
         colored_mask = self.color_masks(masks)
 
         color_path = Path(self.output_directory, f"{base_filename}_colored.png").expanduser().resolve()
         color_path.parent.mkdir(parents=True, exist_ok=True)
         color_path.touch(exist_ok=True)
-        self._storagemanger.register_file(color_path.name, "Colored cellpose mask", "cellpose", "png")
+        color_details = f"Colored Cellpose mask; label_count: {label_count}"
+        color_description = f"{task_context}; {color_details}" if task_context else color_details
+        self._storagemanger.register_file(color_path.name, color_description, "cellpose", "png")
 
         df = self.analyze_masks(masks)
-        csv_path = self.save_csv(df, f"{base_filename}_analysis.csv")
+        csv_context = f"{task_context}; Cellpose segmentation statistics" if task_context else "Cellpose segmentation statistics"
+        csv_path = self.save_csv(df, f"{base_filename}_analysis.csv", description=csv_context)
 
         overlay_path: Path | None = None
         if image is not None:
@@ -166,7 +188,9 @@ class Cellpose2D(BaseTool):
             overlay_path = Path(self.output_directory, f"{base_filename}_overlay.png").expanduser().resolve()
             overlay_path.parent.mkdir(parents=True, exist_ok=True)
             overlay_path.touch(exist_ok=True)
-            self._storagemanger.register_file(overlay_path.name, "Cellpose overlay image", "cellpose", "png")
+            overlay_details = f"Cellpose overlay image; label_count: {label_count}"
+            overlay_description = f"{task_context}; {overlay_details}" if task_context else overlay_details
+            self._storagemanger.register_file(overlay_path.name, overlay_description, "cellpose", "png")
 
         return {
             "mask_path": str(Path(self.output_directory, f"{base_filename}_masks.tif").expanduser().resolve()),

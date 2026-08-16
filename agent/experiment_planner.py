@@ -18,7 +18,7 @@ from agent.utils import (
     merge_module_tasks,
 )
 from runtime.config import _has_transmitted_light_brightness_control
-from config.agent_config import cross_encoder_model_path, task_similarity_threshold
+from config.agent_config import cross_encoder_model_path, task_similarity_threshold, knowledge_base_path
 from interfaces.cli_logging import get_cli_logger
 
 
@@ -34,6 +34,7 @@ class PlannerResult:
     tokens: Optional[Dict[str, int]] = None
     error: Optional[str] = None
     raw_response: str = ""
+    clarification_details: Dict[str, Any] = field(default_factory=dict)
 
 
 def explain_planned_execution(client, model_name, lmp_steps: list) -> str:
@@ -98,7 +99,6 @@ class ExperimentPlanAgent:
         self._client = client
         self.clarify = None
         self._clarify_enabled = bool(clarify_tag)
-        self._clarify_method = "clarify"
         if self._clarify_enabled:
             try:
                 system_config = self._cfg.get("system_config")
@@ -110,13 +110,10 @@ class ExperimentPlanAgent:
                     task_similarity_threshold,
                     historymanager=self._historyManager,
                     has_brightness_control=_has_transmitted_light_brightness_control(system_config),
+                    knowledge_base_path=knowledge_base_path,
                 )
             except Exception as e:
                 raise RuntimeError(f"Clarify initialization failed: {e}") from e
-
-    def set_clarify_method(self, method: str) -> None:
-        normalized = str(method or "").strip().lower()
-        self._clarify_method = normalized if normalized in {"clarify", "clarify_llm"} else "clarify"
 
     def clear_history(self):
         self.code_history = []
@@ -516,38 +513,30 @@ class ExperimentPlanAgent:
         )
         del base_prompt
 
-        method_name = self._clarify_method if self._clarify_method in {"clarify", "clarify_llm"} else "clarify"
         try:
-            decision = self.clarify.generate_planning_decision(
-                prompt,
-                force_llm_consistency_analysis=(method_name == "clarify_llm"),
-            )
+            decision = self.clarify.generate_planning_decision(prompt)
         except Exception as exc:
             return PlannerResult(
                 status="error",
                 ready=False,
-                error=f"{method_name} planning failed: {type(exc).__name__}: {exc}",
+                error=f"clarify planning failed: {type(exc).__name__}: {exc}",
             )
 
         answer_content = decision.raw_response
-        if decision.status == "final_plan" and not answer_content:
-            answer_content = self.clarify.generate_code_solutions(
-                prompt,
-                force_llm_consistency_analysis=(method_name == "clarify_llm"),
-            )
-        elif decision.status == "ask_user" and not answer_content:
-            answer_content = self.clarify.generate_code_solutions(
-                prompt,
-                force_llm_consistency_analysis=(method_name == "clarify_llm"),
+        if decision.status in {"final_plan", "ask_user"} and not answer_content:
+            return PlannerResult(
+                status="error",
+                ready=False,
+                error=f"clarify returned {decision.status} without a raw planner response.",
             )
 
         if self._historyManager:
             self._historyManager.record_interaction(
                 agent_name=self._name,
-                event_type=f"{method_name}_planning_response",
-                message=f"{method_name} acted as the primary planner for the current request.",
+                event_type="clarify_planning_response",
+                message="clarify acted as the primary planner for the current request.",
                 payload={
-                    "method": method_name,
+                    "method": "clarify",
                     "query": query,
                     "context": context,
                     "status": decision.status,
@@ -565,16 +554,22 @@ class ExperimentPlanAgent:
             return PlannerResult(
                 status="error",
                 ready=False,
-                error=decision.error or f"{method_name} planning failed.",
+                error=decision.error or "clarify planning failed.",
                 raw_response=answer_content,
             )
 
-        return self._parse_planner_result(
+        result = self._parse_planner_result(
             query=query,
             answer_content=answer_content,
             usage_dict=None,
             allow_ask_user=True,
         )
+        result.clarification_details = {
+            "reason": decision.reason,
+            "consistency_result": decision.consistency_result,
+            "violation_result": decision.violation_result,
+        }
+        return result
 
     def plan(
         self,

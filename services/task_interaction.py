@@ -17,6 +17,44 @@ from runtime.text import format_raw_planner_debug
 MaybeAwaitable = Any | Awaitable[Any]
 
 
+def _clean_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [_clean_text(item) for item in value if _clean_text(item)]
+
+
+def _format_clarification_display(plan: TaskPlan, fallback_text: str) -> str:
+    details = getattr(plan, "clarification_details", {}) or {}
+    if not isinstance(details, dict):
+        return fallback_text
+
+    consistency = details.get("consistency_result") or {}
+    if not isinstance(consistency, dict):
+        consistency = {}
+
+    reason = _clean_text(details.get("reason"))
+    summary = _clean_text(consistency.get("summary"))
+    differences = _string_list(consistency.get("differences"))
+    question = _clean_text(plan.question) or fallback_text
+
+    if not (reason or summary or differences):
+        return fallback_text
+
+    lines = ["I found a difference between the candidate plans that needs confirmation."]
+    rationale = summary or reason
+    if rationale:
+        lines.extend(["", f"Rationale: {rationale}"])
+    if differences:
+        lines.extend(["", "Key differences:"])
+        lines.extend(f"- {item}" for item in differences[:4])
+    lines.extend(["", f"Question: {question}"])
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class InteractionOutcome:
     status: str
@@ -132,7 +170,8 @@ class TaskInteractionSession:
                     "I need one key detail before I can continue planning.",
                     "I need one key detail before I can continue planning.",
                 )
-                await _maybe_await(self.ports.send_robot_message(prompt_text))
+                visible_prompt_text = _format_clarification_display(plan, prompt_text)
+                await _maybe_await(self.ports.send_robot_message(visible_prompt_text))
                 reply = await self._prompt_with_debug(
                     plan,
                     pick_text(
@@ -140,7 +179,7 @@ class TaskInteractionSession:
                         "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
                         "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
                     ),
-                    prompt_record_text=prompt_text,
+                    prompt_record_text=visible_prompt_text,
                     command_snapshot=current_command,
                     prefers_zh=prefers_zh,
                 )

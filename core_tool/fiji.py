@@ -1245,6 +1245,8 @@ class ImageJProcessor(BaseTool):
         outpath='merge_output.ome.tif',
         preview_path: Optional[str] = None,
         preview_seconds: float = 1.5,
+        *,
+        description: str,
     ) -> ImageWithMetadata:
         """Merge channels and use metadata from the first image"""
         if not image_metas:
@@ -1260,6 +1262,7 @@ class ImageJProcessor(BaseTool):
             outpath,
             preview_path=preview_path,
             preview_seconds=preview_seconds,
+            description=description,
         )
         
         return ImageWithMetadata(
@@ -1278,6 +1281,8 @@ class ImageJProcessor(BaseTool):
         outpath='merge_output.ome.tif',
         preview_path: Optional[str] = None,
         preview_seconds: float = 0.0,
+        *,
+        description: str,
     ):
         """Synchronously merge channels (no hierarchical calls, direct implementation of core logic)"""
         self._require_imagej_initialized()
@@ -1359,17 +1364,22 @@ class ImageJProcessor(BaseTool):
                 os.makedirs(os.path.dirname(preview_abs_path), exist_ok=True)
                 preview_format, preview_file_type = _resolve_imagej_save_format(preview_abs_path)
                 self.ij.IJ.saveAs(merged_imp, preview_format, preview_abs_path)
+                task_context = str(description or "").strip()
+                preview_details = f"Preview image after merging channels {colors}"
+                preview_description = f"{task_context}; {preview_details}" if task_context else preview_details
                 self._storagemanger.register_file(
                     os.path.basename(preview_abs_path),
-                    f"Preview image after merging channels {colors}",
+                    preview_description,
                     'analysis_platform',
                     preview_file_type,
                     False,
                 )
 
             merged_ds = self.ij.convert().convert(merged_imp, jimport('net.imagej.Dataset'))
-            description = f'Image after merging channels {colors}'
-            self._storagemanger.register_file(os.path.basename(outpath), description, 'analysis_platform', file_type, False)
+            task_context = str(description or "").strip()
+            merge_details = f"Image after merging channels {colors}"
+            merged_description = f"{task_context}; {merge_details}" if task_context else merge_details
+            self._storagemanger.register_file(os.path.basename(outpath), merged_description, 'analysis_platform', file_type, False)
             return merged_ds
         finally:
             for imp in imps:
@@ -1707,6 +1717,8 @@ class ImageJProcessor(BaseTool):
         min_track_length: int = 3,
         channel_index: int = 1,
         out_prefix: str = "trackmate",
+        *,
+        description: str,
     ) -> dict[str, Any]:
         """
         Run Fiji TrackMate on a time-lapse image and save trajectory outputs.
@@ -1794,23 +1806,33 @@ class ImageJProcessor(BaseTool):
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2)
 
+        task_context = str(description or "").strip()
+        tracking_stats = f"track_count: {len(tracks)}; spot_count: {spot_count}; channel_index: {channel_index}"
+        tracking_parameters = (
+            f"spot_radius_um: {spot_radius_um}; "
+            f"max_linking_distance_um: {max_linking_distance_um}; "
+            f"min_track_length: {min_track_length}"
+        )
+        overlay_details = f"TrackMate trajectory overlay image; {tracking_stats}"
+        csv_details = f"TrackMate trajectory coordinates; {tracking_stats}"
+        summary_details = f"TrackMate tracking summary; {tracking_stats}; {tracking_parameters}"
         self._storagemanger.register_file(
             overlay_filename,
-            "TrackMate trajectory overlay image",
+            f"{task_context}; {overlay_details}" if task_context else overlay_details,
             "analysis_platform",
             "png",
             False,
         )
         self._storagemanger.register_file(
             csv_filename,
-            "TrackMate trajectory coordinates",
+            f"{task_context}; {csv_details}" if task_context else csv_details,
             "analysis_platform",
             "csv",
             False,
         )
         self._storagemanger.register_file(
             summary_filename,
-            "TrackMate tracking summary",
+            f"{task_context}; {summary_details}" if task_context else summary_details,
             "analysis_platform",
             "json",
             False,
@@ -2608,7 +2630,7 @@ class ImageJProcessor(BaseTool):
             )
             aggregated_pixel_regions = _sort_pixel_regions_reading_order(aggregated_pixel_regions)
 
-        self.save_target_positions(
+        self._save_target_positions(
             image_meta=image_meta,
             regions_px=aggregated_pixel_regions,
             description=description,
@@ -2703,34 +2725,6 @@ class ImageJProcessor(BaseTool):
             print(f"No valid targets detected; saved empty target list to {output_filename}")
         return normalized_regions
 
-    @tool_func
-    def save_target_positions(
-        self,
-        image_meta: ImageWithMetadata,
-        regions_px: Sequence[Sequence[float]],
-        description: str,
-        output_filename: str,
-        emit_preview: bool = True,
-    ) -> List[Tuple[float, float, float, float]]:
-        """
-        Save arbitrary point/box detections using the standard target-position contract.
-
-        Parameters:
-            image_meta: Source image and metadata used for pixel-to-physical conversion.
-            regions_px: Pixel-space detections as (center_x_px, center_y_px, width_px, height_px).
-            description: Human-readable description for storage metadata.
-            output_filename: JSON filename to create under the output directory.
-            emit_preview: Whether to emit an annotated preview image artifact.
-        Returns:
-            The normalized pixel-space regions as List[Tuple[float, float, float, float]].
-        """
-        return self._save_target_positions(
-            image_meta=image_meta,
-            regions_px=regions_px,
-            description=description,
-            output_filename=output_filename,
-            emit_preview=bool(emit_preview),
-        )
     @tool_func
     def convert_to_numpy(self, image_meta: ImageWithMetadata) -> np.ndarray:
         """

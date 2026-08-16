@@ -156,22 +156,21 @@ class _FrapCoordinateTransform:
 
 
 class Frap(BaseTool):
-    """cellSens FRAP GUI helper."""
+    """Provide FRAP control and field-of-view analysis operations."""
 
     _active_instance: Frap | None = None
     _ELLIPSE_POINT_COUNT = 36
 
     planning_hint = (
-        "Use this tool for cellSens FRAP control through the FRAP panel: "
-        "open the FRAP tab first, then use laser_on, laser_position, laser_off, "
-        "cell_detection, and cell_contour_extraction."
+        "Use for FRAP workflows that start and stop FRAP, position the laser relative "
+        "to the field center and perform photobleaching at selected coordinates, detect cells "
+        "in the current field of view, or extract cell contours."
     )
     execution_hint = (
-        "Instantiate the tool to ensure cellSens is available and focused. "
-        "After opening cellSens, select the FRAP tab first. laser_on clicks the "
-        "FRAP start button, laser_position performs a single click inside the live "
-        "field-of-view region, laser_off clicks the FRAP stop button, and cell_detection / "
-        "cell_contour_extraction return all usable cells in the current field image."
+        "Call laser_on before cell_detection, cell_contour_extraction, or laser_position, "
+        "and call laser_off after the bleaching sequence. "
+        "Treat laser_position coordinates as microns relative to the field center, and use "
+        "the documented cells list returned by cell_detection or cell_contour_extraction."
     )
 
     def __init__(
@@ -183,9 +182,10 @@ class Frap(BaseTool):
         cellpose_model_type: str = "cpsam",
         cellpose_device: str | None = None,
     ) -> None:
-        self._profile_path = Path(__file__).resolve().parents[1] / "docs" / "frap_ui_profile.json"
+        self._profile_path = Path(__file__).resolve().parents[1] / "docs" / "frap" / "frap_ui_profile.json"
         self._laser_enabled = False
         self._closed = False
+        self._session_prepared = False
         self._storage_manager = storage_manager
         self._output_dir = str(output_dir)
         self._cellpose_model_type = str(cellpose_model_type).strip() or "cpsam"
@@ -198,10 +198,7 @@ class Frap(BaseTool):
             launch_command if launch_command is not None else profile_launch_command
         )
         self._launch_workdir = str(launch_workdir or profile_launch_workdir).strip()
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
-        self._prepare_frap_console(self._profile, self._window_info)
+        self._window_info: dict[str, Any] = {}
         type(self)._active_instance = self
 
     def __del__(self) -> None:
@@ -224,6 +221,12 @@ class Frap(BaseTool):
         self._closed = True
         if type(self)._active_instance is self:
             type(self)._active_instance = None
+        self.release_session()
+
+    def release_session(self) -> None:
+        """Release the current cellSens FRAP session while keeping this tool reusable."""
+        self._laser_enabled = False
+        self._session_prepared = False
         try:
             profile = getattr(self, "_profile", None)
             if not profile:
@@ -233,24 +236,19 @@ class Frap(BaseTool):
             self._close_window(window_info)
         except Exception:
             pass
+        finally:
+            self._window_info = {}
 
     @tool_func
-    def laser_on(self, power: float, duration: float) -> None:
+    def laser_on(self) -> None:
         """
-        Open FRAP mode in cellSens.
+        Turn on the FRAP operation switch.
 
-        Args:
-            power: Retained for API compatibility; validated but not applied directly.
-            duration: Retained for API compatibility; validated but not applied directly.
+        This method must be called before laser_position(), cell_detection(),
+        or cell_contour_extraction(). It starts the FRAP operation.
+
         """
-        if not (0.0 <= float(power) <= 100.0):
-            raise ValueError("power must be between 0.0 and 100.0")
-        if float(duration) <= 0:
-            raise ValueError("duration must be positive")
-
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._ensure_prepared_once()
         self._run_control_sequence(
             profile=self._profile,
             control_names=("frap_start_button",),
@@ -259,10 +257,22 @@ class Frap(BaseTool):
 
     @tool_func
     def laser_off(self) -> None:
-        """Stop FRAP mode in cellSens."""
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        """
+        Turn off the FRAP operation switch.
+
+        Call this method after completing the laser_position() bleaching
+        sequence. This stops FRAP operation but does not release the session.
+        """
+        if not self._session_prepared:
+            try:
+                self._window_info = self._wait_for_window(self._profile["window_title_keyword"], timeout_sec=1.0)
+            except RuntimeError:
+                self._laser_enabled = False
+                return
+            self._activate_window_if_needed(self._profile, window_info=self._window_info)
+        else:
+            self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+            self._activate_window_if_needed(self._profile, window_info=self._window_info)
         self._run_control_sequence(
             profile=self._profile,
             control_names=("frap_stop_button",),
@@ -273,22 +283,26 @@ class Frap(BaseTool):
     @staticmethod
     def laser_position(x: int, y: int) -> None:
         """
-        Set laser focal point coordinates.
+        Position the laser at the specified coordinates and perform one
+        bleaching operation at that location.
+
+        FRAP must be turned on with laser_on() before calling this method.
+        The method may be called repeatedly to bleach multiple positions.
 
         Args:
-            x: X-axis position in microns relative to the field center.
-            y: Y-axis position in microns relative to the field center.
+            x: X-axis position in microns relative to the center of the current field of view.
+            y: Y-axis position in microns relative to the center of the current field of view.
         """
         instance = Frap._require_active_instance()
         instance._laser_position_impl(x, y)
 
-    def _laser_position_impl(self, x: int, y: int) -> None:
+    def _require_laser_enabled(self, operation_name: str) -> None:
         if not self._laser_enabled:
-            raise RuntimeError("laser_position requires FRAP to be started first.")
+            raise RuntimeError(f"{operation_name} requires FRAP to be started first.")
 
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+    def _laser_position_impl(self, x: int, y: int) -> None:
+        self._require_laser_enabled("laser_position")
+        self._ensure_prepared_once()
 
         options = self._profile["options"]
         transform = self._build_coordinate_transform()
@@ -308,17 +322,19 @@ class Frap(BaseTool):
         """
         Detect all usable cells in the current field of view.
 
+        FRAP must be turned on with laser_on() before calling this method.
+
         Returns:
             Dictionary containing a ``cells`` list. Each item contains ``cell_id``
             plus ``x`` and ``y`` coordinates in microns relative to the field center.
+            The list is empty when no usable cells are detected.
         """
         instance = Frap._require_active_instance()
         return instance._cell_detection_impl()
 
     def _cell_detection_impl(self) -> dict:
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._require_laser_enabled("cell_detection")
+        self._ensure_prepared_once()
         frame = self._capture_image_region(self._profile)
         analysis = self._segment_and_analyze_cells(frame)
         if not analysis:
@@ -347,17 +363,20 @@ class Frap(BaseTool):
         """
         Extract all usable cell contours from the current field of view.
 
+        FRAP must be turned on with laser_on() before calling this method.
+
         Returns:
             Dictionary containing a ``cells`` list. Each item contains ``cell_id``,
-            and fitted ellipse ``points`` in field-centered microns.
+            and fitted ellipse ``points`` represented as ``[x, y]`` pairs in
+            field-centered microns. The list is empty when no usable contours
+            are extracted.
         """
         instance = Frap._require_active_instance()
         return instance._cell_contour_extraction_impl()
 
     def _cell_contour_extraction_impl(self) -> dict:
-        self._window_info = self._ensure_window(self._profile)
-        self._activate_window_if_needed(self._profile)
-        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._require_laser_enabled("cell_contour_extraction")
+        self._ensure_prepared_once()
         frame = self._capture_image_region(self._profile)
         analysis = self._segment_and_analyze_cells(frame)
         if not analysis:
@@ -520,6 +539,25 @@ class Frap(BaseTool):
         if isinstance(launch_command, (list, tuple)):
             return [str(part).strip() for part in launch_command if str(part).strip()]
         raise ValueError("launch_command must be a string, list, tuple, or empty")
+
+    def _ensure_prepared_once(self) -> None:
+        if bool(getattr(self, "_closed", True)):
+            raise RuntimeError("FRAP tool has been closed and cannot be reused.")
+
+        if self._session_prepared:
+            try:
+                self._window_info = self._wait_for_window(self._profile["window_title_keyword"], timeout_sec=1.0)
+                self._activate_window_if_needed(self._profile, window_info=self._window_info)
+                return
+            except RuntimeError:
+                self._session_prepared = False
+                self._window_info = {}
+
+        self._window_info = self._ensure_window(self._profile)
+        self._activate_window_if_needed(self._profile, window_info=self._window_info)
+        self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._prepare_frap_console(self._profile, self._window_info)
+        self._session_prepared = True
 
     def _ensure_window(self, profile: dict) -> dict:
         keyword = profile["window_title_keyword"]

@@ -17,7 +17,7 @@ wheels/
 config/runtime_config.json
 
 # Large local backups (not for repository)
-docs.rar
+*.rar
 
 # Test and runtime artifacts
 .pytest_cache/
@@ -42,3 +42,10 @@ docs/VLA/ACT_for_microscopy/*
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
+
+# Local scratch / backup files (not for repository)
+*.local-bak
+logs/
+/jjjj_sub.txt
+/temp_patch.txt
+/x

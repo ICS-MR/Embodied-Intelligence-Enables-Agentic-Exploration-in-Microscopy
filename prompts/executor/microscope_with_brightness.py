@@ -165,11 +165,13 @@ def run_acquisition() -> List[ImagingData]:
     """
 
 # -------------------------- Auto Focus / Auto Brightness Adjustment --------------------------
-def perform_autofocus() -> float:
+def perform_autofocus(tolerance: float = 0.5, use_auto_params: bool = False, search_range: float = 600.0, min_z: Optional[float] = None, max_z: Optional[float] = None) -> float:
     """
     Automated focusing algorithm based on image sharpness evaluation.
     The routine searches Z positions around the current focus and returns the
     position with the best sharpness score.
+    Optional min_z/max_z parameters constrain the autofocus search bounds and
+    default to the configured microscope Z-axis limits when omitted.
     
     Returns:
         Optimal Z-axis position (μm)
@@ -270,8 +272,8 @@ Adjust imaging parameters according to imaging mode:
 - In fluorescence mode, set halogen brightness to 0 and use a relatively higher exposure than in brightfield, while avoiding saturation.
 
 ## Hardware Constraints:
-- Stage Movement: X(0→500000micrometer), Y(0→500000micrometer), Z(0→10000micrometer)
-- Imaging Parameters: Brightness({{transmitted_light.min}}→{{transmitted_light.max}}), Exposure Time(0ms→1000ms)
+- Stage Movement: X({{system.min_x}}→{{system.max_x}}micrometer), Y({{system.min_y}}→{{system.max_y}}micrometer), Z({{system.min_z}}→{{system.max_z}}micrometer)
+- Imaging Parameters: Brightness({{transmitted_light.min}}→{{transmitted_light.max}}), Exposure Time({{system.min_exposure}}ms→{{system.max_exposure}}ms)
 ## Fluorescence Filters Mapping:
 - '{{channel.brightfield.label}}' → brightfield (Note: This is not a fluorescence mode)
 - '{{channel.dapi.label}}' → blue (DAPI)

@@ -8,7 +8,9 @@ def _build_detection_targets_doc() -> str:
     return f"""# ----------------- Target Detection -----------------
 def analysis_platform_find_target_positions(image_meta, target_type, description):
     \"\"\"
-    Find target positions in image and save results using the model mapped to `target_type`.
+    Find target positions in an image using the model mapped to `target_type`.
+    This function automatically saves and registers the result using the configured JSON filename.
+    Do not save the returned regions again.
 
     Parameters:
         image_meta (ImageWithMetadata): Input pathological image and its metadata
@@ -16,21 +18,6 @@ def analysis_platform_find_target_positions(image_meta, target_type, description
         description (str): Detection result description information
     Returns:
     List[Tuple[float, float, float, float]]: List of target area bounding boxes in pixel coordinates (center_x_px, center_y_px, width_px, height_px). 
-    \"\"\"
-
-def save_target_positions(image_meta, regions_px, description, output_filename, emit_preview=True):
-    \"\"\"
-    Save arbitrary point/box detections using the standard target-position contract.
-
-    Parameters:
-        image_meta (ImageWithMetadata): Source image and metadata used for pixel-to-physical conversion
-        regions_px (List[Tuple[float, float, float, float]]): Pixel-space detections as
-            (center_x_px, center_y_px, width_px, height_px)
-        description (str): Description stored with the generated JSON
-        output_filename (str): Output JSON filename
-        emit_preview (bool): Whether to emit an annotated preview image
-    Returns:
-    List[Tuple[float, float, float, float]]: Normalized pixel-space target regions.
     \"\"\"
 """
 
@@ -145,7 +132,7 @@ def split_channels( image_meta):
         List[ImageWithMetadata]: List of encapsulated objects of single-channel images and their metadata
     """
 
-def merge_channels( image_metas, colors, outpath):
+def merge_channels(image_metas, colors, outpath, *, description):
     """
     Merge multiple single-channel images into RGB color image
 
@@ -153,6 +140,7 @@ def merge_channels( image_metas, colors, outpath):
         image_metas (List[ImageWithMetadata]): List of single-channel images and their metadata
         colors (List[str]): Color list corresponding to each channel. Supported values: "Red", "Green", "Blue", "Brightfield", "Cyan", "Magenta", and "Yellow".
         outpath (str): Output file name
+        description (str): Task-specific purpose and context of the generated merged image
     Returns:
         ImageWithMetadata: Encapsulated object of merged RGB image and its metadata
     """
@@ -201,6 +189,8 @@ def trackmate_tracking(
     max_linking_distance_um=None,
     min_track_length=3,
     out_prefix="trackmate",
+    *,
+    description,
 ):
     """
     Detect and track objects in a time-lapse microscopy image stack, generate a combined trajectory overlay, and export trajectory data.
@@ -211,6 +201,7 @@ def trackmate_tracking(
         max_linking_distance_um (float, optional): Max displacement between frames
         min_track_length (int, default=3): Minimum number of spots per trajectory
         out_prefix (str, default="trackmate"): Prefix for output files
+        description (str): Task-specific purpose and context shared by the generated tracking outputs
 
     Returns:
         dict: Paths and counts for overlay image, tracks CSV, summary JSON, track count, and spot count
@@ -248,7 +239,7 @@ def say(message: str):
 # Code Generation Rules
 - Generate pure executable Python code without comments or Markdown.
 - Use `say(“[ACTION] ...”)` to record important steps before each operation.
-- Never write JSON files directly with `open()`; use `save_target_positions(...)` for target-coordinate JSON output.
+- `analysis_platform_find_target_positions(...)` automatically saves and registers its JSON result. 
 
 # Example Input
 # Saved documents:
@@ -291,7 +282,12 @@ single_channels = split_channels(multi_channel_image)
 channel_colors = ["Blue", "Red", "Green"]
 output_file = "merged_cell_fluorescence_rgb.tif"
 say("[ACTION] Merging channels into RGB composite image: " + output_file)
-merged_image = merge_channels(single_channels, colors=channel_colors, outpath=output_file)
+merged_image = merge_channels(
+    single_channels,
+    colors=channel_colors,
+    outpath=output_file,
+    description="Composite fluorescence image for visualizing the spatial distribution of cellular signals",
+)
 fiji_shutdown()
 
 # Example Input
@@ -396,36 +392,6 @@ save_image(processed_image, output_file, "Image processed with Gaussian denoisin
 
 fiji_shutdown()
 
-# Example Input
-# Saved documents:
-Saved documents:
-{
-    "brightfield_4x.ome.tif": {
-        "filename": "brightfield_4x.ome.tif",
-        "description": "channel_names: [(128, 128, 128)], pixel_size: 1.62, magnification: 4",
-        "created_by": "microscope",
-        "file_type": "ome-tiff"
-    }
-}
-# Import the acquired 4x brightfield image. Detect a circular target with OpenCV and save its center coordinates as JSON.
-# Example Output
-fiji_initialize()
-input_file = "brightfield_4x.ome.tif"
-say("[ACTION] Loading 4x brightfield image: " + input_file)
-image = load_image(input_file)
-image_np = convert_to_numpy(image)
-blurred = cv.GaussianBlur(image_np, (9, 9), 2)
-circles = cv.HoughCircles(blurred, cv.HOUGH_GRADIENT, dp=1, minDist=50, param1=50, param2=50, minRadius=10, maxRadius=200)
-regions_px = []
-if circles is not None:
-    circles = np.round(circles[0, :]).astype("int")
-    circles = sorted(circles.tolist(), key=lambda item: item[2], reverse=True)
-    x, y, r = circles[0]
-    regions_px.append((float(x), float(y), 0.0, 0.0))
-    say("[ACTION] Detected circular target center at (" + str(x) + ", " + str(y) + ")")
-save_target_positions(image, regions_px, "Detected circular target center in 4x brightfield image", "detected_circle_center.json")
-say("[ACTION] Detection results saved as JSON file")
-fiji_shutdown()
 '''.strip()
 
 prompt_imagej = prompt_imagej.replace("__TARGET_DETECTION_DOC__", _build_detection_targets_doc().strip())

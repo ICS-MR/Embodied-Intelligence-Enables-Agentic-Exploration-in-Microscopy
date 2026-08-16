@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import math
 from contextlib import contextmanager
 import os
@@ -13,15 +13,20 @@ import numpy as np
 from aicsimageio.types import PhysicalPixelSizes
 from aicsimageio.writers import OmeTiffWriter
 from ome_types.model import Plane
+# Prevent pymmcore_plus from creating a file handler at import time.
+# Its configure_logging() crashes with PermissionError when the log file
+# is locked by another process.  Setting PYTEST_RUNNING disables the
+# file handler entirely (the only side-effect is skipping file logging).
+import os as _os
+_os.environ.setdefault("PYTEST_RUNNING", "1")
+del _os
+
 from pymmcore_plus import CMMCorePlus
 from core_tool import tool_utils
 import json
 
-try:
-    from mmdet.apis import init_detector, inference_detector
-except Exception:
-    init_detector = None
-    inference_detector = None
+# mmdet imports are deferred to detect_targets_in_image() to avoid
+# hanging at module load time when mmdet initialization is slow.
 
 try:
     import torch
@@ -653,6 +658,44 @@ class MicroscopeController(BaseTool):
         if restore_preview and not target_preview_running and self.preview_running:
             self.stop_preview()
 
+    def capture_handoff_state(self) -> Dict[str, Any]:
+        state = self._capture_runtime_state(include_xy=True, include_preview=True)
+        state["objective"] = self.get_objective()
+        return state
+
+    def release_for_handoff(self) -> None:
+        if self._hardware_shutdown_complete:
+            return
+        if self.preview_running:
+            print("Microscope handoff: stopping preview...")
+            self.stop_preview()
+        if self.acquisition_thread and self.acquisition_thread.is_alive():
+            print("Microscope handoff: waiting for acquisition thread...")
+            self.acquisition_thread.join(timeout=5.0)
+        if self.acquisition_thread and self.acquisition_thread.is_alive():
+            raise RuntimeError("microscope acquisition thread did not stop within 5 seconds")
+        with self.device_lock:
+            print("Microscope handoff: resetting hardware core...")
+            try:
+                self._write_transmitted_brightness(self.Min_brightness)
+            except Exception:
+                logger.debug("Failed to set transmitted brightness during handoff", exc_info=True)
+            with _silence_native_stdio():
+                self.core.stopSequenceAcquisition()
+                self.core.reset()
+                self.core.unloadAllDevices()
+            print("Microscope handoff: hardware core reset complete.")
+        self._hardware_shutdown_complete = True
+
+    def restore_after_handoff(self, state: Dict[str, Any]) -> None:
+        if self._hardware_shutdown_complete:
+            self.initialize()
+        if state.get("objective"):
+            self.set_objective(state["objective"])
+        self._restore_runtime_state(state, restore_xy=True, restore_preview=False)
+        if bool(state.get("preview_running", False)) and not self.preview_running:
+            self.start_preview()
+
     def _reset_acquisition_plan(self) -> None:
         self.acquisition_positions.clear()
         self.acquisition_channels.clear()
@@ -1227,13 +1270,10 @@ class MicroscopeController(BaseTool):
 
         if channel_key == "dapi":
             normalized = np.power(normalized, 0.85)
-            normalized = cv2.GaussianBlur(normalized, (0, 0), sigmaX=0.6, sigmaY=0.6)
             normalized = np.clip(normalized * 1.35, 0.0, 1.0)
         elif channel_key == "fitc":
-            normalized = cv2.GaussianBlur(normalized, (0, 0), sigmaX=1.0, sigmaY=1.0)
             normalized = np.clip(np.power(normalized, 1.10) * 0.92, 0.0, 1.0)
         elif channel_key == "tritc":
-            normalized = cv2.GaussianBlur(normalized, (0, 0), sigmaX=1.4, sigmaY=1.4)
             normalized = np.clip(np.power(normalized, 1.28) * 0.78, 0.0, 1.0)
         else:
             normalized = np.clip(normalized, 0.0, 1.0)
@@ -2236,9 +2276,45 @@ class MicroscopeController(BaseTool):
 
     # ====== Auto focus and auto brightness ======
     @tool_func
-    def perform_autofocus(self, tolerance=0.5, use_auto_params=False, search_range=600.0) -> float:
+    def perform_autofocus(
+        self,
+        tolerance=0.5,
+        use_auto_params=False,
+        search_range=600.0,
+        min_z: Optional[float] = None,
+        max_z: Optional[float] = None,
+    ) -> float:
         state = self._capture_runtime_state(include_xy=False, include_preview=True)
-        base_center_z = float(state["z"])
+        captured_center_z = float(state["z"])
+        configured_min_z = float(self.Min_Z_position)
+        configured_max_z = float(self.Max_Z_position)
+        if configured_min_z > configured_max_z:
+            raise RuntimeError(
+                f"Invalid configured autofocus Z range [{configured_min_z:.3f}, {configured_max_z:.3f}]"
+            )
+        requested_min_z = configured_min_z if min_z is None else float(min_z)
+        requested_max_z = configured_max_z if max_z is None else float(max_z)
+        if requested_min_z > requested_max_z:
+            raise ValueError(
+                f"Invalid requested autofocus Z range [{requested_min_z:.3f}, {requested_max_z:.3f}]"
+            )
+        effective_min_z = max(configured_min_z, requested_min_z)
+        effective_max_z = min(configured_max_z, requested_max_z)
+        if effective_min_z > effective_max_z:
+            raise ValueError(
+                "Requested autofocus Z range does not overlap the configured safe range: "
+                f"requested=[{requested_min_z:.3f}, {requested_max_z:.3f}], "
+                f"configured=[{configured_min_z:.3f}, {configured_max_z:.3f}]"
+            )
+        base_center_z = float(max(effective_min_z, min(captured_center_z, effective_max_z)))
+        if abs(base_center_z - captured_center_z) >= 1e-6:
+            logger.warning(
+                "Autofocus center Z %.3f is outside effective range [%.3f, %.3f]; using %.3f as search center",
+                captured_center_z,
+                effective_min_z,
+                effective_max_z,
+                base_center_z,
+            )
         current_channel = self.get_channel()
         current_objective = self.get_objective()
         magnification = float(self.objective_labels.get(current_objective, 10.0))
@@ -2262,8 +2338,8 @@ class MicroscopeController(BaseTool):
         scores: Dict[float, float] = {}
         autofocus_completed = False
         autofocus_deadline = time.monotonic() + AUTOFOCUS_TIMEOUT_SEC
-        lower_bound = max(float(self.Min_Z_position), base_center_z - search_range)
-        upper_bound = min(float(self.Max_Z_position), base_center_z + search_range)
+        lower_bound = max(effective_min_z, base_center_z - search_range)
+        upper_bound = min(effective_max_z, base_center_z + search_range)
         coarse_positions_preview = np.arange(
             lower_bound,
             upper_bound + coarse_step * 0.5,
@@ -2389,8 +2465,9 @@ class MicroscopeController(BaseTool):
             active_search_range: float,
             active_coarse_step: float,
         ) -> Tuple[float, float, float]:
-            lower_z = max(float(self.Min_Z_position), search_center_z - active_search_range)
-            upper_z = min(float(self.Max_Z_position), search_center_z + active_search_range)
+            search_center_z = float(max(effective_min_z, min(search_center_z, effective_max_z)))
+            lower_z = max(effective_min_z, search_center_z - active_search_range)
+            upper_z = min(effective_max_z, search_center_z + active_search_range)
             coarse_positions = np.arange(
                 lower_z,
                 upper_z + active_coarse_step * 0.5,
@@ -2433,8 +2510,8 @@ class MicroscopeController(BaseTool):
 
         def is_near_search_boundary(best_z: float, lower_z: float, upper_z: float, active_coarse_step: float) -> bool:
             boundary_margin = max(tolerance, active_coarse_step * 0.5)
-            lower_available = lower_z > float(self.Min_Z_position) + tolerance
-            upper_available = upper_z < float(self.Max_Z_position) - tolerance
+            lower_available = lower_z > effective_min_z + tolerance
+            upper_available = upper_z < effective_max_z - tolerance
             return (
                 lower_available and (best_z - lower_z) <= boundary_margin
             ) or (
@@ -3021,10 +3098,18 @@ class MicroscopeController(BaseTool):
 
         image_2d = _coerce_detection_image_to_2d(image_data.image)
         pixel_size = float(image_data.pixel_size)
-        if torch is None or init_detector is None or inference_detector is None:
+        # Lazy import to avoid hanging at module load time
+        try:
+            from mmdet.apis import init_detector, inference_detector
+        except Exception as exc:
             raise RuntimeError(
                 "MMDetection dependencies are unavailable. Please install a compatible "
                 "mmdet/mmcv/torch stack before using detect_targets_in_image."
+            ) from exc
+        
+        if torch is None:
+            raise RuntimeError(
+                "PyTorch is unavailable. Please install torch before using detect_targets_in_image."
             )
 
         h, w = image_2d.shape

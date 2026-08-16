@@ -9,11 +9,15 @@ class Frap(BaseTool):
     _active_instance: Frap | None = None
 
     planning_hint = (
-        "Use laser_on before laser_position, then use laser_off when the FRAP "
-        "sequence is complete. Coordinates are in microns relative to the field center."
+        "Use for FRAP workflows that start and stop FRAP, position the laser relative "
+        "to the field center and perform photobleaching at selected coordinates, detect cells "
+        "in the current field of view, or extract cell contours."
     )
     execution_hint = (
-        "This simulation validates the public FRAP call sequence without controlling cellSens."
+        "Call laser_on before cell_detection, cell_contour_extraction, or laser_position, "
+        "and call laser_off after the bleaching sequence. "
+        "Treat laser_position coordinates as microns relative to the field center, and use "
+        "the documented cells list returned by cell_detection or cell_contour_extraction."
     )
 
     def __init__(self, storage_manager=None, output_dir: str = "./output") -> None:
@@ -23,37 +27,39 @@ class Frap(BaseTool):
         type(self)._active_instance = self
 
     @tool_func
-    def laser_on(self, power: float, duration: float) -> None:
+    def laser_on(self) -> None:
         """
-        Activate laser for precise cell manipulation.
+        Turn on the FRAP operation switch.
 
-        Args:
-            power: Laser intensity as a percentage from 0.0 to 100.0.
-            duration: Exposure time in milliseconds.
+        This method must be called before laser_position(), cell_detection(),
+        or cell_contour_extraction(). It starts the FRAP operation.
 
-        Raises:
-            ValueError: If power is outside 0.0-100.0 or duration is not positive.
         """
-        if not (0.0 <= float(power) <= 100.0):
-            raise ValueError("power must be between 0.0 and 100.0")
-        if float(duration) <= 0:
-            raise ValueError("duration must be positive")
         self._laser_enabled = True
 
     @tool_func
     def laser_off(self) -> None:
-        """Immediately deactivate laser emission."""
+        """
+        Turn off the FRAP operation switch.
+
+        Call this method after completing the laser_position() bleaching
+        sequence. This stops FRAP operation but does not release the session.
+        """
         self._laser_enabled = False
 
     @tool_func
     @staticmethod
     def laser_position(x: int, y: int) -> None:
         """
-        Set laser focal point coordinates.
+        Position the laser at the specified coordinates and perform one
+        bleaching operation at that location.
+
+        FRAP must be turned on with laser_on() before calling this method.
+        The method may be called repeatedly to bleach multiple positions.
 
         Args:
-            x: X-axis position in microns relative to the field center.
-            y: Y-axis position in microns relative to the field center.
+            x: X-axis position in microns relative to the center of the current field of view.
+            y: Y-axis position in microns relative to the center of the current field of view.
         """
         del x, y
         instance = Frap._require_active_instance()
@@ -63,20 +69,53 @@ class Frap(BaseTool):
     @tool_func
     @staticmethod
     def cell_detection() -> dict:
-        """Detect and return the target position relative to the field center in microns."""
-        Frap._require_active_instance()
-        return {"x": 0.0, "y": 0.0}
+        """
+        Detect all usable cells in the current field of view.
+
+        FRAP must be turned on with laser_on() before calling this method.
+
+        Returns:
+            Dictionary containing a ``cells`` list. Each item contains ``cell_id``
+            plus ``x`` and ``y`` coordinates in microns relative to the field center.
+            The list is empty when no usable cells are detected.
+        """
+        instance = Frap._require_active_instance()
+        instance._require_laser_enabled("cell_detection")
+        return {"cells": [{"cell_id": 1, "x": 0.0, "y": 0.0}]}
 
     @tool_func
     @staticmethod
     def cell_contour_extraction() -> dict:
-        """Extract field-centered contour points, area, and perimeter in microns."""
-        Frap._require_active_instance()
+        """
+        Extract all usable cell contours from the current field of view.
+
+        FRAP must be turned on with laser_on() before calling this method.
+
+        Returns:
+            Dictionary containing a ``cells`` list. Each item contains ``cell_id``
+            and fitted ellipse ``points`` represented as ``[x, y]`` pairs in
+            field-centered microns. The list is empty when no usable contours
+            are extracted.
+        """
+        instance = Frap._require_active_instance()
+        instance._require_laser_enabled("cell_contour_extraction")
         return {
-            "points": [(-10.0, -10.0), (10.0, -10.0), (10.0, 10.0), (-10.0, 10.0)],
-            "area": 400.0,
-            "perimeter": 80.0,
+            "cells": [
+                {
+                    "cell_id": 1,
+                    "points": [
+                        [-10.0, -10.0],
+                        [10.0, -10.0],
+                        [10.0, 10.0],
+                        [-10.0, 10.0],
+                    ],
+                }
+            ]
         }
+
+    def release_session(self) -> None:
+        """Reset simulated FRAP session state."""
+        self._laser_enabled = False
 
     @classmethod
     def _require_active_instance(cls) -> Frap:
@@ -84,3 +123,7 @@ class Frap(BaseTool):
         if instance is None:
             raise RuntimeError("Frap must be instantiated before using this static method.")
         return instance
+
+    def _require_laser_enabled(self, operation_name: str) -> None:
+        if not self._laser_enabled:
+            raise RuntimeError(f"{operation_name} requires FRAP to be started first.")

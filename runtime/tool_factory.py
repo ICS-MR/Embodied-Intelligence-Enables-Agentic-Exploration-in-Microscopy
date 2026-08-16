@@ -279,7 +279,9 @@ def _build_executor_execution_context(
     storage_manager: StorageManager,
     say_capture: SayCapture,
 ) -> Dict[str, Any]:
-    in_process_timeout = float(os.environ.get("EIMS_IN_PROCESS_EXECUTOR_TIMEOUT_SECONDS", "30") or 30)
+    in_process_timeout = float(
+        getattr(system_config, "in_process_executor_timeout_seconds", 180.0) or 180.0
+    )
     if role != "image_analysis" or role_mode != "real":
         return {"timeout_seconds": in_process_timeout}
     return {

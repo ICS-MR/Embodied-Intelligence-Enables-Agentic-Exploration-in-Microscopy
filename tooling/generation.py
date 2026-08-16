@@ -4,7 +4,7 @@ import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Mapping, Optional, Set
 
 from openai import OpenAI
 
@@ -31,6 +31,9 @@ Requirements:
 
 Function signature:
 {signature}
+
+Function source:
+{source}
 
 Generated docstring:
 """,
@@ -86,18 +89,22 @@ Tool name: {tool_id}
 Capabilities:
 {capabilities}
 
+Authoritative callable API and documentation:
+{methods}
+
 Requirements:
 - Generate a realistic, specific, and simple user instruction (# Example input).
 - Keep the plan short and conservative. Prefer 1 to 4 steps.
 - Use only capabilities that are explicitly documented.
+- Treat the callable API signatures, parameters, return values, and docstrings as authoritative constraints for the example.
 - Treat documented capabilities as atomic building blocks. Do not mark a task unsupported only because there is no one-shot API if the requested outcome can be achieved by composing documented capabilities into a valid short plan.
 - Do not invent hidden state such as "current image", "current ROI", or unspecified hardware configuration when the capability description requires an explicit input.
-- If the capability involves image input, prefer an explicit OME-TIFF-style path such as `sample.ome.tif` instead of an implicit image reference.
+- Use a file path or other explicit input only when it is present in an exposed method signature or its documentation. If the documented methods operate on the current field of view or current instrument state, describe that context directly and do not invent a file path.
 - Do not expose internal implementation details in planner commands when a higher-level tool capability already covers them.
 - Output must strictly follow:
-<Task Ready>
-{{"Status": "OK"}}
-</Task Ready>
+<Planner State>
+{{"status": "final_plan"}}
+</Planner State>
 <Task steps>
 [
     {{
@@ -192,9 +199,56 @@ class ToolDocGenerator:
             )
         return cleaned
 
-    def generate_task_example(self, tool_id: str, capability_summary: str) -> str:
-        prompt = self.prompts["task_example"].format(tool_id=tool_id, capabilities=capability_summary)
+    def generate_task_example(
+        self,
+        tool_id: str,
+        capability_summary: str,
+        public_methods: str,
+    ) -> str:
+        prompt = self.prompts["task_example"].format(
+            tool_id=tool_id,
+            capabilities=capability_summary,
+            methods=public_methods,
+        )
         return self.llm_agent.generate_required(prompt)
+
+    def generate_missing_method_docstrings(self, tool_cls: type[BaseTool]) -> Dict[str, str]:
+        generated: Dict[str, str] = {}
+        for descriptor in tool_cls.get_tool_descriptors():
+            if str(descriptor.get("docstring") or "").strip():
+                continue
+
+            method_name = str(descriptor["name"])
+            method = getattr(tool_cls, method_name)
+            try:
+                source = inspect.getsource(method).strip()
+            except (OSError, TypeError):
+                source = "Source code is unavailable; infer documentation from the signature only."
+
+            prompt = self.prompts["docstring"].format(
+                signature=descriptor["signature"],
+                source=source,
+            )
+            generated[method_name] = self._normalize_generated_docstring(
+                self.llm_agent.generate_required(prompt)
+            )
+        return generated
+
+    @staticmethod
+    def _normalize_generated_docstring(content: str) -> str:
+        cleaned = content.strip()
+        if cleaned.startswith("```") and cleaned.endswith("```"):
+            lines = cleaned.splitlines()
+            cleaned = "\n".join(lines[1:-1]).strip()
+        if (
+            len(cleaned) >= 6
+            and cleaned[:3] in {'"""', "'''"}
+            and cleaned[-3:] == cleaned[:3]
+        ):
+            cleaned = cleaned[3:-3].strip()
+        if not cleaned:
+            raise RuntimeError("LLM produced an empty docstring for a registered tool method.")
+        return cleaned
 
     def _build_abstract_planning_submodule_block(
         self,
@@ -220,13 +274,21 @@ class ToolDocGenerator:
         tool_cls: type[BaseTool],
         tool_id: str,
         execution_hint: str = "",
+        docstring_overrides: Mapping[str, str] | None = None,
     ) -> str:
-        public_methods = tool_cls.get_formatted_tool_methods(inject_say=True)
+        public_methods = tool_cls.get_formatted_tool_methods(
+            inject_say=True,
+            docstring_overrides=docstring_overrides,
+        )
         usage_example = self.generate_class_usage_example(public_methods, tool_cls)
         return "\n\n".join(
             section
             for section in [
-                tool_cls.get_execution_prompt_context(tool_id=tool_id, execution_hint=execution_hint),
+                tool_cls.get_execution_prompt_context(
+                    tool_id=tool_id,
+                    execution_hint=execution_hint,
+                    docstring_overrides=docstring_overrides,
+                ),
                 "# Usage Example\n" + usage_example.strip(),
             ]
             if section.strip()
@@ -237,8 +299,12 @@ class ToolDocGenerator:
         tool_cls: type[BaseTool],
         tool_id: str,
         planning_hint: str = "",
+        docstring_overrides: Mapping[str, str] | None = None,
     ) -> str:
-        public_methods = tool_cls.get_formatted_tool_methods(inject_say=False)
+        public_methods = tool_cls.get_formatted_tool_methods(
+            inject_say=False,
+            docstring_overrides=docstring_overrides,
+        )
         capability_summary = self.summarize_class_capabilities(public_methods, tool_cls)
         submodule_block = self._build_abstract_planning_submodule_block(
             tool_cls,
@@ -246,7 +312,7 @@ class ToolDocGenerator:
             capability_summary,
             planning_hint=planning_hint,
         )
-        task_example = self.generate_task_example(tool_id, capability_summary)
+        task_example = self.generate_task_example(tool_id, capability_summary, public_methods)
         return "\n\n".join(
             section
             for section in [
@@ -295,41 +361,14 @@ class ToolDocGenerator:
                 "command": "Run the appropriate tool action based on the documented capability",
             }
         ]
-        if tool_id == "frap":
-            example_input = (
-                "Use the frap tool to enable FRAP mode, extract a cell contour from "
-                "`cell_image.ome.tif`, move the laser to the detected centroid, and then disable FRAP mode."
-            )
-            steps = [
-                {
-                    "subtask_index": 1,
-                    "module": tool_id,
-                    "command": "Enable FRAP mode for the session",
-                },
-                {
-                    "subtask_index": 2,
-                    "module": tool_id,
-                    "command": "Extract the cell contour from `cell_image.ome.tif` to obtain centroid_px coordinates",
-                },
-                {
-                    "subtask_index": 3,
-                    "module": tool_id,
-                    "command": "Move the laser to the detected centroid coordinates and trigger the FRAP click",
-                },
-                {
-                    "subtask_index": 4,
-                    "module": tool_id,
-                    "command": "Disable FRAP mode after the click sequence",
-                },
-            ]
         return "\n".join(
             [
                 "# Example input",
                 example_input,
                 "# Example output",
-                "<Task Ready>",
-                '{"Status": "OK"}',
-                "</Task Ready>",
+                "<Planner State>",
+                '{"status": "final_plan"}',
+                "</Planner State>",
                 "<Task steps>",
                 json.dumps(steps, indent=4, ensure_ascii=False),
                 "</Task steps>",
@@ -370,15 +409,18 @@ class ToolProcessingPipeline:
                 class_path,
                 ToolDocOverride(tool_id=tool_cls.get_default_tool_id()),
             )
+            generated_docstrings = self.doc_generator.generate_missing_method_docstrings(tool_cls)
             execution_text = self.doc_generator.build_execution_prompt_text(
                 tool_cls,
                 override.tool_id,
                 execution_hint=override.execution_hint,
+                docstring_overrides=generated_docstrings,
             )
             planning_text = self.doc_generator.build_planning_summary_text(
                 tool_cls,
                 override.tool_id,
                 planning_hint=override.planning_hint,
+                docstring_overrides=generated_docstrings,
             )
             artifact_key = _slugify_tool_name(override.tool_id)
 

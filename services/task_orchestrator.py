@@ -47,6 +47,7 @@ class TaskPlan:
     ready: bool = False
     tokens: Optional[Dict[str, int]] = None
     error: Optional[str] = None
+    clarification_details: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -305,6 +306,7 @@ class TaskOrchestrator:
                     ready=False,
                     tokens=tokens,
                     error=planner_result.error,
+                    clarification_details=dict(getattr(planner_result, "clarification_details", {}) or {}),
                 )
             return TaskPlan(
                 task_id=task_id,
@@ -330,6 +332,7 @@ class TaskOrchestrator:
             ready=False,
             tokens=tokens,
             error=planner_result.error or "Unable to generate an executable plan.",
+            clarification_details=dict(getattr(planner_result, "clarification_details", {}) or {}),
         )
 
     def present_plan(self, plan: TaskPlan) -> str:
@@ -485,7 +488,11 @@ class TaskOrchestrator:
                             steps=current_steps,
                             success=False,
                             retry_times=retry_count,
-                            summary=f"Task execution failed and plan trace checker marked it unrecoverable: {planner_feedback or detail}",
+                            summary=self._format_execution_failure_summary(
+                                execution_trace,
+                                outcome="The plan trace checker determined that automatic replanning would not resolve the failure.",
+                                checker_feedback=planner_feedback,
+                            ),
                             step_summaries=step_summaries,
                             checker_warnings=checker_warnings,
                             checker_summary="\n".join(checker_warnings),
@@ -509,7 +516,11 @@ class TaskOrchestrator:
                             steps=current_steps,
                             success=False,
                             retry_times=retry_count,
-                            summary=f"Task execution failed and replanning did not produce executable steps: {planner_feedback or detail}",
+                            summary=self._format_execution_failure_summary(
+                                execution_trace,
+                                outcome="Automatic replanning did not produce executable steps.",
+                                checker_feedback=planner_feedback,
+                            ),
                             step_summaries=step_summaries,
                             checker_warnings=checker_warnings,
                             checker_summary="\n".join(checker_warnings),
@@ -627,6 +638,25 @@ class TaskOrchestrator:
             error="Maximum retry limit reached.",
         )
 
+    @staticmethod
+    def _format_execution_failure_summary(
+        execution_trace: ExecutionTrace,
+        *,
+        outcome: str,
+        checker_feedback: str = "",
+    ) -> str:
+        step_index = execution_trace.step.get("subtask_index")
+        step_label = f"step {step_index}" if step_index is not None else "the current step"
+        if execution_trace.module:
+            step_label += f" ({execution_trace.module})"
+
+        detail = f"{execution_trace.exception_type}: {execution_trace.exception_message}"
+        summary = f"Task execution failed at {step_label}. Cause: {detail}. {outcome}"
+        feedback = str(checker_feedback or "").strip()
+        if feedback:
+            summary += f" Checker feedback: {feedback}"
+        return summary
+
     def _run_task(
         self,
         lmp_steps: List[Dict[str, Any]],
@@ -639,83 +669,187 @@ class TaskOrchestrator:
         step_reports: List[StepExecutionReport] = []
 
         storage_manager.clear_cache()
-        for step in sorted(lmp_steps, key=lambda item: item["subtask_index"]):
-            self.runtime_context.say_capture.clear()
-            meta_file = storage_manager.read_log(True)
-            context = f"# Saved documents:\n {meta_file}"
-            module_name = step["module"]
-            command = step["command"]
+        ordered_steps = sorted(lmp_steps, key=lambda item: item["subtask_index"])
+        frap_phase_active = False
+        frap_handoff_state: Optional[Dict[str, Any]] = None
 
-            if module_name == "Microscope Operation Platform":
-                current_objective = env_olympus.get_objective()
-                system_config = self.runtime_context.runtime["system"]
-                current_channel = env_olympus.get_channel()
-                env_parts = [
-                    f"Current xy_position:{env_olympus.get_x_y_position()}, "
-                    f"z_position:{env_olympus.get_z_position()}, "
-                    f"exposure_time:{env_olympus.get_exposure()}, "
-                    f"objective:{current_objective} "
-                    f"({objective_display_name(current_objective, system_config)}; "
-                    f"semantic={objective_semantic_for_label(current_objective, system_config) or 'unknown'}), "
-                    f"dichroic:{current_channel} "
-                    f"({channel_display_name(current_channel, system_config)}; "
-                    f"semantic={channel_semantic_for_label(current_channel, system_config) or 'unknown'})",
-                ]
-                if _has_transmitted_light_brightness_control(system_config):
-                    env_parts.append(f"brightness:{env_olympus.get_brightness()}")
-                env_info = ", ".join(env_parts)
-                context += f"\n# Current environment:{env_info}"
+        try:
+            for step in ordered_steps:
+                self.runtime_context.say_capture.clear()
+                meta_file = storage_manager.read_log(True)
+                context = f"# Saved documents:\n {meta_file}"
+                module_name = step["module"]
+                command = step["command"]
 
-            module_instance = self.runtime_context.tool_registry.get_executor(module_name)
-            if module_instance is None:
-                raise StepExecutionError(
-                    step=step.copy(),
-                    original_exception=ValueError(f"Unknown module: {module_name}"),
-                    executor=None,
-                    saved_documents=meta_file,
+                is_frap_step = self._is_frap_module(module_name)
+                if is_frap_step:
+                    module_name = "frap"
+                if is_frap_step and not frap_phase_active:
+                    try:
+                        frap_handoff_state = self._begin_frap_handoff()
+                    except Exception as exc:
+                        raise StepExecutionError(
+                            step=step.copy(),
+                            original_exception=exc,
+                            executor=None,
+                            saved_documents=meta_file,
+                        ) from exc
+                    frap_phase_active = True
+                elif not is_frap_step and frap_phase_active:
+                    try:
+                        self._end_frap_handoff(frap_handoff_state)
+                    except Exception as exc:
+                        raise StepExecutionError(
+                            step=step.copy(),
+                            original_exception=exc,
+                            executor=None,
+                            saved_documents=meta_file,
+                        ) from exc
+                    finally:
+                        frap_phase_active = False
+                        frap_handoff_state = None
+
+                if module_name == "Microscope Operation Platform":
+                    current_objective = env_olympus.get_objective()
+                    system_config = self.runtime_context.runtime["system"]
+                    current_channel = env_olympus.get_channel()
+                    env_parts = [
+                        f"Current xy_position:{env_olympus.get_x_y_position()}, "
+                        f"z_position:{env_olympus.get_z_position()}, "
+                        f"exposure_time:{env_olympus.get_exposure()}, "
+                        f"objective:{current_objective} "
+                        f"({objective_display_name(current_objective, system_config)}; "
+                        f"semantic={objective_semantic_for_label(current_objective, system_config) or 'unknown'}), "
+                        f"dichroic:{current_channel} "
+                        f"({channel_display_name(current_channel, system_config)}; "
+                        f"semantic={channel_semantic_for_label(current_channel, system_config) or 'unknown'})",
+                    ]
+                    if _has_transmitted_light_brightness_control(system_config):
+                        env_parts.append(f"brightness:{env_olympus.get_brightness()}")
+                    env_info = ", ".join(env_parts)
+                    context += f"\n# Current environment:{env_info}"
+
+                module_instance = self.runtime_context.tool_registry.get_executor(module_name)
+                if module_instance is None:
+                    raise StepExecutionError(
+                        step=step.copy(),
+                        original_exception=ValueError(f"Unknown module: {module_name}"),
+                        executor=None,
+                        saved_documents=meta_file,
+                    )
+
+                self.runtime_context.say_capture.set_listener(on_robot_action)
+                try:
+                    module_instance.run(command, context)
+                except Exception as exc:
+                    raise StepExecutionError(
+                        step=step.copy(),
+                        original_exception=exc,
+                        executor=module_instance,
+                        saved_documents=meta_file,
+                    ) from exc
+                finally:
+                    self.runtime_context.say_capture.set_listener(None)
+
+                spoken_messages = self.runtime_context.say_capture.get_messages()
+                step_summary_result = self._summarize_step_completion(
+                    self.runtime_context.llm_client,
+                    runtime_agent.model_name,
+                    step,
+                    spoken_messages,
                 )
-
-            self.runtime_context.say_capture.set_listener(on_robot_action)
-            try:
-                module_instance.run(command, context)
-            except Exception as exc:
-                raise StepExecutionError(
-                    step=step.copy(),
-                    original_exception=exc,
-                    executor=module_instance,
-                    saved_documents=meta_file,
-                ) from exc
-            finally:
-                self.runtime_context.say_capture.set_listener(None)
-
-            spoken_messages = self.runtime_context.say_capture.get_messages()
-            step_summary_result = self._summarize_step_completion(
-                self.runtime_context.llm_client,
-                runtime_agent.model_name,
-                step,
-                spoken_messages,
-            )
-            step_summary = step_summary_result.text
-            if step_summary_result.used_fallback:
-                logger.warning(
-                    "Step summary used fallback. module=%s subtask_index=%s reason=%s",
-                    step.get("module", "Unknown"),
-                    step.get("subtask_index", "?"),
-                    step_summary_result.error or "unknown",
+                step_summary = step_summary_result.text
+                if step_summary_result.used_fallback:
+                    logger.warning(
+                        "Step summary used fallback. module=%s subtask_index=%s reason=%s",
+                        step.get("module", "Unknown"),
+                        step.get("subtask_index", "?"),
+                        step_summary_result.error or "unknown",
+                    )
+                if step_summary and on_step_summary is not None:
+                    on_step_summary(step_summary)
+                step_reports.append(
+                    StepExecutionReport(
+                        step=step.copy(),
+                        spoken_messages=spoken_messages,
+                        summary=step_summary,
+                        summary_used_fallback=step_summary_result.used_fallback,
+                        summary_error=step_summary_result.error,
+                    )
                 )
-            if step_summary and on_step_summary is not None:
-                on_step_summary(step_summary)
-            step_reports.append(
-                StepExecutionReport(
-                    step=step.copy(),
-                    spoken_messages=spoken_messages,
-                    summary=step_summary,
-                    summary_used_fallback=step_summary_result.used_fallback,
-                    summary_error=step_summary_result.error,
-                )
-            )
+        except Exception as exc:
+            if frap_phase_active:
+                try:
+                    self._end_frap_handoff(frap_handoff_state)
+                except Exception as cleanup_exc:
+                    detail = RuntimeError(
+                        f"{type(exc).__name__}: {exc}; additionally failed to release FRAP/restore Micro-Manager: {cleanup_exc}"
+                    )
+                    if isinstance(exc, StepExecutionError):
+                        raise StepExecutionError(
+                            step=exc.step,
+                            original_exception=detail,
+                            executor=exc.executor,
+                            saved_documents=exc.saved_documents,
+                        ) from exc
+                    raise detail from exc
+            raise
+        else:
+            if frap_phase_active:
+                last_step = ordered_steps[-1] if ordered_steps else {}
+                try:
+                    self._end_frap_handoff(frap_handoff_state)
+                except Exception as exc:
+                    raise StepExecutionError(
+                        step=last_step.copy(),
+                        original_exception=exc,
+                        executor=None,
+                        saved_documents=storage_manager.read_log(True),
+                    ) from exc
 
         return step_reports
+
+    @staticmethod
+    def _is_frap_module(module_name: Any) -> bool:
+        return str(module_name or "").strip().lower() == "frap"
+
+    def _begin_frap_handoff(self) -> Optional[Dict[str, Any]]:
+        env_olympus = getattr(self.runtime_context, "env_olympus", None)
+        if env_olympus is None:
+            return None
+
+        capture_state = getattr(env_olympus, "capture_handoff_state", None)
+        release = getattr(env_olympus, "release_for_handoff", None)
+        if not callable(capture_state) or not callable(release):
+            raise RuntimeError("Microscope controller does not support FRAP handoff.")
+        state = capture_state()
+        release()
+        return state
+
+    def _end_frap_handoff(self, handoff_state: Optional[Dict[str, Any]]) -> None:
+        errors: List[str] = []
+        frap_binding = self.runtime_context.tool_registry.get_tool("frap")
+        frap_env = getattr(frap_binding, "env", None) if frap_binding is not None else None
+        release_session = getattr(frap_env, "release_session", None)
+        if callable(release_session):
+            try:
+                release_session()
+            except Exception as exc:
+                errors.append(f"FRAP release: {exc}")
+
+        env_olympus = getattr(self.runtime_context, "env_olympus", None)
+        restore = getattr(env_olympus, "restore_after_handoff", None)
+        if handoff_state is not None:
+            if not callable(restore):
+                errors.append("Micro-Manager restore: microscope controller does not support handoff restore")
+            else:
+                try:
+                    restore(handoff_state)
+                except Exception as exc:
+                    errors.append(f"Micro-Manager restore: {exc}")
+
+        if errors:
+            raise RuntimeError("; ".join(errors))
 
     def _build_execution_trace(
         self,

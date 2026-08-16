@@ -31,6 +31,7 @@ vlm_model_name = _config.vlm_model_name
 CROSS_ENCODER_MODEL_PATH = _config.CROSS_ENCODER_MODEL_PATH
 cross_encoder_model_path = CROSS_ENCODER_MODEL_PATH
 task_similarity_threshold = _config.task_similarity_threshold
+knowledge_base_path = _config.knowledge_base_path
 
 
 def build_executor_lmp_config_from_text(

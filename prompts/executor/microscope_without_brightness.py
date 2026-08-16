@@ -27,8 +27,8 @@ def _build_no_brightness_prompt(full_prompt: str) -> str:
             "- In brightfield mode, use the configured transmitted-illumination channel with relatively low exposure.",
         "- In fluorescence mode, set halogen brightness to 0 and use a relatively higher exposure than in brightfield, while avoiding saturation.":
             "- In fluorescence mode, use a relatively higher exposure than in brightfield while avoiding saturation.",
-        "- Imaging Parameters: Brightness({{transmitted_light.min}}→{{transmitted_light.max}}), Exposure Time(0ms→1000ms)":
-            "- Imaging Parameters: Exposure Time(0ms→1000ms)",
+        "- Imaging Parameters: Brightness({{transmitted_light.min}}→{{transmitted_light.max}}), Exposure Time({{system.min_exposure}}ms→{{system.max_exposure}}ms)":
+            "- Imaging Parameters: Exposure Time({{system.min_exposure}}ms→{{system.max_exposure}}ms)",
         "    - Turns off the halogen lamp (sets brightness to 0)\n": "",
         "current_brightness = get_brightness()\n": "",
         "say(f\"[INFO] Current brightness: {current_brightness}\")\n": "",

@@ -448,7 +448,7 @@ class RuntimeManager:
         )
 
     def _build_task_failure_summary(self, command: str, result: Any, *, prefers_zh: bool) -> str:
-        detail = str(getattr(result, "summary", "") or getattr(result, "error", "") or "").strip()
+        detail = str(getattr(result, "error", "") or getattr(result, "summary", "") or "").strip()
         retry_times = int(getattr(result, "retry_times", 0) or 0)
         checker_summary = str(getattr(result, "checker_summary", "") or "").strip()
 

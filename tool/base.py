@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Mapping
 import inspect
 import re
 
@@ -173,12 +173,18 @@ class BaseTool(metaclass=ToolMeta):
         ]
 
     @classmethod
-    def get_formatted_tool_methods(cls, inject_say: bool = True) -> str:
+    def get_formatted_tool_methods(
+        cls,
+        inject_say: bool = True,
+        docstring_overrides: Mapping[str, str] | None = None,
+    ) -> str:
+        overrides = docstring_overrides or {}
         method_strs = []
         for tool_method in cls.get_tool_methods():
+            source_docstring = tool_method["docstring"].strip()
             method_str = format_method_with_docstring(
                 tool_method["signature"],
-                tool_method["docstring"]
+                source_docstring or str(overrides.get(tool_method["name"], "")).strip(),
             )
             method_strs.append(method_str)
 
@@ -254,9 +260,9 @@ class BaseTool(metaclass=ToolMeta):
                 example_input,
                 "",
                 "# Example output",
-                "<Task Ready>",
-                '{"Status": "OK"}',
-                "</Task Ready>",
+                "<Planner State>",
+                '{"status": "final_plan"}',
+                "</Planner State>",
                 "<Task steps>",
                 "[",
                 "    {",
@@ -270,7 +276,13 @@ class BaseTool(metaclass=ToolMeta):
         )
 
     @classmethod
-    def get_execution_prompt_context(cls, *, tool_id: str | None = None, execution_hint: str = "") -> str:
+    def get_execution_prompt_context(
+        cls,
+        *,
+        tool_id: str | None = None,
+        execution_hint: str = "",
+        docstring_overrides: Mapping[str, str] | None = None,
+    ) -> str:
         resolved_tool_id = (tool_id or cls.get_default_tool_id()).strip() or cls.get_default_tool_id()
         hint_text = execution_hint.strip() or cls.get_execution_hint()
         sections = [
@@ -296,7 +308,10 @@ class BaseTool(metaclass=ToolMeta):
                 ]
             ),
             "# API function",
-            cls.get_formatted_tool_methods(inject_say=True),
+            cls.get_formatted_tool_methods(
+                inject_say=True,
+                docstring_overrides=docstring_overrides,
+            ),
             "# Code Generation Rules",
             "\n".join(
                 [

@@ -27,6 +27,7 @@ PSF_40X = _config.PSF_40X
 PSF_60X = _config.PSF_60X
 PSF_100X = _config.PSF_100X
 FIJI_PATH = _config.FIJI_PATH
+in_process_executor_timeout_seconds = _config.in_process_executor_timeout_seconds
 fiji_executor_timeout_seconds = _config.fiji_executor_timeout_seconds
 
 

@@ -132,13 +132,19 @@ def save_masks(masks: np.ndarray, filename: str | Path, description: str) -> Pat
         Actual path of the saved file
     """
 
-def save_csv(df: pd.DataFrame, filename: str | Path) -> Path:
+def save_csv(
+    df: pd.DataFrame,
+    filename: str | Path,
+    *,
+    description: str,
+) -> Path:
     """
     Save data analysis results to a CSV file.
     
     Args:
         df: DataFrame containing analysis results
         filename: Output filename
+        description: Task-specific purpose and context of the analysis results
         
     Returns:
         Actual path of the saved CSV file
@@ -248,7 +254,11 @@ analysis_df = analyze_masks(
 # Save analysis results
 say("[ACTION] Saving analysis results")
 analysis_filename = "nucleus_analysis_1.csv"
-save_csv(df=analysis_df, filename=analysis_filename)
+save_csv(
+    df=analysis_df,
+    filename=analysis_filename,
+    description="Nucleus area distribution analysis for the BlueFluo_4x image",
+)
 say("[INFO] Analysis results saved as: {}".format(analysis_filename))
 
 # Release resources
@@ -309,7 +319,11 @@ analysis_df = analyze_masks(
 
 say("[ACTION] Saving nucleus area analysis results")
 analysis_filename = "nucleus_analysis_2.csv"
-save_csv(df=analysis_df, filename=analysis_filename)
+save_csv(
+    df=analysis_df,
+    filename=analysis_filename,
+    description="Nucleus area distribution analysis for the blue fluorescent channel of section_3cm",
+)
 say("[INFO] Analysis results saved as: {}".format(analysis_filename))
 
 say("[INFO] Workflow completed successfully")

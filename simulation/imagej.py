@@ -115,6 +115,8 @@ class ImageJProcessor(BaseTool):
         outpath='merge_output.ome.tif',
         preview_path=None,
         preview_seconds: float = 0.0,
+        *,
+        description: str,
     ) -> ImageWithMetadata:
         print("Running function: merge_channels")
         del preview_seconds
@@ -146,14 +148,19 @@ class ImageJProcessor(BaseTool):
         output_path = Path(self.output_directory, outpath).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.touch(exist_ok=True)
-        self._storagemanger.register_file(output_path.name, f"Image after merging channels {resolved_colors}", 'analysis_platform', 'tiff', False)
+        task_context = str(description or "").strip()
+        merge_details = f"Image after merging channels {resolved_colors}"
+        merged_description = f"{task_context}; {merge_details}" if task_context else merge_details
+        self._storagemanger.register_file(output_path.name, merged_description, 'analysis_platform', 'tiff', False)
         if preview_path:
             preview_output_path = Path(self.output_directory, preview_path).expanduser().resolve()
             preview_output_path.parent.mkdir(parents=True, exist_ok=True)
             preview_output_path.touch(exist_ok=True)
+            preview_details = f"Preview image after merging channels {resolved_colors}"
+            preview_description = f"{task_context}; {preview_details}" if task_context else preview_details
             self._storagemanger.register_file(
                 preview_output_path.name,
-                f"Preview image after merging channels {resolved_colors}",
+                preview_description,
                 'analysis_platform',
                 preview_output_path.suffix.lstrip(".") or "png",
                 False,
@@ -209,6 +216,8 @@ class ImageJProcessor(BaseTool):
         max_linking_distance_um: float | None = None,
         min_track_length: int = 3,
         out_prefix: str = "trackmate",
+        *,
+        description: str,
     ) -> dict:
         print("Running function: trackmate_tracking")
         self._require_real_runtime("trackmate_tracking")
@@ -246,9 +255,32 @@ class ImageJProcessor(BaseTool):
         }
         summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
-        self._storagemanger.register_file(overlay_path.name, "Mock TrackMate trajectory overlay image", "analysis_platform", "png", False)
-        self._storagemanger.register_file(tracks_csv_path.name, "Mock TrackMate trajectory coordinates", "analysis_platform", "csv", False)
-        self._storagemanger.register_file(summary_path.name, "Mock TrackMate tracking summary", "analysis_platform", "json", False)
+        task_context = str(description or "").strip()
+        tracking_stats = "track_count: 1; spot_count: 3"
+        overlay_details = f"Mock TrackMate trajectory overlay image; {tracking_stats}"
+        csv_details = f"Mock TrackMate trajectory coordinates; {tracking_stats}"
+        summary_details = f"Mock TrackMate tracking summary; {tracking_stats}"
+        self._storagemanger.register_file(
+            overlay_path.name,
+            f"{task_context}; {overlay_details}" if task_context else overlay_details,
+            "analysis_platform",
+            "png",
+            False,
+        )
+        self._storagemanger.register_file(
+            tracks_csv_path.name,
+            f"{task_context}; {csv_details}" if task_context else csv_details,
+            "analysis_platform",
+            "csv",
+            False,
+        )
+        self._storagemanger.register_file(
+            summary_path.name,
+            f"{task_context}; {summary_details}" if task_context else summary_details,
+            "analysis_platform",
+            "json",
+            False,
+        )
         return summary
 
     @tool_func
@@ -280,10 +312,9 @@ class ImageJProcessor(BaseTool):
             regions = [(30, 10, 60, 12), (22, 48, 44, 10)]
         else:
             regions = [(12, 12, 16, 16)]
-        return self.save_target_positions(image_meta, regions, description, filename, emit_preview=False)
+        return self._save_target_positions(image_meta, regions, description, filename, emit_preview=False)
 
-    @tool_func
-    def save_target_positions(
+    def _save_target_positions(
         self,
         image_meta,
         regions_px,
@@ -291,7 +322,7 @@ class ImageJProcessor(BaseTool):
         output_filename: str,
         emit_preview: bool = True,
     ) -> List[Tuple[float, float, float, float]]:
-        print("Running function: save_target_positions")
+        print("Running function: _save_target_positions")
         del emit_preview
         image_meta = self._coerce_image_meta(image_meta)
         normalized_regions = []

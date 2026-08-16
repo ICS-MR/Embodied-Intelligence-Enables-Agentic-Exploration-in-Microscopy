@@ -159,6 +159,9 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
 }
 
 
+DEFAULT_KNOWLEDGE_BASE_PATH = "docs/c3_knowledge_base/knowledge_base_reviewed.json"
+
+
 @dataclass
 class StartupConfig:
     objective: str = "40x"
@@ -208,6 +211,7 @@ class SystemConfig:
     PSF_40X: str = "PSF/40x.tif"
     PSF_60X: str = "PSF/60x.tif"
     PSF_100X: str = "PSF/100x.tif"
+    in_process_executor_timeout_seconds: float = 180.0
     fiji_executor_timeout_seconds: float = 300.0
 
 
@@ -227,7 +231,10 @@ class ModelConfig:
     vlm_base_url: str = "https://api.openai.com/v1"
     vlm_model_name: str = "gpt-4.1"
     CROSS_ENCODER_MODEL_PATH: str = r"embedding_model\bge-m3"
+    # C3 conformal threshold calibrated from docs/c3_calibration/calibration_overview.json.
+    # Keep this value aligned with that calibration set's selected_threshold.
     task_similarity_threshold: float = 0.029
+    knowledge_base_path: str = DEFAULT_KNOWLEDGE_BASE_PATH
 
 @dataclass
 class RuntimeSettings:
@@ -718,6 +725,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
         "clarify_enabled": settings.model.clarify_enabled,
         "checker_enabled": settings.model.checker_enabled,
         "skill_mode": settings.model.skill_mode,
+        "knowledge_base_path": settings.model.knowledge_base_path,
         "base_url": settings.model.base_url,
         "model_name": settings.model.model_name,
         "vlm_base_url": settings.model.vlm_base_url,
@@ -740,6 +748,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "CONFIG_PATH": settings.system.CONFIG_PATH,
             "FIJI_PATH": settings.system.FIJI_PATH,
             "MAVEN_BIN": settings.system.MAVEN_BIN,
+            "in_process_executor_timeout_seconds": settings.system.in_process_executor_timeout_seconds,
             "fiji_executor_timeout_seconds": settings.system.fiji_executor_timeout_seconds,
             "camera_device": settings.system.camera_device,
             "xy_stage_device": settings.system.xy_stage_device,

@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from adapters.llm_clients import create_chat_completion
 from agent.utils import _parse_json_object_response, _parse_json_response, extract_task_steps, merge_module_tasks
+from agent.knowledge_base import KnowledgeBase
 
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,8 @@ class Clarify:
         historymanager=None,
         *,
         has_brightness_control: bool = True,
+        knowledge_base_path: str = "",
+        num_candidate_solutions: int = 3,
     ):
         self._base_prompt = base_prompt
         self._model_name = model_name
@@ -66,6 +69,16 @@ class Clarify:
         self._semantic_model = self._load_semantic_model(semantic_model_dir)
         self._historyManager = historymanager
         self._has_brightness_control = bool(has_brightness_control)
+        try:
+            self._num_candidate_solutions = max(1, int(num_candidate_solutions))
+        except (TypeError, ValueError):
+            self._num_candidate_solutions = 3
+        self.knowledge_base: Optional[KnowledgeBase] = None
+        if knowledge_base_path:
+            try:
+                self.knowledge_base = KnowledgeBase(knowledge_base_path, self._semantic_model)
+            except Exception as exc:
+                logger.warning("Failed to initialize knowledge base: %s", exc)
 
         self._GENERIC_CLARIFY_PATTERNS = (
             "please clarify",
@@ -173,54 +186,44 @@ Microscope Operation and System Module Notes:
         self,
         prompt: str,
         _temperature: float,
-        num_outputs: int = 1,
         base_prompt: str = "You are a helpful coding assistant.",
         use_perturbation: bool = True,
         seed_offset: int = 0,
-    ) -> List[str]:
-        def _run_single_query(call_index: int) -> str:
-            last_error: Optional[Exception] = None
-            for _attempt in range(3):
-                try:
-                    if use_perturbation:
-                        temperature = 1.5
-                        top_p = 0.75
-                        seed_value = 4242 + seed_offset + call_index
-                        perturbed_prompt = prompt
-                    else:
-                        temperature = _temperature
-                        top_p = 1.0
-                        seed_value = (42 + seed_offset + call_index) if _temperature > 0 else 42
-                        perturbed_prompt = prompt
+    ) -> str:
+        last_error: Optional[Exception] = None
+        for _attempt in range(3):
+            try:
+                if use_perturbation:
+                    temperature = 1.5
+                    top_p = 0.75
+                    seed_value = 4242 + seed_offset
+                else:
+                    temperature = _temperature
+                    top_p = 1.0
+                    seed_value = (42 + seed_offset) if _temperature > 0 else 42
 
-                    response = create_chat_completion(
-                        self._client,
-                        model=self._model_name,
-                        messages=[
-                            {"role": "system", "content": base_prompt},
-                            {"role": "user", "content": perturbed_prompt},
-                        ],
-                        extra_body={
-                            "enable_thinking": False,
-                            "thinking": {"type": "disabled"},
-                            "return_usage": True,
-                        },
-                        temperature=temperature,
-                        top_p=top_p,
-                        seed=seed_value,
-                    )
-                    return response.choices[0].message.content or ""
-                except Exception as exc:
-                    last_error = exc
-            raise RuntimeError(
-                f"Clarify planning query failed after retries: {type(last_error).__name__}: {last_error}"
-            ) from last_error
-
-        if num_outputs <= 1:
-            return [_run_single_query(0)]
-
-        with ThreadPoolExecutor(max_workers=min(num_outputs, 4)) as executor:
-            return list(executor.map(_run_single_query, range(num_outputs)))
+                response = create_chat_completion(
+                    self._client,
+                    model=self._model_name,
+                    messages=[
+                        {"role": "system", "content": base_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    extra_body={
+                        "enable_thinking": False,
+                        "thinking": {"type": "disabled"},
+                        "return_usage": True,
+                    },
+                    temperature=temperature,
+                    top_p=top_p,
+                    seed=seed_value,
+                )
+                return response.choices[0].message.content or ""
+            except Exception as exc:
+                last_error = exc
+        raise RuntimeError(
+            f"Clarify planning query failed after retries: {type(last_error).__name__}: {last_error}"
+        ) from last_error
 
     def _compare_commands(self, task1, task2) -> float:
         if len(task1) != len(task2):
@@ -317,6 +320,21 @@ Microscope Operation and System Module Notes:
                 "clarification_question": "",
             }
 
+        kb_context = ""
+        if self.knowledge_base:
+            similar_cases = self.knowledge_base.search(current_query)
+            if similar_cases:
+                kb_context = "\n\nHere are similar past cases for reference:\n"
+                for case_idx, case in enumerate(similar_cases, 1):
+                    kb_context += (
+                        f"\nCase {case_idx}:\n"
+                        f"- Command: {case.get('command', '')}\n"
+                        f"- State: {json.dumps(case.get('state', {}), ensure_ascii=False)}\n"
+                        f"- Candidate plans: {json.dumps(case.get('candidate_plans', []), ensure_ascii=False)}\n"
+                        f"- Label: {case.get('consistency_label', '')}\n"
+                        f"- Rationale: {case.get('introspective_rationale', '')}\n"
+                    )
+
         analyze_prompt = f"""
 You are analyzing multiple candidate plans generated from the same user request.
 
@@ -359,16 +377,15 @@ Output strictly in JSON format with the following fields:
 User's original task: {current_query}
 
 Proposed solutions:
-""" + "\n\n".join(f"Solution {i + 1}:\n{s}" for i, s in enumerate(solutions)) + f"\n{'-' * 50}"
+""" + "\n\n".join(f"Solution {i + 1}:\n{s}" for i, s in enumerate(solutions)) + f"\n{'-' * 50}" + kb_context
 
         response = self._query_llm(
             prompt=analyze_prompt,
-            num_outputs=1,
             base_prompt="",
             _temperature=0,
             use_perturbation=False,
         )
-        raw_response = response[0] if response else ""
+        raw_response = response or ""
         parsed_response = self._parse_analysis_response(raw_response, "semantic_consistency")
         if (
             not parsed_response.get("consistent", False)
@@ -437,12 +454,11 @@ User-provided plans:
 
         response = self._query_llm(
             prompt=analyze_prompt,
-            num_outputs=1,
             base_prompt="",
             _temperature=0,
             use_perturbation=False,
         )
-        raw_response = response[0] if response else ""
+        raw_response = response or ""
         parsed_response = self._parse_violation_response(raw_response)
         self._record_interaction(
             event_type="clarify_violation_analysis",
@@ -479,26 +495,13 @@ User-provided plans:
         stance_prompt = stance_instructions.get(stance, stance_instructions["default"])
         return (
             f"{user_input}\n\n"
-            "Note: This call should produce exactly one candidate plan for ambiguity exploration.\n"
-            "Different calls may produce different reasonable interpretations, but this single response must contain only one complete plan.\n"
             "The user's request may contain unspecified or ambiguous requirements.\n"
-            "This response must still be fully concrete and executable.\n"
+            "Generate one fully concrete and executable candidate plan.\n"
             "Do not preserve key unresolved task parameters as open-ended ambiguity in the returned plan.\n"
             "If a key parameter is underspecified, choose one reasonable concrete value or workflow interpretation and commit to it.\n"
-            "Differences across runs should come from how underspecified but important task details are concretized.\n"
-            "For this one response, choose one plausible interpretation of any unresolved user constraint and commit to it concretely.\n"
-            "Prioritize interpretation choices that could reveal genuinely different user intentions, execution constraints, acquisition strategies, analysis goals, or required outputs.\n"
             "High-value concretization dimensions include, when applicable: objective magnification, imaging mode or channel choice, single-field versus multi-position versus full-plate acquisition scope, whether Z-stack is required, whether downstream analysis is included, and whether the task is single-acquisition or time-series.\n"
-            "Do not create diversity by merely changing wording, step ordering, module decomposition, or harmless implementation details.\n"
-            "If the request is already sufficiently specified, do not introduce additional divergence merely to create diversity.\n"
             "Do not override explicit user constraints or fixed system constraints.\n"
-            "If no meaningful interpretation fork exists for some part of the task, keep that part aligned instead of inventing artificial variation.\n"
-            "Return exactly one candidate plan.\n"
-            "Do not provide multiple alternatives in one response.\n"
-            "Do not enumerate Candidate 1/2/3 or Plan 1/2/3 inside the same response.\n"
-            "Do not include more than one <Planner State> block.\n"
-            "Do not include more than one <Task steps> block.\n"
-            "Maintain the required output format and do not add any extra candidate lists, menus, separators, or alternative plans.\n"
+            "Maintain the required planner output format.\n"
             + stance_prompt
         )
 
@@ -560,9 +563,9 @@ User-provided plans:
     def generate_candidate_solutions(
         self,
         user_input: str,
-        num_solutions: int = 3,
     ) -> List[str]:
         stances = ["conservative", "default", "bold"]
+        num_solutions = self._num_candidate_solutions
         prompts = [
             self._build_exploration_prompt(user_input, stance=stances[index % len(stances)])
             for index in range(num_solutions)
@@ -570,13 +573,12 @@ User-provided plans:
         def _run_stance_query(call_index: int, exploration_prompt: str) -> str:
             response = self._query_llm(
                 prompt=exploration_prompt,
-                num_outputs=1,
                 base_prompt=self._base_prompt,
                 _temperature=1.0,
                 use_perturbation=True,
                 seed_offset=call_index,
             )
-            return self._normalize_single_candidate_solution(response[0] if response else "")
+            return self._normalize_single_candidate_solution(response or "")
 
         with ThreadPoolExecutor(max_workers=min(len(prompts), 4)) as executor:
             solutions = list(executor.map(lambda item: _run_stance_query(*item), enumerate(prompts)))
@@ -620,7 +622,7 @@ User-provided plans:
                 response_text[:1000],
                 exc_info=True,
             )
-            fallback = self._get_default_analysis_response(analysis_type)
+            fallback = self._default_semantic_consistency_response()
             fallback["parse_error"] = f"{type(exc).__name__}: {exc}"
             return fallback
 
@@ -647,18 +649,16 @@ User-provided plans:
             "clarification_question": clarification_question,
         }
 
-    def _get_default_analysis_response(self, analysis_type: str) -> Dict[str, Any]:
-        if analysis_type == "semantic_consistency":
-            return {
-                "consistent": False,
-                "summary": "Failed to parse consistency result",
-                "differences": ["LLM returned invalid format or missing required fields"],
-                "clarification_question": (
-                    "To better assist you, please provide detailed information about your experimental requirements, "
-                    "such as: sample type (2D/3D), fluorescence channels used, objective magnification, etc."
-                ),
-            }
-        return {}
+    def _default_semantic_consistency_response(self) -> Dict[str, Any]:
+        return {
+            "consistent": False,
+            "summary": "Failed to parse consistency result",
+            "differences": ["LLM returned invalid format or missing required fields"],
+            "clarification_question": (
+                "To better assist you, please provide detailed information about your experimental requirements, "
+                "such as: sample type (2D/3D), fluorescence channels used, objective magnification, etc."
+            ),
+        }
 
     def _fallback_consistency_question(self, consistency_result: Dict[str, Any]) -> str:
         question = str(consistency_result.get("clarification_question") or "").strip()
@@ -676,25 +676,6 @@ User-provided plans:
             "reason": reason,
         }
         return "<Planner State>\n" + json.dumps(payload, ensure_ascii=False) + "\n</Planner State>"
-
-    def _render_final_plan_response(self, steps: List[Dict[str, Any]], reason: str) -> str:
-        planner_state = {
-            "status": "final_plan",
-            "question": "",
-            "selected_skills": [],
-            "reason": reason,
-        }
-        return (
-            "<Planner State>\n"
-            + json.dumps(planner_state, ensure_ascii=False)
-            + "\n</Planner State>\n"
-            + "<Task Ready>\n"
-            + json.dumps({"Status": "OK"}, ensure_ascii=False)
-            + "\n</Task Ready>\n"
-            + "<Task steps>\n"
-            + json.dumps(steps, ensure_ascii=False)
-            + "\n</Task steps>"
-        )
 
     def _pick_final_solution(self, solutions: List[str]) -> ClarifyPlanningDecision:
         for solution in solutions:
@@ -717,12 +698,9 @@ User-provided plans:
     def generate_planning_decision(
         self,
         user_input: str,
-        num_solutions: int = 3,
-        *,
-        force_llm_consistency_analysis: bool = False,
     ) -> ClarifyPlanningDecision:
         try:
-            solutions = self.generate_candidate_solutions(user_input, num_solutions=num_solutions)
+            solutions = self.generate_candidate_solutions(user_input)
         except Exception as exc:
             return ClarifyPlanningDecision(
                 status="error",
@@ -740,34 +718,35 @@ User-provided plans:
         consistency_result = self._analyze_semantic_consistency(
             user_input,
             solutions,
-            use_semantic_score_gate=not force_llm_consistency_analysis,
         )
-        violation_result = self._analyze_violations(user_input, solutions)
-
-        if consistency_result["consistent"] and not violation_result["has_violation"]:
-            return self._pick_final_solution(solutions)
 
         if not consistency_result["consistent"]:
             question = self._fallback_consistency_question(consistency_result)
-            return ClarifyPlanningDecision(
+            decision = ClarifyPlanningDecision(
                 status="ask_user",
                 question=question,
                 candidate_solutions=solutions,
                 consistency_result=consistency_result,
-                violation_result=violation_result,
                 raw_response=self._render_ask_user_response(
                     question,
                     "Clarify found inconsistent interpretations of the user request.",
                 ),
                 reason="Clarify found inconsistent interpretations of the user request.",
             )
+            return decision
+
+        violation_result = self._analyze_violations(user_input, solutions)
+
+        if not violation_result["has_violation"]:
+            decision = self._pick_final_solution(solutions)
+            return decision
 
         question = str(violation_result.get("clarification_question") or "").strip()
         if not question:
             question = (
                 "To ensure the plan is feasible, please clarify the missing imaging constraint that should guide the microscope setup."
             )
-        return ClarifyPlanningDecision(
+        decision = ClarifyPlanningDecision(
             status="ask_user",
             question=question,
             candidate_solutions=solutions,
@@ -779,29 +758,4 @@ User-provided plans:
             ),
             reason="Clarify found a blocking compliance or feasibility issue in the candidate plans.",
         )
-
-    def generate_code_solutions(
-        self,
-        user_input: str,
-        num_solutions: int = 3,
-        *,
-        force_llm_consistency_analysis: bool = False,
-    ) -> str:
-        decision = self.generate_planning_decision(
-            user_input,
-            num_solutions=num_solutions,
-            force_llm_consistency_analysis=force_llm_consistency_analysis,
-        )
-        if decision.status == "final_plan":
-            if decision.raw_response:
-                return decision.raw_response
-            return self._render_final_plan_response(
-                decision.steps,
-                decision.reason or "Clarify produced a consistent and executable final plan.",
-            )
-        if decision.status == "ask_user":
-            return decision.raw_response or self._render_ask_user_response(
-                decision.question,
-                decision.reason or "Clarify requires one blocking user clarification.",
-            )
-        raise RuntimeError(decision.error or "Clarify planning failed.")
+        return decision

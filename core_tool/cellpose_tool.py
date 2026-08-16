@@ -673,7 +673,13 @@ class Cellpose2D(BaseTool):
             raise IOError(f"Failed to save mask: {e}")
 
     @tool_func
-    def save_csv(self, df: pd.DataFrame, filename: str | Path) -> Path:
+    def save_csv(
+        self,
+        df: pd.DataFrame,
+        filename: str | Path,
+        *,
+        description: str,
+    ) -> Path:
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input must be a pandas DataFrame")
 
@@ -681,7 +687,10 @@ class Cellpose2D(BaseTool):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             df.to_csv(output_path, index=False)
-            self._storagemanger.register_file(str(Path(filename).name), "Cellpose analysis CSV", 'cellpose', 'csv')
+            task_context = str(description or "").strip()
+            csv_details = f"Cellpose analysis CSV; rows: {len(df)}; columns: {len(df.columns)}"
+            csv_description = f"{task_context}; {csv_details}" if task_context else csv_details
+            self._storagemanger.register_file(str(Path(filename).name), csv_description, 'cellpose', 'csv')
             return output_path
         except Exception as e:
             raise IOError(f"Failed to save CSV file: {e}")
@@ -819,7 +828,14 @@ class Cellpose2D(BaseTool):
         return colored_mask_rgb
 
     @tool_func
-    def export_results(self, masks: np.ndarray, base_filename: str, image: np.ndarray | None = None):
+    def export_results(
+        self,
+        masks: np.ndarray,
+        base_filename: str,
+        image: np.ndarray | None = None,
+        *,
+        description: str,
+    ):
         """
         Export complete analysis results (Compatible with Cellpose 4.0 format)
 
@@ -829,18 +845,27 @@ class Cellpose2D(BaseTool):
         base_filename : Base filename (without extension)
         image : Original image (used for generating overlay)
         """
+        task_context = str(description or "").strip()
+        label_count = len([label for label in np.unique(masks) if int(label) != 0])
+
         # Save original mask
-        self.save_masks(masks, f"{base_filename}_masks.tif", "Cellpose segmentation mask")
+        mask_details = f"Cellpose segmentation mask; label_count: {label_count}"
+        mask_description = f"{task_context}; {mask_details}" if task_context else mask_details
+        self.save_masks(masks, f"{base_filename}_masks.tif", mask_description)
 
         # Generate and save colored mask
         colored_mask = self.color_masks(masks)
         color_path = Path(self.output_directory, f"{base_filename}_colored.png")
         color_path.parent.mkdir(parents=True, exist_ok=True)
         io.imsave(color_path, colored_mask)
+        color_details = f"Colored Cellpose mask; label_count: {label_count}"
+        color_description = f"{task_context}; {color_details}" if task_context else color_details
+        self._storagemanger.register_file(color_path.name, color_description, "cellpose", "png")
 
         # Analyze and save statistical data
         df = self.analyze_masks(masks)
-        self.save_csv(df, f"{base_filename}_analysis.csv")
+        csv_context = f"{task_context}; Cellpose segmentation statistics" if task_context else "Cellpose segmentation statistics"
+        self.save_csv(df, f"{base_filename}_analysis.csv", description=csv_context)
 
         # Generate overlay if original image is provided
         if image is not None:
@@ -848,6 +873,9 @@ class Cellpose2D(BaseTool):
             overlay_path = Path(self.output_directory, f"{base_filename}_overlay.png")
             overlay_path.parent.mkdir(parents=True, exist_ok=True)
             io.imsave(overlay_path, overlay)
+            overlay_details = f"Cellpose overlay image; label_count: {label_count}"
+            overlay_description = f"{task_context}; {overlay_details}" if task_context else overlay_details
+            self._storagemanger.register_file(overlay_path.name, overlay_description, "cellpose", "png")
 
     def _create_overlay(self, image: np.ndarray, masks: np.ndarray, alpha: float = 0.5) -> np.ndarray:
         """Create overlay of original image and mask"""
