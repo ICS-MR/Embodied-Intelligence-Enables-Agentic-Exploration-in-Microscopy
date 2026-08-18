@@ -234,7 +234,7 @@ The cfg directories have distinct roles:
 | --- | --- |
 | `demo_cfg/` | Managed built-in configuration used by `microscope_mode=demo` |
 | `uploaded_cfg/` | Runtime landing area for user-uploaded Micro-Manager `.cfg` files |
-| `docs/cfg/` | Reference or experimental `.cfg` files outside the upload flow |
+| `docs_internal/cfg.rar` | Archived reference/experimental Micro-Manager `.cfg` files outside the upload flow |
 
 ## 🔌 Real Microscope Setup
 
@@ -367,6 +367,37 @@ The import has deliberately narrow behavior:
 
 The import workflow is disabled in Demo mode because Demo mode uses the managed cfg and
 known device mapping. The backend also rejects external cfg imports in Demo mode.
+
+#### CLI: ai-map
+
+The same AI-assisted mapping is available from the terminal through the `ai-map`
+subcommand of `system_config_wizard.py`:
+
+```bash
+# Preview an AI-recommended mapping draft (nothing is written):
+uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg
+
+# Inspect Device Adapters first and save the draft JSON:
+uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg --inspect --output mapping.json
+
+# Write the confirmed mappings to config/runtime_config.json (asks y/N unless --yes):
+uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg --apply
+```
+
+- `--cfg` selects the Micro-Manager `.cfg`; it defaults to `system.CONFIG_PATH` in
+  the runtime config.
+- `--config` points at an alternative runtime config file to read from and (with
+  `--apply`) write to; it defaults to `config/runtime_config.json`.
+- `--inspect` loads the cfg in an isolated MMCore to collect real Device Adapter
+  property metadata before the AI analysis (initializes adapters, like the Web UI).
+- Without `--apply` the command is a dry run. With `--apply` it writes only after a
+  y/N confirmation (or `--yes`).
+- The CLI asks for explicit consent before sending the structured inventory to the
+  configured Main LLM; if no API key/model is configured, it falls back to the
+  rule-based draft without calling the LLM.
+- AI output is a recommendation. Review `REVIEW`-marked, low-confidence, and
+  `manual_required` fields before applying.
+- Like the Web UI, `ai-map` is disabled while `microscope_mode` is `demo`.
 
 AI output is a recommendation, not hardware verification. Test the resulting mapping with
 low-risk operations before automated acquisition.
@@ -520,12 +551,12 @@ artifacts to reduce download size and timeout risk.
 
 ### Optional VLA ACT Assets
 
-The `docs/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
+The `docs_public/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
 repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy).
 Download or clone that repository separately and place its contents under:
 
 ```text
-docs/VLA/ACT_for_microscopy
+docs_public/VLA/ACT_for_microscopy
 ```
 
 ## 📓 Hardware-Free Notebook
@@ -648,7 +679,8 @@ through GitHub Releases and must be downloaded to the referenced local path.
 |-- config/                        # runtime example and tool manifest
 |-- prompts/                       # planner and executor prompts
 |-- user_skills/                   # planning skills
-|-- docs/                          # paper materials, model tests, supplementary scripts
+|-- docs_internal/                 # internal working docs and raw experiment records
+|-- docs_public/                   # published datasets, outcomes, and evaluation materials
 |-- embedding_model/               # local semantic retrieval model assets
 |-- detector_models/               # detector configs and local checkpoints
 `-- history/                       # per-run runtime history and outputs

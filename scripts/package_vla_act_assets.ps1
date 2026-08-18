@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $SourceRoot) {
-    $SourceRoot = Join-Path $repoRoot "docs/VLA/ACT_for_microscopy"
+    $SourceRoot = Join-Path $repoRoot "docs_public/VLA/ACT_for_microscopy"
 }
 if (-not $OutputDir) {
     $OutputDir = Join-Path $repoRoot "dist/vla_act_assets"

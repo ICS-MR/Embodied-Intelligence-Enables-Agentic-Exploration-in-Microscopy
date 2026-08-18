@@ -1,10 +1,10 @@
-# FRAP Tool Notes
+﻿# FRAP Tool Notes
 
 This file records FRAP settings that are specific to the current cellSens workstation. These values are intentionally not treated as universal defaults.
 
 ## Workstation-Specific UI Profile
 
-The active profile is `docs/frap/frap_ui_profile.json`.
+The active profile is `docs_public/frap/frap_ui_profile.json`.
 
 Current cellSens launch configuration:
 
@@ -81,8 +81,8 @@ This threshold is used to remove small bright artifacts that Cellpose may segmen
 
 Current validation scope:
 
-- `docs/t_img.png`: small bright artifacts are filtered out.
-- `docs/t_img_2.png`: the expected target cells are retained.
+- Small bright artifacts are filtered out.
+- The expected target cells are retained.
 
 Known limitation:
 

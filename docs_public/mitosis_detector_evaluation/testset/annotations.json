@@ -1,0 +1,311 @@
+{
+  "images": [
+    {
+      "id": 4,
+      "file_name": "mitosis_test_001.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 5,
+      "file_name": "mitosis_test_002.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 6,
+      "file_name": "mitosis_test_003.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 7,
+      "file_name": "mitosis_test_004.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 8,
+      "file_name": "mitosis_test_005.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 10,
+      "file_name": "mitosis_test_006.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 17,
+      "file_name": "mitosis_test_007.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 19,
+      "file_name": "mitosis_test_008.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 34,
+      "file_name": "mitosis_test_009.jpg",
+      "width": 1882,
+      "height": 1891
+    },
+    {
+      "id": 37,
+      "file_name": "mitosis_test_010.jpg",
+      "width": 1882,
+      "height": 1891
+    }
+  ],
+  "annotations": [
+    {
+      "id": 4,
+      "image_id": 4,
+      "category_id": 0,
+      "bbox": [
+        1493.0,
+        1234.9998,
+        63.9993,
+        52.0006
+      ],
+      "area": 3328.0022,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 5,
+      "image_id": 4,
+      "category_id": 0,
+      "bbox": [
+        863.0005,
+        1526.9995,
+        63.9993,
+        78.0
+      ],
+      "area": 4991.9427,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 6,
+      "image_id": 5,
+      "category_id": 0,
+      "bbox": [
+        846.9997,
+        1525.0007,
+        85.9999,
+        65.9997
+      ],
+      "area": 5675.9642,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 7,
+      "image_id": 5,
+      "category_id": 0,
+      "bbox": [
+        1484.9996,
+        1229.0006,
+        68.0004,
+        68.0004
+      ],
+      "area": 4624.0533,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 8,
+      "image_id": 6,
+      "category_id": 0,
+      "bbox": [
+        1563.0001,
+        132.9997,
+        54.0002,
+        75.9993
+      ],
+      "area": 4103.9788,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 9,
+      "image_id": 6,
+      "category_id": 0,
+      "bbox": [
+        662.9994,
+        844.999,
+        71.9997,
+        190.0001
+      ],
+      "area": 13679.9464,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 10,
+      "image_id": 7,
+      "category_id": 0,
+      "bbox": [
+        1041.0001,
+        876.9995,
+        69.9991,
+        86.0008
+      ],
+      "area": 6019.9785,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 11,
+      "image_id": 7,
+      "category_id": 0,
+      "bbox": [
+        1432.999,
+        1395.0002,
+        54.0002,
+        102.0005
+      ],
+      "area": 5508.0522,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 12,
+      "image_id": 8,
+      "category_id": 0,
+      "bbox": [
+        203.001,
+        964.999,
+        111.9997,
+        84.0001
+      ],
+      "area": 9407.9874,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 13,
+      "image_id": 8,
+      "category_id": 0,
+      "bbox": [
+        915.0002,
+        721.0005,
+        80.0001,
+        136.0007
+      ],
+      "area": 10880.0652,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 14,
+      "image_id": 8,
+      "category_id": 0,
+      "bbox": [
+        812.9995,
+        439.0004,
+        69.9991,
+        103.9993
+      ],
+      "area": 7279.8601,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 16,
+      "image_id": 10,
+      "category_id": 0,
+      "bbox": [
+        107.0002,
+        1352.9992,
+        89.9991,
+        68.0004
+      ],
+      "area": 6119.9727,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 23,
+      "image_id": 17,
+      "category_id": 0,
+      "bbox": [
+        424.9989,
+        1104.9992,
+        96.0008,
+        86.0008
+      ],
+      "area": 8256.1463,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 25,
+      "image_id": 19,
+      "category_id": 0,
+      "bbox": [
+        955.0002,
+        1543.0002,
+        102.0006,
+        74.0005
+      ],
+      "area": 7548.0984,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 26,
+      "image_id": 19,
+      "category_id": 0,
+      "bbox": [
+        642.9994,
+        1251.0005,
+        83.9993,
+        114.0008
+      ],
+      "area": 9575.9903,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 41,
+      "image_id": 34,
+      "category_id": 0,
+      "bbox": [
+        578.9992,
+        1419.0007,
+        80.0001,
+        53.9994
+      ],
+      "area": 4319.9547,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 44,
+      "image_id": 37,
+      "category_id": 0,
+      "bbox": [
+        1633.0001,
+        1489.0008,
+        74.0002,
+        49.9999
+      ],
+      "area": 3700.0069,
+      "iscrowd": 0,
+      "segmentation": []
+    }
+  ],
+  "categories": [
+    {
+      "id": 0,
+      "name": "mitosis",
+      "supercategory": "none"
+    }
+  ]
+}

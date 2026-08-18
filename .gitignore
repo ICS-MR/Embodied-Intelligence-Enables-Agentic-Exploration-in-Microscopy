@@ -35,10 +35,14 @@ scripts/*
 embedding_model/
 third_party/wheels/
 third_party/mmcv_repack/
-docs/VLA/Mircomanipulation_tool/.codex
+docs_public/VLA/Mircomanipulation_tool/.codex
+docs_internal/VLA/Mircomanipulation_tool/.codex
 detector_models/*/weights.pth
-docs/VLA/ACT_for_microscopy/*
-!docs/VLA/ACT_for_microscopy/README.md
+docs_public/VLA/ACT_for_microscopy/*
+!docs_public/VLA/ACT_for_microscopy/README.md
+docs_internal/
+docs_internal/VLA/ACT_for_microscopy/*
+!docs_internal/VLA/ACT_for_microscopy/README.md
 
 # Python cache directories anywhere in the repo
 **/__pycache__/
