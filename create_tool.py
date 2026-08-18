@@ -440,7 +440,8 @@ def _print_manifest_entry(entry: dict[str, Any], print_func: Callable[..., None]
 
 def _user_tool_doc_paths(tool_id: str, output_dir: str) -> list[Path]:
     target_dir = _normalize_output_dir(output_dir)
-    return [target_dir / f"{tool_id}.{suffix}" for suffix in DOC_ARTIFACT_SUFFIXES]
+    artifact_key = _slugify(tool_id)
+    return [target_dir / f"{artifact_key}.{suffix}" for suffix in DOC_ARTIFACT_SUFFIXES]
 
 
 def _remove_user_tool_doc_artifacts(tool_id: str, output_dir: str, *, print_func: Callable[..., None] = print) -> list[Path]:
@@ -505,6 +506,7 @@ def run_register_command(
 def run_list_command(args: argparse.Namespace, *, print_func: Callable[..., None] = print) -> int:
     manifest_path = _normalize_manifest_path(args.manifest)
     manifest = load_tool_manifest(manifest_path)
+    output_dir = getattr(args, "output_dir", DEFAULT_DOC_OUTPUT_DIR)
     print_func("=" * 50)
     print_func("[LIST] User tools")
     print_func("=" * 50)
@@ -513,9 +515,21 @@ def run_list_command(args: argparse.Namespace, *, print_func: Callable[..., None
         print_func("[INFO] No user tools are configured.")
         return 0
 
+    missing_prompt_tools: list[str] = []
     for entry in manifest.user_tools:
         status = "enabled" if entry.enabled else "disabled"
-        print_func(f"- {entry.tool_id} | {status} | {entry.class_path}")
+        artifact_paths = _user_tool_doc_paths(entry.tool_id, output_dir)
+        artifact_status = "ok" if all(path.exists() for path in artifact_paths) else "missing"
+        if artifact_status == "missing":
+            missing_prompt_tools.append(entry.tool_id)
+        print_func(
+            f"- {entry.tool_id} | {status} | {entry.class_path} | prompt artifacts: {artifact_status}"
+        )
+    if missing_prompt_tools:
+        print_func("")
+        print_func("[INFO] Missing prompt artifacts. Generate with:")
+        for tool_id in missing_prompt_tools:
+            print_func(f"  uv run python create_tool.py generate-docs --tool-id {tool_id}")
     return 0
 
 

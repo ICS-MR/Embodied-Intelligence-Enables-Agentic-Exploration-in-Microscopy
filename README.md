@@ -234,7 +234,6 @@ The cfg directories have distinct roles:
 | --- | --- |
 | `demo_cfg/` | Managed built-in configuration used by `microscope_mode=demo` |
 | `uploaded_cfg/` | Runtime landing area for user-uploaded Micro-Manager `.cfg` files |
-| `docs_internal/cfg.rar` | Archived reference/experimental Micro-Manager `.cfg` files outside the upload flow |
 
 ## 🔌 Real Microscope Setup
 
@@ -679,7 +678,6 @@ through GitHub Releases and must be downloaded to the referenced local path.
 |-- config/                        # runtime example and tool manifest
 |-- prompts/                       # planner and executor prompts
 |-- user_skills/                   # planning skills
-|-- docs_internal/                 # internal working docs and raw experiment records
 |-- docs_public/                   # published datasets, outcomes, and evaluation materials
 |-- embedding_model/               # local semantic retrieval model assets
 |-- detector_models/               # detector configs and local checkpoints
