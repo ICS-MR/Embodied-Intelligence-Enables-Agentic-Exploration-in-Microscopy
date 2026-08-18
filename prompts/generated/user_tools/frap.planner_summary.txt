@@ -1,0 +1,41 @@
+### frap
+- FRAP operation control: Start and stop the active FRAP workflow state required for bleaching and cell analysis while keeping the session available.
+- Targeted bleaching: Perform bleaching at specified field-centered micron coordinates, including repeated targeting across multiple planned positions.
+- Cell discovery: Detect usable cells in the current field of view and return their identifiers with center-relative coordinates for targeting or analysis.
+- Cell contour mapping: Extract usable cell boundary approximations as fitted ellipse point sequences for spatial planning around detected cells.
+- Preferred usage: Use for FRAP workflows that start and stop FRAP, detect cells, extract contours, and photobleach selected field-centered micron coordinates. Spatial patterns can be executed as sampled coordinate trajectories derived from fitted contours or generated paths. Bleaching intensity is controlled by sampling point spacing.
+---
+
+# Capability Summary
+- FRAP operation control: Start and stop the active FRAP workflow state required for bleaching and cell analysis while keeping the session available.
+- Targeted bleaching: Perform bleaching at specified field-centered micron coordinates, including repeated targeting across multiple planned positions.
+- Cell discovery: Detect usable cells in the current field of view and return their identifiers with center-relative coordinates for targeting or analysis.
+- Cell contour mapping: Extract usable cell boundary approximations as fitted ellipse point sequences for spatial planning around detected cells.
+
+# Task Example
+# Example input
+Start the FRAP workflow in the current field of view, bleach the field-centered positions (10, -5) microns and (-12, 8) microns, then stop FRAP while keeping the session available.
+
+# Example output
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "frap",
+        "command": "Start the active FRAP workflow state"
+    },
+    {
+        "subtask_index": 2,
+        "module": "frap",
+        "command": "Bleach the planned field-centered positions at (10, -5) microns and (-12, 8) microns"
+    },
+    {
+        "subtask_index": 3,
+        "module": "frap",
+        "command": "Stop the active FRAP workflow state while keeping the session available"
+    }
+]
+</Task steps>
