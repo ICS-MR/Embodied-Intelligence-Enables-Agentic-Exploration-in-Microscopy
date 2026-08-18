@@ -1,4 +1,4 @@
-{
+﻿{
   "system": {
     "MM_DIR": "C:/Path/To/Micro-Manager",
     "CONFIG_PATH": "demo_cfg/MMConfig_demo.cfg",
@@ -91,7 +91,7 @@
     "model_name": "gpt-4.1",
     "vlm_base_url": "https://api.openai.com/v1",
     "vlm_model_name": "gpt-4.1",
-    "knowledge_base_path": "docs/c3_knowledge_base/knowledge_base_reviewed.json"
+    "knowledge_base_path": "docs_public/c3_knowledge_base/knowledge_base_reviewed.json"
   },
   "startup": {
     "objective": "10x",

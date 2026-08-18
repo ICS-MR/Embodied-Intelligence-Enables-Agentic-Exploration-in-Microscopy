@@ -11,7 +11,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.request import urlopen
 
-from bootstrap.config import ROOT_DIR, RUNTIME_CONFIG_PATH, load_system_config, save_runtime_settings
+from bootstrap.config import (
+    ROOT_DIR,
+    RUNTIME_CONFIG_PATH,
+    is_demo_mode_settings,
+    load_runtime_settings,
+    load_system_config,
+    save_runtime_settings,
+)
 
 
 @dataclass
@@ -1199,10 +1206,256 @@ def install_mmcore(
     return install_root
 
 
+def run_ai_map_config(args: argparse.Namespace) -> None:
+    """Run the ``ai-map`` CLI: cfg -> optional inspect -> AI draft -> preview -> confirm -> write.
+
+    AI output is a recommendation: nothing is written unless the user confirms
+    (interactive y/N, or --yes) and --apply is given.
+    """
+
+    runtime_config_path = Path(args.config) if getattr(args, "config", None) else RUNTIME_CONFIG_PATH
+    settings = load_runtime_settings(runtime_config_path, apply_demo_overlay=False)
+    if is_demo_mode_settings(settings):
+        print(
+            "[ERROR] AI cfg mapping is only available in Real microscope mode. "
+            'Set microscope_mode to "real" in the runtime config before importing a hardware cfg.'
+        )
+        raise SystemExit(1)
+
+    cfg_path = Path(args.cfg) if args.cfg else Path(str(settings.system.CONFIG_PATH or ""))
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Micro-Manager config not found: {cfg_path}")
+    # Lazy imports keep fast failure paths (demo-mode guard, missing cfg) free of the AI/hardware stack.
+    from services.config_mapping_ai import analyze_config_mapping
+    from services.mm_hardware_inventory import inspect_micro_manager_config, merge_runtime_inventory
+
+    if args.base_url:
+        settings.model.base_url = args.base_url
+    if args.model_name:
+        settings.model.model_name = args.model_name
+    if args.api_key:
+        settings.model.openai_api_key = args.api_key
+
+    print(f"[1/5] Parsing cfg: {cfg_path}")
+    inventory = build_cfg_inventory(cfg_path)
+
+    inspection_status = "skipped"
+    inspected_device_count = 0
+    inspection_warning = ""
+    if args.inspect:
+        mm_dir = str(args.mm_dir or settings.system.MM_DIR or "")
+        print(f"[2/5] Inspecting Micro-Manager hardware (MM_DIR={mm_dir}) ...")
+        try:
+            runtime_inventory = inspect_micro_manager_config(mm_dir=mm_dir, config_path=cfg_path)
+            inventory = merge_runtime_inventory(inventory, runtime_inventory)
+            inspection_status = "completed"
+            inspected_device_count = len(runtime_inventory.get("devices", []))
+        except Exception as exc:  # OSError or adapter init failure -> degrade gracefully
+            inspection_status = "unavailable"
+            inspection_warning = f"Micro-Manager hardware inspection failed: {exc}"
+            print(f"  [WARN] {inspection_warning}")
+    else:
+        print("[2/5] Hardware inspection skipped (use --inspect to enable).")
+
+    ai_key = str(settings.model.openai_api_key or "").strip()
+    ai_model = str(settings.model.model_name or "").strip()
+    ai_configured = bool(ai_key and ai_model)
+    status_note = "configured" if ai_configured else "not configured; rule-based draft will be used"
+    print(f"[3/5] AI model: {settings.model.base_url} / {settings.model.model_name}  ({status_note})")
+    if ai_configured and not args.yes:
+        answer = input(
+            "  Send the structured cfg inventory (no raw cfg text/comments/paths) to the AI service "
+            "to generate mapping recommendations? [y/N] "
+        ).strip().lower()
+        if answer not in ("y", "yes"):
+            print("  Aborted. No AI call was made; nothing was written.")
+            raise SystemExit(0)
+
+    print("[4/5] Analyzing cfg mapping (AI)...")
+    analysis = analyze_config_mapping(
+        inventory=inventory,
+        model_config=settings.model,
+        current_system=settings.system,
+    )
+    analysis.hardware_inspection_status = inspection_status
+    analysis.inspected_device_count = inspected_device_count
+    if inspection_warning:
+        analysis.warnings.append(inspection_warning)
+
+    data = analysis.model_dump()
+    print_mapping_draft(data, cfg_path=cfg_path)
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(analysis.model_dump_json(indent=2), encoding="utf-8")
+        print(f"\n[output] Draft JSON written to {output_path}")
+
+    if not args.apply:
+        print("\nDry-run only: nothing was written.")
+        print("Re-run with --apply to write the confirmed mappings, or use --output to save the draft.")
+        return
+
+    print(f"\nWill also set CONFIG_PATH to {cfg_path.resolve()}")
+    if not args.yes:
+        answer = input(f"Write these mappings to {runtime_config_path}? [y/N] ").strip().lower()
+        if answer not in ("y", "yes"):
+            print("Aborted. Nothing was written.")
+            raise SystemExit(0)
+
+    updates = build_system_updates(data, settings, cfg_path)
+    if not updates:
+        print("\nNo usable mappings were found; nothing was written.")
+        return
+    save_runtime_settings(system_updates=updates, config_path=runtime_config_path)
+    print(f"[5/5] Updated {runtime_config_path}: {', '.join(sorted(updates))}")
+
+
+def print_mapping_draft(data: Dict[str, Any], *, cfg_path: Path) -> None:
+    """Print a human-readable mapping draft from ConfigMappingAnalysis.model_dump()."""
+    ai_status = str(data.get("ai_status") or "not_configured")
+    inspect_status = str(data.get("hardware_inspection_status") or "skipped")
+    inspected = int(data.get("inspected_device_count") or 0)
+    warnings = data.get("warnings") or []
+    print(f"\n=== Mapping draft for {cfg_path} ===")
+    print(f"AI: {ai_status}   Hardware inspection: {inspect_status} (devices: {inspected})")
+    for warning in warnings:
+        print(f"  [WARN] {warning}")
+
+    fields = data.get("fields") or {}
+    print("\n-- Core roles --")
+    for name in ("camera_device", "xy_stage_device", "objective_device", "focus_drive", "Dichroic"):
+        item = fields.get(name)
+        if isinstance(item, dict):
+            print_field(name, item)
+
+    objectives = data.get("objectives") or {}
+    print("\n-- Objectives --")
+    for key, item in objectives.items():
+        if isinstance(item, dict) and item.get("value"):
+            print_field(f"{key} (objective)", item)
+
+    channels = data.get("channels") or {}
+    print("\n-- Channels --")
+    for key, item in channels.items():
+        if isinstance(item, dict) and item.get("value"):
+            print_field(f"{key} (channel)", item)
+
+    transmitted = data.get("transmitted_light") or {}
+    print("\n-- Transmitted light --")
+    for sub in ("device", "intensity_property"):
+        item = transmitted.get(sub)
+        if isinstance(item, dict):
+            print_field(f"transmitted_light.{sub}", item)
+    print(f"  min={transmitted.get('min', 0)}  max={transmitted.get('max', 250)}")
+
+    review_count = sum(
+        1
+        for item in list(fields.values()) + list(objectives.values()) + list(channels.values())
+        if isinstance(item, dict) and item.get("needs_review")
+    )
+    if review_count:
+        print(f"\n! {review_count} field(s) need manual review (marked REVIEW).")
+
+
+def print_field(name: str, item: Dict[str, Any]) -> None:
+    """Print a single ConfigMappingDraftField dict in a compact, readable form."""
+    value = str(item.get("value") or "")
+    source = str(item.get("source") or "")
+    confidence = str(item.get("confidence") or "")
+    marker = "REVIEW" if item.get("needs_review") else "ok"
+    print(f"  {name}: {value or '(empty)'}  [source={source}, confidence={confidence}, {marker}]")
+    current = str(item.get("current_value") or "")
+    if current and current != value:
+        print(f"    current: {current}")
+    rule_value = str(item.get("rule_value") or "")
+    if rule_value and rule_value != value:
+        print(f"    rule: {rule_value}")
+    ai_value = str(item.get("ai_value") or "")
+    if ai_value and ai_value != value:
+        print(f"    ai: {ai_value}")
+    reason = str(item.get("reason") or "")
+    if reason:
+        print(f"    reason: {reason}")
+
+
+def build_system_updates(data: Dict[str, Any], settings: Any, cfg_path: Path) -> Dict[str, Any]:
+    """Convert the confirmed mapping draft into system_updates for save_runtime_settings()."""
+    updates: Dict[str, Any] = {}
+
+    fields = data.get("fields") or {}
+    for name in ("camera_device", "xy_stage_device", "objective_device", "focus_drive", "Dichroic"):
+        value = str((fields.get(name) or {}).get("value") or "").strip()
+        if value:
+            updates[name] = value
+
+    objectives: Dict[str, Any] = {}
+    current_objectives = dict(settings.system.objectives or {})
+    for key, item in (data.get("objectives") or {}).items():
+        value = str((item or {}).get("value") or "").strip()
+        if not value:
+            continue
+        base = dict(current_objectives.get(key) or {})
+        base["label"] = value
+        match = re.match(r"^(\d+)x$", str(key))
+        if match:
+            base["magnification"] = int(match.group(1))
+        base["display_name"] = str(base.get("display_name") or f"{key} objective")
+        objectives[key] = base
+    if objectives:
+        updates["objectives"] = objectives
+
+    channels: Dict[str, Any] = {}
+    current_channels = dict(settings.system.channels or {})
+    for key, item in (data.get("channels") or {}).items():
+        value = str((item or {}).get("value") or "").strip()
+        if not value:
+            continue
+        base = dict(current_channels.get(key) or {})
+        base["label"] = value
+        base.setdefault("display_name", key)
+        base.setdefault("color", [128, 128, 128])
+        base.setdefault("illumination", "fluorescence")
+        channels[key] = base
+    if channels:
+        updates["channels"] = channels
+
+    transmitted = data.get("transmitted_light") or {}
+    device_item = transmitted.get("device")
+    property_item = transmitted.get("intensity_property")
+    device = str(device_item.get("value") if isinstance(device_item, dict) else (device_item or ""))
+    prop = str(property_item.get("value") if isinstance(property_item, dict) else (property_item or ""))
+    if device or prop:
+        updates["transmitted_light"] = {
+            "device": device,
+            "intensity_property": prop,
+            "min": int(transmitted.get("min", 0) or 0),
+            "max": int(transmitted.get("max", 250) or 250),
+        }
+
+    updates["CONFIG_PATH"] = str(cfg_path.resolve())
+    return updates
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Configure EIMS external runtimes and suggest device names from a real Micro-Manager cfg."
     )
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    ai_parser = subparsers.add_parser(
+        "ai-map",
+        help="AI-assisted cfg mapping: parse a Micro-Manager cfg, optionally inspect hardware, "
+        "generate an AI-recommended mapping draft, preview it, and write it after confirmation.",
+    )
+    ai_parser.add_argument("--cfg", type=Path, default=None, help="Path to the Micro-Manager system configuration (.cfg). Defaults to system.CONFIG_PATH in the runtime config.")
+    ai_parser.add_argument("--config", type=Path, default=None, help="Path to the runtime config to read settings from and (with --apply) write to. Defaults to config/runtime_config.json.")
+    ai_parser.add_argument("--inspect", action="store_true", help="Load the cfg in an isolated MMCore to collect real Device Adapter property metadata before AI analysis.")
+    ai_parser.add_argument("--apply", action="store_true", help="Write the confirmed mappings to the runtime config (after y/N confirmation unless --yes).")
+    ai_parser.add_argument("--yes", action="store_true", help="Skip interactive confirmations (AI consent and write confirmation).")
+    ai_parser.add_argument("--output", type=Path, default=None, help="Write the mapping draft as JSON to this file.")
+    ai_parser.add_argument("--base-url", default=None, help="Override the main LLM base URL used for the AI analysis.")
+    ai_parser.add_argument("--model-name", default=None, help="Override the main LLM model name used for the AI analysis.")
+    ai_parser.add_argument("--api-key", default=None, help="Override the main LLM API key used for the AI analysis (prefer .env).")
+    ai_parser.add_argument("--mm-dir", type=Path, default=None, help="Override MM_DIR used by --inspect.")
     parser.add_argument(
         "--mm-config",
         type=Path,
@@ -1298,6 +1551,10 @@ def main() -> None:
         help="Use interactive mode for --check-fiji or --setup-fiji instead of headless mode.",
     )
     args = parser.parse_args()
+
+    if args.command == "ai-map":
+        run_ai_map_config(args)
+        return
 
     if args.install_mmcore:
         if args.clean_dest and args.reuse_existing:

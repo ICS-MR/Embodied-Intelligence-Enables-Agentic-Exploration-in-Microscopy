@@ -52,8 +52,9 @@ Optional metadata:
 
 Useful `output_strategy` values:
 
-- `direct_plan`
-- `single_question_then_plan`
+- `direct_plan`: produce the plan directly without asking.
+- `single_question_then_plan`: ask one blocking clarification question, then plan.
+- `recommend_then_confirm`: present a recommended protocol with rationale, then confirm or adjust before planning.
 
 ## What Makes A Good Skill
 

@@ -21,6 +21,8 @@ from agent.plan_trace_checker import PlanTraceContext
 
 logger = logging.getLogger(__name__)
 
+CONSOLIDATED_WORKFLOW_PREFIX = "Consolidated workflow specification for replanning:"
+
 
 @dataclass
 class TaskRequest:
@@ -187,6 +189,24 @@ class TaskOrchestrator:
             "Treat it as authoritative, and do not ask again for workflow parameters that have already been resolved."
         )
 
+    def _planner_context_after_skill_resolution(self, clarification_history: str) -> str:
+        base_context = self._resolved_planner_context()
+        normalized_history = str(clarification_history or "").strip()
+        if not normalized_history:
+            return base_context
+        return "\n\n".join(
+            [
+                base_context,
+                normalized_history,
+                "Treat the resolved clarification history above as authoritative. Do not ask again about those same resolved choices.",
+            ]
+        )
+
+    def _direct_planner_context(self, request: TaskRequest) -> str:
+        if str(request.user_command or "").lstrip().startswith(CONSOLIDATED_WORKFLOW_PREFIX):
+            return ""
+        return request.planner_context
+
     def _merge_usage(self, *usages: Optional[Dict[str, int]]) -> Optional[Dict[str, int]]:
         merged: Dict[str, int] = {}
         for usage in usages:
@@ -247,7 +267,7 @@ class TaskOrchestrator:
                 planner_result = self.runtime_context.task_manager(
                     planner_query,
                     microscope_state,
-                    self._resolved_planner_context(),
+                    self._planner_context_after_skill_resolution(request.planner_context),
                 )
                 merged_tokens = self._merge_usage(merged_tokens, planner_result.tokens)
             else:
@@ -272,7 +292,7 @@ class TaskOrchestrator:
             planner_result = self.runtime_context.task_manager(
                 request.user_command,
                 microscope_state,
-                request.planner_context,
+                self._direct_planner_context(request),
             )
         task_manager = self.runtime_context.task_manager
         task_id = str(uuid.uuid4())

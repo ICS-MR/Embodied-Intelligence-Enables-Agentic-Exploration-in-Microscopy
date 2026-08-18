@@ -9,15 +9,18 @@ class Frap(BaseTool):
     _active_instance: Frap | None = None
 
     planning_hint = (
-        "Use for FRAP workflows that start and stop FRAP, position the laser relative "
-        "to the field center and perform photobleaching at selected coordinates, detect cells "
-        "in the current field of view, or extract cell contours."
+        "Use for FRAP workflows that start and stop FRAP, detect cells, extract contours, "
+        "and photobleach selected field-centered micron coordinates. Spatial patterns can be "
+        "executed as sampled coordinate trajectories derived from fitted contours or generated "
+        "paths. Bleaching intensity is controlled by sampling point spacing."
     )
     execution_hint = (
-        "Call laser_on before cell_detection, cell_contour_extraction, or laser_position, "
-        "and call laser_off after the bleaching sequence. "
-        "Treat laser_position coordinates as microns relative to the field center, and use "
-        "the documented cells list returned by cell_detection or cell_contour_extraction."
+        "Call laser_on before cell_detection, cell_contour_extraction, or laser_position; "
+        "call laser_off after the full bleaching sequence is complete. Treat laser_position "
+        "x and y as microns relative to the field center. Use detected cell centers, fitted "
+        "contour points, or sampled trajectories as laser_position targets. Adjust relative "
+        "bleaching dose by changing point spacing: increase point spacing to lower the dose; "
+        "decrease point spacing to raise the dose."
     )
 
     def __init__(self, storage_manager=None, output_dir: str = "./output") -> None:

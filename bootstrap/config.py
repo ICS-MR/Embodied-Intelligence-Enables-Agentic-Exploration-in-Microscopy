@@ -1,7 +1,10 @@
 ﻿import json
+import logging
 import os
 import tempfile
 from dataclasses import asdict, dataclass, field
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple
 
@@ -159,7 +162,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-DEFAULT_KNOWLEDGE_BASE_PATH = "docs/c3_knowledge_base/knowledge_base_reviewed.json"
+DEFAULT_KNOWLEDGE_BASE_PATH = "docs_public/c3_knowledge_base/knowledge_base_reviewed.json"
 
 
 @dataclass
@@ -231,7 +234,7 @@ class ModelConfig:
     vlm_base_url: str = "https://api.openai.com/v1"
     vlm_model_name: str = "gpt-4.1"
     CROSS_ENCODER_MODEL_PATH: str = r"embedding_model\bge-m3"
-    # C3 conformal threshold calibrated from docs/c3_calibration/calibration_overview.json.
+    # C3 conformal threshold calibrated from docs_public/c3_calibration/calibration_overview.json.
     # Keep this value aligned with that calibration set's selected_threshold.
     task_similarity_threshold: float = 0.029
     knowledge_base_path: str = DEFAULT_KNOWLEDGE_BASE_PATH
@@ -285,8 +288,9 @@ def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        logger.warning("Failed to parse JSON config %s: %s; falling back to defaults.", path, exc)
         return {}
 
 

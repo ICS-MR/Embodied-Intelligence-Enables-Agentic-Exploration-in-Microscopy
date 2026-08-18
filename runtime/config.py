@@ -154,7 +154,7 @@ def build_skill_resolver_config() -> Dict[str, Any]:
     return {
         "skill_dirs": [str(Path("user_skills") / "planning")],
         "skill_max_files": 20,
-        "skill_max_chars_per_file": 2000,
+        "skill_max_chars_per_file": 4000,
         "skill_max_selected": 2,
         "skill_route_max_tokens": 512,
         "skill_route_temperature": 0,

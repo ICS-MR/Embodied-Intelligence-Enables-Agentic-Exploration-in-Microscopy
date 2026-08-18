@@ -91,6 +91,7 @@ class MP285Tool(BaseTool):
         self.pump_write_timeout = float(pump_write_timeout)
         self.pump_motor_num = int(pump_motor_num)
         self.pump_default_speed = int(pump_default_speed)
+        self._pump_speed = self.pump_default_speed
         self._pump_serial = None
         self._lock = threading.RLock()
         self._microsteps_per_um = DEFAULT_MICROSTEPS_PER_UM
@@ -151,7 +152,8 @@ class MP285Tool(BaseTool):
         """
         with self._lock:
             self._ensure_pump_connected()
-            self._pump_set_speed(self._velocity_to_pump_speed(float(velocity)))
+            self._pump_speed = self._bounded_pump_speed(self._velocity_to_pump_speed(float(velocity)))
+            self._pump_set_speed(self._pump_speed)
 
     @tool_func
     def pump_in(self, volume: float) -> None:
@@ -377,13 +379,15 @@ class MP285Tool(BaseTool):
         self._sleep_intercommand()
 
     def _pump_set_speed(self, speed: int) -> None:
-        bounded_speed = max(23, min(abs(int(speed)), 15000))
-        self._pump_write(f"@199:Motor:Speed:M{self.pump_motor_num} {bounded_speed}")
+        self._pump_write(f"@199:Motor:Speed:M{self.pump_motor_num} {self._bounded_pump_speed(speed)}")
+
+    def _bounded_pump_speed(self, speed: int) -> int:
+        return max(23, min(abs(int(speed)), 15000))
 
     def _pump_run_relative(self, steps: int) -> None:
         with self._lock:
             self._ensure_pump_connected()
-            self._pump_set_speed(self.pump_default_speed)
+            self._pump_set_speed(self._pump_speed)
             self._pump_write(f"@199:Motor:Run:M{self.pump_motor_num} {int(steps)}")
 
     def _volume_to_pump_steps(self, volume_ul: float) -> int:

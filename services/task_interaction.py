@@ -4,6 +4,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from services.task_orchestrator import TaskPlan, TaskRequest
 from interfaces.interaction_flow import (
+    build_consolidated_workflow_request,
     combine_clarification_context,
     interpret_clarification_feedback,
     interpret_plan_feedback,
@@ -35,17 +36,26 @@ def _format_clarification_display(plan: TaskPlan, fallback_text: str) -> str:
     consistency = details.get("consistency_result") or {}
     if not isinstance(consistency, dict):
         consistency = {}
+    violation = details.get("violation_result") or {}
+    if not isinstance(violation, dict):
+        violation = {}
 
     reason = _clean_text(details.get("reason"))
     summary = _clean_text(consistency.get("summary"))
     differences = _string_list(consistency.get("differences"))
     question = _clean_text(plan.question) or fallback_text
+    has_violation = bool(violation.get("has_violation", False))
 
-    if not (reason or summary or differences):
+    if not (reason or summary or differences or has_violation):
         return fallback_text
 
-    lines = ["I found a difference between the candidate plans that needs confirmation."]
-    rationale = summary or reason
+    if has_violation:
+        lines = ["I found a planning detail that needs confirmation."]
+        rationale = reason
+        differences = []
+    else:
+        lines = ["I found a difference between the candidate plans that needs confirmation."]
+        rationale = summary or reason
     if rationale:
         lines.extend(["", f"Rationale: {rationale}"])
     if differences:
@@ -220,6 +230,7 @@ class TaskInteractionSession:
                     continue
 
                 clarification_entries = decision.entries
+                current_command = build_consolidated_workflow_request(original_command, clarification_entries)
                 await _maybe_await(
                     self.ports.send_robot_message(
                         pick_text(

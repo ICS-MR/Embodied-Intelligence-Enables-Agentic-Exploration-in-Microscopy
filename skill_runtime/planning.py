@@ -102,6 +102,8 @@ def _normalize_output_strategy(value: Any) -> str:
     normalized = str(value or "").strip().lower()
     if normalized == "single_question_then_plan":
         return "single_question_then_plan"
+    if normalized == "recommend_then_confirm":
+        return "recommend_then_confirm"
     return "direct_plan"
 
 

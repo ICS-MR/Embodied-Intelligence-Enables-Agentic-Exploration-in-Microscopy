@@ -301,6 +301,8 @@ class ExperimentPlanAgent:
                 self._wrap_prompt_section("Observation object", observation_object or "{}"),
             ]
         )
+        if context.strip():
+            prompt_parts.append(self._wrap_prompt_section("Planner Context", context))
         prompt_parts.append(self._wrap_prompt_section("User Request", self._format_query(query)))
         return self._base_prompt, "\n\n".join(part for part in prompt_parts if part), query
 
