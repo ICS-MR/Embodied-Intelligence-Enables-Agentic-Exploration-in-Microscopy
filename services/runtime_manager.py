@@ -488,11 +488,11 @@ class RuntimeManager:
                 message += f" Reason: {reason}"
         self._send_message("robot_say", message)
 
-    async def _prompt_for_plan_feedback(self, prompt_text: str) -> str:
+    async def _prompt_for_plan_feedback(self, prompt_text: str, mode: str = "plan_confirmation") -> str:
         session = self.app_state.session
         session.is_asking_user = True
-        session.pending_user_prompt = {"type": "ask_user", "text": prompt_text, "mode": "plan_confirmation"}
-        self._send_message("ask_user", prompt_text, mode="plan_confirmation")
+        session.pending_user_prompt = {"type": "ask_user", "text": prompt_text, "mode": mode}
+        self._send_message("ask_user", prompt_text, mode=mode)
         try:
             return await session.input_queue.get()
         finally:
@@ -836,16 +836,26 @@ class RuntimeManager:
                 final_type="robot_say",
             )
 
-        async def prompt_user(prompt_text: str, command_snapshot: str) -> str:
+        async def prompt_user(
+            prompt_text: str,
+            command_snapshot: str,
+            prompt_mode: str = "plan_confirmation",
+        ) -> str:
             del command_snapshot
-            return await self._prompt_for_plan_feedback(prompt_text)
+            return await self._prompt_for_plan_feedback(prompt_text, mode=prompt_mode)
 
-        def record_user_input(text: str, input_kind: str, prompt_text: str, command_snapshot: str) -> None:
+        def record_user_input(
+            text: str,
+            input_kind: str,
+            prompt_text: str,
+            command_snapshot: str,
+            prompt_mode: str = "plan_confirmation",
+        ) -> None:
             self._record_user_input(
                 text,
                 input_kind=input_kind,
                 prompt_text=prompt_text,
-                prompt_mode="plan_confirmation",
+                prompt_mode=prompt_mode,
                 command_snapshot=command_snapshot,
             )
 

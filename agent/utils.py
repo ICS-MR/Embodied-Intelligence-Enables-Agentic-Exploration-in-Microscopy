@@ -63,6 +63,15 @@ SAFE_IMPORT_MODULES = {
     "statistics",
     "time",
 }
+
+# Informational dunder attributes that are safe to read (no introspection/escape).
+# All other dunder attribute access remains prohibited.
+SAFE_DUNDER_ATTRIBUTES = {
+    "__name__",
+    "__doc__",
+    "__qualname__",
+    "__module__",
+}
 FORBIDDEN_NAME_CALLS = {
     "__import__",
     "compile",
@@ -313,7 +322,7 @@ def _collect_unsafe_operations(
         elif isinstance(node, (ast.AsyncWith, ast.ClassDef, ast.Nonlocal)):
             banned_ops.append(f"Unsupported syntax prohibited: {type(node).__name__}")
         elif isinstance(node, ast.Attribute):
-            if node.attr.startswith("__"):
+            if node.attr.startswith("__") and node.attr not in SAFE_DUNDER_ATTRIBUTES:
                 banned_ops.append("Dunder attribute access is prohibited")
         elif isinstance(node, ast.Call):
             error = _validate_call_target(

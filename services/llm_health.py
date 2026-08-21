@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from typing import Any
 
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
-from adapters.llm_clients import create_chat_completion
+from adapters.llm_clients import create_chat_completion, explain_vlm_image_rejection
 
 
 @dataclass
@@ -46,9 +46,9 @@ def validate_llm_connection(config: LLMConnectionConfig) -> None:
         ],
         temperature=0.0,
         seed=config.llm_seed,
-        max_tokens=8,
-        retries=1,
-        timeout=15,
+        max_tokens=512,
+        retries=3,
+        timeout=30,
     )
 
 
@@ -65,30 +65,36 @@ def validate_vlm_connection(config: VLMConnectionConfig) -> None:
     if base_url:
         client_kwargs["base_url"] = base_url
     client = OpenAI(**client_kwargs)
-    create_chat_completion(
-        client,
-        model=model_name,
-        messages=[
-            {"role": "system", "content": "You are a vision connectivity test endpoint."},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Reply with OK if you can read this image request."},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": (
-                                "data:image/png;base64,"
-                                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
-                            )
+    try:
+        create_chat_completion(
+            client,
+            model=model_name,
+            messages=[
+                {"role": "system", "content": "You are a vision connectivity test endpoint."},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Reply with OK if you can read this image request."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": (
+                                    "data:image/png;base64,"
+                                    "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAAC10lEQVR4nO3VwQ0DIQADQRJd30DnV0UE0c5U4M/Kn7XWgKrv6QFwkgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkPacHnC7Oef4Z3vv0xOu5gFIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0p7TA2639z49gR/yAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwBpAiBNAKQJgDQBkCYA0gRAmgBIEwCj7AXxTwgH6GK73gAAAABJRU5ErkJggg=="
+                                )
+                            },
                         },
-                    },
-                ],
-            },
-        ],
-        temperature=0.0,
-        seed=config.llm_seed,
-        max_tokens=8,
-        retries=1,
-        timeout=20,
-    )
+                    ],
+                },
+            ],
+            temperature=0.0,
+            seed=config.llm_seed,
+            max_tokens=512,
+            retries=3,
+            timeout=30,
+        )
+    except BadRequestError as exc:
+        hint = explain_vlm_image_rejection(model_name, str(exc))
+        if hint:
+            raise ValueError(f"{hint} Original error: {exc}") from exc
+        raise

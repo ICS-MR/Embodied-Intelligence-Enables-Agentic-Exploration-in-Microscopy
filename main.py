@@ -302,8 +302,8 @@ def main() -> None:
             runtime_context.env_imagej.set_interaction_artifact_listener(show_cli_interaction_artifact)
         with capture_technical_output():
             setup_microscope(runtime_context.env_olympus, settings.startup)
-        if microscope_mode == "demo":
-            system_logger.info("Micro-Manager demo microscope mode detected; skipping local preview window startup.")
+        if microscope_mode in ("demo", "mock"):
+            system_logger.info("Microscope simulation/demo mode detected; skipping local preview window startup.")
         else:
             if bool(getattr(settings.startup, "start_preview", True)) and hasattr(runtime_context.env_olympus, "start_preview"):
                 try:

@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import re
+
 from .common import *
+
+
+def _extract_desc_number(desc: str, key: str):
+    """Extract a numeric value like 'key: 123.45' or 'key=123.45' from a description string."""
+    match = re.search(rf"{re.escape(key)}\s*[:=]\s*([0-9.eE+-]+)", desc or "")
+    return float(match.group(1)) if match else None
 
 class ImageJProcessor(BaseTool):
     REAL_ONLY_METHODS = {
@@ -57,14 +65,33 @@ class ImageJProcessor(BaseTool):
     def load_image(self, file_name) -> ImageWithMetadata:
         print("Running function: load_image")
         resolved_path = self._resolve_input_path(file_name)
+        meta = self._read_registered_meta(resolved_path.name)
+        desc = str((meta or {}).get("description") or "") if isinstance(meta, dict) else ""
+        center_x = _extract_desc_number(desc, "center_x") or 0.0
+        center_y = _extract_desc_number(desc, "center_y") or 0.0
+        pixel_size = _extract_desc_number(desc, "pixel_size") or 1.0
         return ImageWithMetadata(
             dataset=f"mock_dataset_{resolved_path.name}",
-            center_x_um=0.0,
-            center_y_um=0.0,
+            center_x_um=float(center_x),
+            center_y_um=float(center_y),
             center_z_um=0.0,
-            pixel_size_x_um=1.0,
-            pixel_size_y_um=1.0,
+            pixel_size_x_um=float(pixel_size),
+            pixel_size_y_um=float(pixel_size),
         )
+
+    def _read_registered_meta(self, filename: str):
+        if self._storagemanger is None or not hasattr(self._storagemanger, "read_log"):
+            return None
+        try:
+            log = self._storagemanger.read_log(include_temp=True)
+        except Exception:
+            return None
+        if not isinstance(log, dict):
+            return None
+        for key, value in log.items():
+            if isinstance(value, dict) and str(value.get("filename") or "") == filename:
+                return value
+        return log.get(filename)
 
     def _load_image_IMP(self, file_path):
         return f"mock_imp_{os.path.basename(file_path)}"
@@ -331,13 +358,24 @@ class ImageJProcessor(BaseTool):
                 raise ValueError(f"Target region at index {index} must be a 4-item list/tuple, got: {region!r}")
             normalized_regions.append(tuple(map(float, region)))
 
+        image_np = self.convert_to_numpy(image_meta)
+        height, width = image_np.shape[:2]
+        pixel_size_x_um = float(image_meta.pixel_size_x_um)
+        pixel_size_y_um = float(image_meta.pixel_size_y_um)
+        image_center_x_um = float(image_meta.center_x_um)
+        image_center_y_um = float(image_meta.center_y_um)
+        image_center_x_px = (width - 1) / 2.0
+        image_center_y_px = (height - 1) / 2.0
+
         output_rows = []
         for cx_px, cy_px, w_px, h_px in normalized_regions:
+            dx_img = float(cx_px) - image_center_x_px
+            dy_img = float(cy_px) - image_center_y_px
             output_rows.append([
-                float(image_meta.center_x_um) + float(cx_px) * float(image_meta.pixel_size_x_um),
-                float(image_meta.center_y_um) + float(cy_px) * float(image_meta.pixel_size_y_um),
-                float(w_px) * float(image_meta.pixel_size_x_um),
-                float(h_px) * float(image_meta.pixel_size_y_um),
+                image_center_x_um + dx_img * pixel_size_x_um,
+                image_center_y_um + dy_img * pixel_size_y_um,
+                float(w_px) * pixel_size_x_um,
+                float(h_px) * pixel_size_y_um,
             ])
 
         output_path = Path(self.output_directory, output_filename)

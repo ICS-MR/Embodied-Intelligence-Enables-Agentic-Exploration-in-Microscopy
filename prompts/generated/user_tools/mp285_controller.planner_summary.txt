@@ -1,0 +1,46 @@
+### mp285_controller
+- Establish communication with the micromanipulator and pump so coordinated needle positioning and fluid handling can be executed.
+- Query the needle’s absolute XYZ coordinates in microns to support position-aware planning, verification, and recovery.
+- Move the needle to commanded absolute XYZ positions, enabling repeatable placement at computed target points or along planned sequences.
+- Set fluid flow rate and perform measured aspiration or dispensing, enabling programmable pickup, transfer, and delivery when synchronized with needle positioning.
+- Preferred usage: Controls the micromanipulator system. To capture/grasp a target, the microscope stage first moves to align the target directly below the needle (at the field center); the needle then moves along the Z axis to the working height and the pump aspirates to complete the grasp; release is the reverse (dispense at the working height). After completing aspiration/dispensing at the working height, lift the robotic arm Z axis back to the safe height before the next stage movement. The safe height and working height are given by the task instruction. When the task does not specify an aspiration/dispensing volume, the tool defaults to 80 µL at 20 µL/s. Unless explicitly stated otherwise, all XY positioning is performed by moving the microscope stage, not the needle. The needle moves mainly along the Z axis (safe height / working height). At system startup, the needle is in its initial state: initial Z is 1400, and X/Y is at the field center.
+---
+
+# Capability Summary
+- Establish communication with the micromanipulator and pump so coordinated needle positioning and fluid handling can be executed.
+- Query the needle’s absolute XYZ coordinates in microns to support position-aware planning, verification, and recovery.
+- Move the needle to commanded absolute XYZ positions, enabling repeatable placement at computed target points or along planned sequences.
+- Set fluid flow rate and perform measured aspiration or dispensing, enabling programmable pickup, transfer, and delivery when synchronized with needle positioning.
+
+# Task Example
+# Example input
+Connect to the micromanipulator and pump, then aspirate 5 µL of liquid sample at a rate of 2.0 µL/s with the needle positioned at absolute coordinates (0, 0, 1500) microns.
+
+# Example output
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "mp285_controller",
+        "command": "Connect to both the MP-285 micromanipulator and the pump using default serial settings"
+    },
+    {
+        "subtask_index": 2,
+        "module": "mp285_controller",
+        "command": "Move the needle to absolute position x=0, y=0, z=1500 microns"
+    },
+    {
+        "subtask_index": 3,
+        "module": "mp285_controller",
+        "command": "Set the pump fluid flow rate to 2.0 uL/s"
+    },
+    {
+        "subtask_index": 4,
+        "module": "mp285_controller",
+        "command": "Aspirate 5.0 uL of liquid with the pump"
+    }
+]
+</Task steps>

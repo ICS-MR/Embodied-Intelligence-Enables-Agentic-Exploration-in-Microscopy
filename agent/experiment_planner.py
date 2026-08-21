@@ -8,7 +8,7 @@ from pygments import highlight
 from pygments.formatters import TerminalFormatter
 from pygments.lexers import PythonLexer, get_lexer_by_name
 
-from adapters.llm_clients import create_chat_completion
+from adapters.llm_clients import PLANNER_MAX_COMPLETION_TOKENS, create_chat_completion
 from agent.clarifier import Clarify
 from agent.utils import (
     _parse_json_response,
@@ -124,16 +124,17 @@ class ExperimentPlanAgent:
             return {}
 
         snapshot: Dict[str, Any] = {}
-        for key in ("objective", "channel", "exposure", "brightness"):
+        for key in ("objective", "channel", "exposure", "brightness", "xy_position", "z_position"):
             if key in state:
                 snapshot[key] = state[key]
         return snapshot
 
     def _build_history_entry(self, command: str, state: Any, steps: List[Dict[str, Any]]) -> Dict[str, Any]:
+        # Keep only the task (command) and a compact state snapshot in the planner
+        # memory; the detailed planned steps are not needed for cross-turn memory.
         return {
             "command": command,
             "state": self._make_history_state_snapshot(state),
-            "steps": [step.copy() if isinstance(step, dict) else step for step in steps],
         }
 
     def remember_planned_task(self, command: str, state: Any, steps: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -147,25 +148,70 @@ class ExperimentPlanAgent:
                 payload={
                     "command": command,
                     "state": entry["state"],
-                    "steps": entry["steps"],
+                    "steps": [step.copy() if isinstance(step, dict) else step for step in steps],
                 },
             )
         return entry
 
+    def remember_executed_steps(self, turn: int, step_reports: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Record executed step outcomes (compact summaries) into the same session
+        memory as planned tasks, so the planner knows what was actually done."""
+        entry: Dict[str, Any] = {
+            "type": "execution",
+            "turn": int(turn),
+            "steps": [
+                {
+                    "subtask_index": (r.get("step") or {}).get("subtask_index"),
+                    "module": (r.get("step") or {}).get("module"),
+                    "summary": str(r.get("summary") or "").strip(),
+                }
+                for r in step_reports
+                if str(r.get("summary") or "").strip()
+            ],
+        }
+        self.code_history.append(entry)
+        if self._historyManager:
+            self._historyManager.record_interaction(
+                agent_name=self._name,
+                event_type="execution_history_recorded",
+                message="Planner recorded executed step outcomes in session history.",
+                payload=entry,
+            )
+        return entry
+
+    def _history_items_for_prompt(self) -> List[Any]:
+        """Return history entries for the prompt.
+
+        Execution entries (compact summaries) are always kept for cross-turn
+        memory; plan entries are capped by max_history (they contain the task
+        command and state only, not the detailed steps).
+        """
+        if not self._cfg.get("maintain_session") or not self.code_history:
+            return []
+        max_hist = int(self._cfg.get("max_history", 10) or 10)
+        normalized: List[Any] = []
+        for item in self.code_history:
+            if isinstance(item, str):
+                try:
+                    normalized.append(json.loads(item))
+                except json.JSONDecodeError:
+                    normalized.append(item)
+            else:
+                normalized.append(item)
+
+        def _is_exec(item: Any) -> bool:
+            return isinstance(item, dict) and item.get("type") == "execution"
+
+        exec_items = [item for item in normalized if _is_exec(item)]
+        plan_items = [item for item in normalized if not _is_exec(item)]
+        keep_ids = {id(item) for item in plan_items[-max_hist:]}
+        return [item for item in normalized if _is_exec(item) or id(item) in keep_ids]
+
     def _collect_prompt_parts(self, state: Any, context: str = "") -> List[str]:
         prompt_parts: List[str] = []
 
-        if self._cfg.get("maintain_session") and self.code_history:
-            max_hist = self._cfg.get("max_history", 10)
-            history_items: List[Any] = []
-            for item in self.code_history[-max_hist:]:
-                if isinstance(item, str):
-                    try:
-                        history_items.append(json.loads(item))
-                    except json.JSONDecodeError:
-                        history_items.append(item)
-                else:
-                    history_items.append(item)
+        history_items = self._history_items_for_prompt()
+        if history_items:
             prompt_parts.append(self._wrap_prompt_section("Historical Tasks", json.dumps(history_items, indent=2)))
 
         if state is not None:
@@ -239,6 +285,7 @@ class ExperimentPlanAgent:
             stop=stop_tokens or [],
             stream=False,
             max_tokens=max_tokens,
+            provider_max_tokens=PLANNER_MAX_COMPLETION_TOKENS,
         )
         return response.choices[0].message.content or "", {
             "prompt_tokens": response.usage.prompt_tokens,
@@ -283,17 +330,8 @@ class ExperimentPlanAgent:
     ) -> Tuple[str, str, str]:
         observation_object = self._extract_observation_object(context) or self._extract_imaging_target(query)
         prompt_parts: List[str] = []
-        if self._cfg.get("maintain_session") and self.code_history:
-            max_hist = self._cfg.get("max_history", 10)
-            history_items: List[Any] = []
-            for item in self.code_history[-max_hist:]:
-                if isinstance(item, str):
-                    try:
-                        history_items.append(json.loads(item))
-                    except json.JSONDecodeError:
-                        history_items.append(item)
-                else:
-                    history_items.append(item)
+        history_items = self._history_items_for_prompt()
+        if history_items:
             prompt_parts.append(self._wrap_prompt_section("Historical Tasks", json.dumps(history_items, indent=2)))
         prompt_parts.extend(
             [

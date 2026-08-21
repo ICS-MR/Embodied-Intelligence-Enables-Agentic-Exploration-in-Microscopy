@@ -8,7 +8,7 @@ import numpy as np
 from typing import Any, List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from openai import OpenAI
-from adapters.llm_clients import create_chat_completion
+from adapters.llm_clients import create_chat_completion, explain_vlm_image_rejection
 from bootstrap.config import load_model_config
 
 try:
@@ -30,6 +30,8 @@ class ImageDefect:
     no_target: bool = False  # No target defect
     out_of_focus: bool = False  # Out-of-focus defect
     over_exposed: bool = False  # Overexposure defect
+    check_failed: bool = False  # True if the image could not be validated (e.g. VLM/parse failure)
+    check_error: str = ""  # Reason why validation failed
     reason: str = ""  # Defect description
 
 
@@ -48,6 +50,8 @@ class CheckResult:
                 "no_target": self.defects.no_target,
                 "out_of_focus": self.defects.out_of_focus,
                 "over_exposed": self.defects.over_exposed,
+                "check_failed": self.defects.check_failed,
+                "check_error": self.defects.check_error,
                 "reason": self.defects.reason
             },
             "channel_defects": self.channel_defects,
@@ -190,10 +194,18 @@ class ExperimentCheckAgent:
 
     def _result_is_defect_free(self, result: CheckResult) -> bool:
         defects = result.defects
-        return not (defects.no_target or defects.out_of_focus or defects.over_exposed)
+        return not (
+            defects.no_target
+            or defects.out_of_focus
+            or defects.over_exposed
+            or defects.check_failed
+        )
 
     def has_any_no_target(self) -> bool:
         return any(result.defects.no_target for result in self.results)
+
+    def has_any_check_failed(self) -> bool:
+        return any(result.defects.check_failed for result in self.results)
 
     def all_results_defect_free(self) -> bool:
         return bool(self.results) and all(self._result_is_defect_free(result) for result in self.results)
@@ -329,7 +341,9 @@ class ExperimentCheckAgent:
                     message="Checker VLM call failed.",
                     payload={"prompt": prompt, "error": str(e)},
                 )
-            return None, f"VLM call failed: {str(e)}"
+            hint = explain_vlm_image_rejection(str(self._cfg.get('vlm_engine') or ""), str(e))
+            detail = f"{hint} " if hint else ""
+            return None, f"VLM call failed: {detail}{str(e)}"
 
     def _call_llm_custom(self, prompt: str) -> Tuple[Optional[str], str]:
         """Call LLM (reuse VLM client, assuming text is supported)"""
@@ -412,7 +426,11 @@ class ExperimentCheckAgent:
     ) -> CheckResult:
         if not os.path.exists(image_path):
             error_result = CheckResult(
-                defects=ImageDefect(reason=f"File does not exist: {image_path}"),
+                defects=ImageDefect(
+                    check_failed=True,
+                    check_error=f"File does not exist: {image_path}",
+                    reason=f"File does not exist: {image_path}",
+                ),
                 file_info=file_info,
                 channel_defects=[]
             )
@@ -453,29 +471,42 @@ class ExperimentCheckAgent:
                     b64_contrast,
                     self._cfg.get('prompt_quality_check'),
                 )
-                no_target_info = self._normalize_vlm_result(quality_res, "no_target")
-                no_target = no_target_info["no_target"]
-                over_exposed_info = self._normalize_vlm_result(quality_res, "over_exposed")
-                over_exposed = over_exposed_info["over_exposed"]
-                out_of_focus_info = self._normalize_vlm_result(quality_res, "out_of_focus")
-                out_of_focus = out_of_focus_info["out_of_focus"]
-
-                defects = []
-                if no_target:
-                    defects.append("No target")
-                if out_of_focus:
-                    defects.append("Out of focus")
-                if over_exposed:
-                    defects.append("Overexposed")
-                if defects:
-                    detail_reasons = [
-                        info["reason"]
-                        for info in (no_target_info, out_of_focus_info, over_exposed_info)
-                        if info["reason"] and info["reason"] != "Detection completed"
-                    ]
-                    combined_reason = "; ".join(defects + detail_reasons)
+                if quality_res is None:
+                    # VLM validation failed (call error, empty content, or unparseable JSON).
+                    # Never downgrade this to "normal": mark the channel/image as unverified so
+                    # callers cannot treat the acquisition as quality-approved.
+                    channel_failed = True
+                    channel_error = quality_raw or "VLM validation failed"
+                    no_target = False
+                    over_exposed = False
+                    out_of_focus = False
+                    combined_reason = f"Validation failed: {channel_error}"
                 else:
-                    combined_reason = "Normal"
+                    channel_failed = False
+                    channel_error = ""
+                    no_target_info = self._normalize_vlm_result(quality_res, "no_target")
+                    no_target = no_target_info["no_target"]
+                    over_exposed_info = self._normalize_vlm_result(quality_res, "over_exposed")
+                    over_exposed = over_exposed_info["over_exposed"]
+                    out_of_focus_info = self._normalize_vlm_result(quality_res, "out_of_focus")
+                    out_of_focus = out_of_focus_info["out_of_focus"]
+
+                    defects = []
+                    if no_target:
+                        defects.append("No target")
+                    if out_of_focus:
+                        defects.append("Out of focus")
+                    if over_exposed:
+                        defects.append("Overexposed")
+                    if defects:
+                        detail_reasons = [
+                            info["reason"]
+                            for info in (no_target_info, out_of_focus_info, over_exposed_info)
+                            if info["reason"] and info["reason"] != "Detection completed"
+                        ]
+                        combined_reason = "; ".join(defects + detail_reasons)
+                    else:
+                        combined_reason = "Normal"
 
                 channel_defect = {
                     "channel_index": c,
@@ -483,6 +514,7 @@ class ExperimentCheckAgent:
                     "no_target": no_target,
                     "out_of_focus": out_of_focus,
                     "over_exposed": over_exposed,
+                    "check_failed": channel_failed,
                     "reason": combined_reason
                 }
                 channel_defects_list.append(channel_defect)
@@ -492,11 +524,17 @@ class ExperimentCheckAgent:
             final_no_target = any(cd["no_target"] for cd in channel_defects_list)
             final_out_of_focus = any(cd["out_of_focus"] for cd in channel_defects_list)
             final_over_exposed = any(cd["over_exposed"] for cd in channel_defects_list)
+            final_check_failed = any(cd["check_failed"] for cd in channel_defects_list)
 
             reason_parts = []
+            check_error_parts = []
             for cd in channel_defects_list:
                 if cd["reason"] != "Normal":
                     reason_parts.append(f"{cd['channel_name']}: {cd['reason']}")
+                if cd["check_failed"]:
+                    check_error_parts.append(f"{cd['channel_name']}: {cd['reason']}")
+            if final_check_failed and not reason_parts:
+                reason_parts.append("Validation failed")
             final_reason = "; ".join(reason_parts) if reason_parts else "All channels are normal"
 
             final_result = CheckResult(
@@ -504,6 +542,8 @@ class ExperimentCheckAgent:
                     no_target=final_no_target,
                     out_of_focus=final_out_of_focus,
                     over_exposed=final_over_exposed,
+                    check_failed=final_check_failed,
+                    check_error="; ".join(check_error_parts),
                     reason=final_reason
                 ),
                 raw_vlm_response=" | ".join(raw_responses),
@@ -527,7 +567,11 @@ class ExperimentCheckAgent:
         except Exception as e:
             logger.exception("Checker failed while parsing or validating image file: %s", image_path)
             error_result = CheckResult(
-                defects=ImageDefect(reason=f"Image parsing failed: {str(e)[:50]}"),
+                defects=ImageDefect(
+                    check_failed=True,
+                    check_error=f"Image parsing failed: {str(e)[:200]}",
+                    reason=f"Image parsing failed: {str(e)[:50]}",
+                ),
                 file_info=file_info,
                 channel_defects=[]
             )
@@ -592,7 +636,14 @@ class ExperimentCheckAgent:
                     if defects:
                         defective_channels.append(f"{ch['channel_name']}({','.join(defects)})")
 
-            file_defect_desc = "; ".join(defective_channels) if defective_channels else "All channels are defect-free"
+            if result.defects.check_failed:
+                file_defect_desc = (
+                    f"Validation failed: {result.defects.check_error or 'unknown validation error'}"
+                )
+            else:
+                file_defect_desc = (
+                    "; ".join(defective_channels) if defective_channels else "All channels are defect-free"
+                )
             task_defect_summary[filename] = file_defect_desc
 
         return task_defect_summary

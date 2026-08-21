@@ -6,16 +6,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-import numpy as np
-from imageio import v3 as iio
 
-from core_tool.spatial_metadata import load_ome_spatial_metadata
 from tool.base import BaseTool, tool_func
-
-try:
-    import cv2
-except Exception:  # pragma: no cover
-    cv2 = None
 
 try:
     import serial
@@ -26,7 +18,6 @@ except Exception:  # pragma: no cover
 CR = b"\r"
 DEFAULT_MICROSTEPS_PER_UM = 25.0
 DEFAULT_UM_PER_MICROSTEP = 0.04
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 PUMP_LINE_ENDING = "\r\n"
 PUMP_STEPS_PER_UL = 100.0
 PUMP_SPEED_STEPS_PER_UL_PER_S = 100.0
@@ -45,15 +36,14 @@ class MP285ProtocolError(MP285Error):
 
 
 class MP285Tool(BaseTool):
-    """Micromanipulator system tool for MP-285A motion, pump control, and local cell detection."""
+    """Micromanipulator system tool for MP-285A motion and pump control."""
 
     planning_hint = (
-        "Use this tool for the micromanipulator system: MP-285 movement, pump aspiration/dispense, "
-        "and shortcut cell position detection without switching to another module."
+    """Controls the micromanipulator system. To capture/grasp a target, the microscope stage first moves to align the target directly below the needle (at the field center); the needle then moves along the Z axis to the working height and the pump aspirates to complete the grasp; release is the reverse (dispense at the working height). After completing aspiration/dispensing at the working height, lift the robotic arm Z axis back to the safe height before the next stage movement. The safe height and working height are given by the task instruction. When the task does not specify an aspiration/dispensing volume, the tool defaults to 80 µL at 20 µL/s. Unless explicitly stated otherwise, all XY positioning is performed by moving the microscope stage, not the needle. The needle moves mainly along the Z axis (safe height / working height). At system startup, the needle is in its initial state: initial Z is 1400, and X/Y is at the field center."""
     )
+
     execution_hint = (
-        "Call micromanipulator_move with absolute micron coordinates. "
-        "Use pump_set_velocity, pump_in, and pump_out with placeholder microliter conversions until calibration is available."
+    """Establish the connection before any motion. The needle moves mainly in Z (safe height / working height), and the pump performs aspiration/dispensing. When the task does not specify a volume, aspiration/dispensing defaults to 80 µL at 20 µL/s, and say() records that the default parameters were used."""
     )
 
     def __init__(
@@ -108,13 +98,17 @@ class MP285Tool(BaseTool):
     @tool_func
     def get_micromanipulator_position(self) -> dict:
         """
-        Get current XYZ position of the micromanipulator.
+        Get the current absolute XYZ position of the micromanipulator needle (not the stage).
+
+        x, y, z are absolute needle coordinates (microns); X/Y are normally at 0
+        (field center), and Z is the needle operating height (microns), distinct from
+        the microscope focus Z.
 
         Returns:
-            Dictionary containing the current position in microns:
-            - 'x': X-axis position (microns)
-            - 'y': Y-axis position (microns)
-            - 'z': Z-axis position (microns)
+            Dictionary containing the current needle position in microns:
+            - 'x': Absolute X position (microns)
+            - 'y': Absolute Y position (microns)
+            - 'z': Z operating height (microns)
         """
         with self._lock:
             self._ensure_connected()
@@ -125,12 +119,12 @@ class MP285Tool(BaseTool):
     @tool_func
     def micromanipulator_move(self, x: int, y: int, z: int) -> None:
         """
-        Set the XYZ coordinate position of the microscope stage.
+        Set the XYZ coordinate position of the robotic arm.
 
         Args:
-            x: X-axis position (microns)
-            y: Y-axis position (microns)
-            z: Z-axis position (microns)
+            x: Absolute X position of the needle (microns); normally 0
+            y: Absolute Y position of the needle (microns); normally 0
+            z: Robotic-arm Z axis, needle operating height (microns)
         """
         target_us = self._to_microsteps(int(x), int(y), int(z))
         with self._lock:
@@ -174,32 +168,6 @@ class MP285Tool(BaseTool):
             volume: Volume to dispense in microliters (μL)
         """
         self._pump_run_relative(-self._volume_to_pump_steps(float(volume)))
-
-    @tool_func
-    def cell_detection(self) -> dict:
-        """
-        Detect and return the position of target cell.
-
-        Returns:
-            Dictionary containing cell coordinates in physical stage space:
-            - 'x': X-axis position (microns)
-            - 'y': Y-axis position (microns)
-        """
-        image_path = self._resolve_latest_image_path()
-        image = np.asarray(iio.imread(image_path))
-        gray = self._to_grayscale(image)
-        center_x_px, center_y_px = self._detect_target_center(gray)
-        center_x_um, center_y_um = self._pixel_to_stage_coordinates(
-            image_path=image_path,
-            image_shape=gray.shape,
-            center_x_px=center_x_px,
-            center_y_px=center_y_px,
-        )
-        return {
-            "x": float(center_x_um),
-            "y": float(center_y_um),
-            "source_image": str(image_path),
-        }
 
     # MP-285 serial helpers
 
@@ -395,80 +363,3 @@ class MP285Tool(BaseTool):
 
     def _velocity_to_pump_speed(self, velocity_ul_s: float) -> int:
         return int(round(max(velocity_ul_s, 0.0) * PUMP_SPEED_STEPS_PER_UL_PER_S))
-
-    # Cell detection helpers
-
-    def _resolve_latest_image_path(self) -> Path:
-        candidates: list[Path] = []
-
-        if self.storage_manager is not None:
-            try:
-                log = self.storage_manager.read_log(include_temp=True)
-            except Exception:
-                log = {}
-            for filename in log.keys():
-                path = Path(self.output_dir, filename)
-                if path.suffix.lower() in IMAGE_EXTENSIONS and path.exists():
-                    candidates.append(path)
-
-        output_root = Path(self.output_dir)
-        if output_root.exists():
-            for path in output_root.rglob("*"):
-                if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS:
-                    candidates.append(path)
-
-        unique_candidates = sorted(set(candidates), key=lambda item: item.stat().st_mtime, reverse=True)
-        if not unique_candidates:
-            raise FileNotFoundError("cell_detection could not find any image in the current output directory.")
-        return unique_candidates[0]
-
-    def _load_detection_spatial_metadata(self, image_path: str | Path) -> dict[str, float | bool]:
-        return load_ome_spatial_metadata(image_path, require_stage_positions=True)
-
-    def _to_grayscale(self, image: np.ndarray) -> np.ndarray:
-        squeezed = np.squeeze(np.asarray(image))
-        if squeezed.ndim == 2:
-            return squeezed.astype(np.float32, copy=False)
-        if squeezed.ndim == 3:
-            return np.mean(squeezed[..., :3].astype(np.float32, copy=False), axis=2)
-        raise ValueError(f"Unsupported image shape for cell_detection: {np.asarray(image).shape}")
-
-    def _detect_target_center(self, gray: np.ndarray) -> tuple[float, float]:
-        image = gray.astype(np.float32, copy=False)
-        normalized = image - float(np.min(image))
-        max_value = float(np.max(normalized))
-        if max_value > 0:
-            normalized = normalized / max_value
-
-        if cv2 is not None:
-            image_u8 = np.clip(normalized * 255.0, 0, 255).astype(np.uint8)
-            _, mask = cv2.threshold(image_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            components = cv2.connectedComponentsWithStats(mask, 8)
-            count, _, stats, centroids = components
-            if count > 1:
-                areas = stats[1:, cv2.CC_STAT_AREA]
-                best = int(np.argmax(areas)) + 1
-                center_x, center_y = centroids[best]
-                return float(center_x), float(center_y)
-
-        max_index = np.argmax(normalized)
-        center_y, center_x = np.unravel_index(max_index, normalized.shape)
-        return float(center_x), float(center_y)
-
-    def _pixel_to_stage_coordinates(
-        self,
-        *,
-        image_path: str | Path,
-        image_shape: tuple[int, int],
-        center_x_px: float,
-        center_y_px: float,
-    ) -> tuple[float, float]:
-        metadata = self._load_detection_spatial_metadata(image_path)
-        image_height, image_width = image_shape
-        image_center_x_px = (int(image_width) - 1) / 2.0
-        image_center_y_px = (int(image_height) - 1) / 2.0
-        dx_px = float(center_x_px) - image_center_x_px
-        dy_px = float(center_y_px) - image_center_y_px
-        center_x_um = float(metadata["center_x_um"]) + dx_px * float(metadata["pixel_size_x_um"])
-        center_y_um = float(metadata["center_y_um"]) + dy_px * float(metadata["pixel_size_y_um"])
-        return center_x_um, center_y_um

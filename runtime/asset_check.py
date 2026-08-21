@@ -94,7 +94,7 @@ def check_snapshot_assets(snapshot: Mapping[str, Any]) -> AssetCheckResult:
     system = _mapping(snapshot.get("system"))
     agent = _mapping(snapshot.get("agent"))
     detection_targets = _mapping(snapshot.get("detection_targets"))
-    microscope_mode = _mode(agent.get("microscope_mode"), default="demo", allowed={"demo", "real"})
+    microscope_mode = _mode(agent.get("microscope_mode"), default="demo", allowed={"demo", "real", "mock"})
     image_analysis_mode = _mode(agent.get("image_analysis_mode"), default="mock", allowed={"mock", "real"})
     segmentation_mode = _mode(agent.get("segmentation_mode"), default="mock", allowed={"mock", "real"})
     mode_summary = (
@@ -186,6 +186,8 @@ def _check_agent_fields(agent: Mapping[str, Any], issues: list[AssetIssue]) -> N
 
 
 def _check_microscope_assets(system: Mapping[str, Any], mode: str, issues: list[AssetIssue]) -> None:
+    if mode == "mock":
+        return
     _require_text(system, "MM_DIR", issues, category="microscope_config", mode=f"microscope:{mode}")
     _require_text(system, "CONFIG_PATH", issues, category="microscope_config", mode=f"microscope:{mode}")
     _check_dependency_stack("core_tool.microscope", issues, mode=f"microscope:{mode}")

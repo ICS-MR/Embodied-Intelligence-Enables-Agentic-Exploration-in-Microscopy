@@ -80,10 +80,10 @@ class InteractionOutcome:
 class TaskInteractionPorts:
     plan: Callable[[TaskRequest], MaybeAwaitable]
     stream_plan_preview: Callable[[TaskPlan], MaybeAwaitable]
-    prompt_user: Callable[[str, str], MaybeAwaitable]
+    prompt_user: Callable[[str, str, str], MaybeAwaitable]
     send_robot_message: Callable[[str], MaybeAwaitable]
     emit_skill_summary: Callable[[TaskPlan, bool], MaybeAwaitable]
-    record_user_input: Callable[[str, str, str, str], MaybeAwaitable]
+    record_user_input: Callable[[str, str, str, str, str], MaybeAwaitable]
     log_planner_tokens: Callable[[dict[str, int]], MaybeAwaitable] | None = None
     after_replan_notice: Callable[[], MaybeAwaitable] | None = None
 
@@ -192,6 +192,7 @@ class TaskInteractionSession:
                     prompt_record_text=visible_prompt_text,
                     command_snapshot=current_command,
                     prefers_zh=prefers_zh,
+                    prompt_mode="clarification",
                 )
                 decision = interpret_clarification_feedback(
                     reply,
@@ -273,6 +274,7 @@ class TaskInteractionSession:
                 prompt_record_text="plan_revision_request",
                 command_snapshot=current_command,
                 prefers_zh=prefers_zh,
+                prompt_mode="revision",
             )
             decision = interpret_plan_feedback(
                 reply,
@@ -323,15 +325,19 @@ class TaskInteractionSession:
         prompt_record_text: str,
         command_snapshot: str,
         prefers_zh: bool,
+        prompt_mode: str = "plan_confirmation",
     ) -> str:
         while True:
-            reply = await _maybe_await(self.ports.prompt_user(prompt_text, command_snapshot))
+            reply = await _maybe_await(
+                self.ports.prompt_user(prompt_text, command_snapshot, prompt_mode)
+            )
             await _maybe_await(
                 self.ports.record_user_input(
                     reply,
                     "plan_feedback",
                     prompt_record_text,
                     command_snapshot,
+                    prompt_mode,
                 )
             )
             if is_debug_plan_request(reply):

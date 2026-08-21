@@ -208,13 +208,14 @@ def z_stack_range() -> Tuple[int, int]:
 
 def load_target_locations(filename: str) -> List[Tuple[float, float, float, float]]:
     """
-    Loads target locations from a file (example method, implementation depends on file format).
-    
+    Loads target locations from a file.
+
     Parameters:
         filename: File containing target position information
-    
+
     Returns:
         List of bounding boxes, each as (center_x, center_y, width, height)
+        center_x, center_y are absolute stage coordinates
     """
 
 def create_96_wells_positions() -> List[Tuple[float, float]] :

@@ -5,6 +5,8 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from openai import OpenAIError
+
 from bootstrap.microscope_semantics import (
     channel_display_name,
     channel_semantic_for_label,
@@ -117,6 +119,8 @@ class CheckResult:
     all_images_normal: bool
     revised_steps: List[Dict[str, Any]] = field(default_factory=list)
     has_no_target_error: bool = False
+    check_failed: bool = False
+    check_error: str = ""
 
 
 class TaskOrchestrator:
@@ -135,6 +139,7 @@ class TaskOrchestrator:
         stream_task_execution_summary: Callable[[Any, str, str, List[Dict[str, Any]], Callable[[str], None]], str],
     ) -> None:
         self.runtime_context = runtime_context
+        self._current_turn = 0
         self._summarize_spoken_messages = summarize_spoken_messages
         self._summarize_my_spoken_messages = summarize_my_spoken_messages
         self._summarize_step_completion = summarize_step_completion
@@ -181,6 +186,9 @@ class TaskOrchestrator:
         }
         if _has_transmitted_light_brightness_control(system_config):
             state["brightness"] = self.runtime_context.env_olympus.get_brightness()
+        xy = self.runtime_context.env_olympus.get_x_y_position()
+        state["xy_position"] = {"x": float(xy[0]), "y": float(xy[1])}
+        state["z_position"] = float(self.runtime_context.env_olympus.get_z_position())
         return state
 
     def _resolved_planner_context(self) -> str:
@@ -230,6 +238,31 @@ class TaskOrchestrator:
             plan.steps,
         )
     def plan(self, request: TaskRequest) -> TaskPlan:
+        """Generate a task plan, converting transient LLM connection failures into a retryable error plan."""
+        try:
+            return self._plan(request)
+        except OpenAIError as exc:
+            logger.warning("LLM request failed during planning; returning retryable error plan: %s", exc)
+            return TaskPlan(
+                task_id=str(uuid.uuid4()),
+                session_id=request.session_id,
+                user_command=request.user_command,
+                status="error",
+                question="",
+                selected_skills=[],
+                skill_reason="",
+                active_templates=[],
+                planner_raw_response="",
+                skill_routing_raw_response="",
+                steps=[],
+                display_text="",
+                ready=False,
+                tokens=None,
+                error=f"LLM request failed: {type(exc).__name__}: {exc}. Please check the LLM endpoint/model/account and retry.",
+                clarification_details={},
+            )
+
+    def _plan(self, request: TaskRequest) -> TaskPlan:
         microscope_state = self._capture_microscope_state()
         planner_result = None
         planner_query = request.user_command
@@ -429,6 +462,7 @@ class TaskOrchestrator:
                 error=plan.error or "Plan not ready.",
             )
 
+        self._current_turn += 1
         self.record_confirmed_plan_history(plan)
         runtime_agent = self.runtime_context.runtime['agent']
         runtime_task = self.runtime_context.runtime["task"]
@@ -449,6 +483,12 @@ class TaskOrchestrator:
                     on_step_summary=on_step_summary,
                 )
                 step_summaries.extend(report.summary for report in reports if report.summary)
+                task_manager = getattr(self.runtime_context, "task_manager", None)
+                if task_manager is not None and hasattr(task_manager, "remember_executed_steps"):
+                    task_manager.remember_executed_steps(
+                        self._current_turn,
+                        [asdict(report) for report in reports],
+                    )
             except Exception as exc:
                 logger.exception(
                     "Task step execution attempt failed. attempt=%s max_attempts=%s",
@@ -595,6 +635,25 @@ class TaskOrchestrator:
                 )
 
             check_result = self._check_results(current_steps, original_x_y)
+            if check_result.check_failed:
+                # The image quality could not be validated (e.g. VLM/parse/file errors).
+                # Surface it and fail the task rather than silently passing the acquisition.
+                checker_warnings.append(check_result.check_error)
+                if on_checker_warning is not None:
+                    on_checker_warning(check_result.check_error)
+                return TaskResult(
+                    task_id=plan.task_id,
+                    session_id=plan.session_id,
+                    user_command=plan.user_command,
+                    steps=current_steps,
+                    success=False,
+                    retry_times=retry_count,
+                    summary="Acquisition quality could not be validated; the task is not marked as successful.",
+                    step_summaries=step_summaries,
+                    checker_warnings=checker_warnings,
+                    checker_summary="\n".join(checker_warnings),
+                    error=check_result.check_error,
+                )
             if not check_result.checked or check_result.all_images_normal:
                 if check_result.checked and check_result.all_images_normal and on_checker_warning is not None:
                     checker_success = self._summarize_checker_success(
@@ -1109,6 +1168,30 @@ class TaskOrchestrator:
                 return CheckResult(checked=False, all_images_normal=True)
 
             checker.batch_check_from_json(meta_file_temp)
+            if checker.has_any_check_failed():
+                # Validation did not actually happen (VLM/parse/file errors). Never
+                # report this as a successful check: fail loudly instead of silently
+                # accepting the acquisition as "normal".
+                failed_entries = []
+                for result in checker.results:
+                    if not result.defects.check_failed:
+                        continue
+                    filename = (
+                        result.file_info.get("filename", "Unknown file")
+                        if result.file_info else "Unknown file"
+                    )
+                    failed_entries.append(
+                        f"{filename}: {result.defects.check_error or 'validation failed'}"
+                    )
+                check_error = "Quality validation failed for acquired image(s): " + "; ".join(failed_entries)
+                logger.warning(check_error)
+                return CheckResult(
+                    checked=True,
+                    all_images_normal=False,
+                    check_failed=True,
+                    check_error=check_error,
+                )
+
             has_no_target_error = checker.has_any_no_target()
             if has_no_target_error:
                 cache_filenames = list(meta_file_temp.keys())
@@ -1126,13 +1209,11 @@ class TaskOrchestrator:
             return CheckResult(
                 checked=True,
                 all_images_normal=all_images_normal,
-                revised_steps=unified_instruction or [],
+                revised_steps=unified_instruction if isinstance(unified_instruction, list) else [],
                 has_no_target_error=has_no_target_error,
             )
         finally:
             checker.clear_history_results()
-
-
 
 
 

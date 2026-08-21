@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .common import *
 
+from .common import *
 
 class MP285Tool(BaseTool):
     """Simulation implementation of the public MP-285 micromanipulator + pump API."""
@@ -9,18 +9,18 @@ class MP285Tool(BaseTool):
     _active_instance: "MP285Tool | None" = None
 
     planning_hint = (
-        "Use for direct MP-285A USB-VCP manipulator control on COM3. Positions are in microns "
-        "and the tool manages the underlying microstep conversion."
+    """Controls the micromanipulator system. To capture/grasp a target, the microscope stage first moves to align the target directly below the needle (at the field center); the needle then moves along the Z axis to the working height and the pump aspirates to complete the grasp; release is the reverse (dispense at the working height). After completing aspiration/dispensing at the working height, lift the robotic arm Z axis back to the safe height before the next stage movement. The safe height and working height are given by the task instruction. When the task does not specify an aspiration/dispensing volume, the tool defaults to 80 µL at 20 µL/s. Unless explicitly stated otherwise, all XY positioning is performed by moving the microscope stage, not the needle. The needle moves mainly along the Z axis (safe height / working height). At system startup, the needle is in its initial state: initial Z is 1400, and X/Y is at the field center."""
     )
+
     execution_hint = (
-        "Connect before motion, prefer absolute moves, and reconfigure soft limits if the origin is changed."
+    """Establish the connection before any motion. The needle moves mainly in Z (safe height / working height), and the pump performs aspiration/dispensing. When the task does not specify a volume, aspiration/dispensing defaults to 80 µL at 20 µL/s, and say() records that the default parameters were used."""
     )
 
     def __init__(self, storage_manager=None, output_dir: str = "./output") -> None:
         self.storage_manager = storage_manager
         self.output_dir = output_dir
         self._connected = False
-        self._position = {"x": 0, "y": 0, "z": 0}
+        self._position = {"x": 0, "y": 0, "z": 1400}
         self._velocity_ul_s = 0.0
         self._aspirated_ul = 0.0
         self._dispensed_ul = 0.0
@@ -36,20 +36,23 @@ class MP285Tool(BaseTool):
         """
         Connect to both the MP-285 micromanipulator and the pump using default serial settings.
 
-        Simulation: marks the tool as connected without any hardware.
         """
         self._connected = True
 
     @tool_func
     def get_micromanipulator_position(self) -> dict:
         """
-        Get current XYZ position of the micromanipulator.
+        Get the current absolute XYZ position of the micromanipulator needle (not the stage).
+
+        x, y, z are absolute needle coordinates (microns); X/Y are normally at 0
+        (field center), and Z is the needle operating height (microns), distinct from
+        the microscope focus Z.
 
         Returns:
-            Dictionary containing the current position in microns:
-            - 'x': X-axis position (microns)
-            - 'y': Y-axis position (microns)
-            - 'z': Z-axis position (microns)
+            Dictionary containing the current needle position in microns:
+            - 'x': Absolute X position (microns)
+            - 'y': Absolute Y position (microns)
+            - 'z': Z operating height (microns)
         """
         self._require_connected()
         return dict(self._position)
@@ -57,13 +60,16 @@ class MP285Tool(BaseTool):
     @tool_func
     def micromanipulator_move(self, x: int, y: int, z: int) -> None:
         """
-        Set the XYZ coordinate position of the microscope stage (absolute move, microns).
+        Set the XYZ coordinate position of the robotic arm.
 
-        Simulation: updates the in-memory position; no hardware motion.
+        Args:
+            x: Absolute X position of the needle (microns); normally 0
+            y: Absolute Y position of the needle (microns); normally 0
+            z: Robotic-arm Z axis, needle operating height (microns)
         """
         self._require_connected()
-        self._position = {"x": int(x), "y": int(y), "z": int(z)}
-        self._move_history.append((int(x), int(y), int(z)))
+        self._position = {"x": x, "y": y, "z": z}
+        self._move_history.append((x, y, z))
 
     @tool_func
     def pump_set_velocity(self, velocity: float) -> None:
@@ -97,14 +103,3 @@ class MP285Tool(BaseTool):
         """
         self._require_connected()
         self._dispensed_ul += float(volume)
-
-    @tool_func
-    def cell_detection(self) -> dict:
-        """
-        Detect and return the position of the target cell.
-
-        Returns:
-            Dictionary with 'x' and 'y' (microns). Simulation: returns the current XY position.
-        """
-        self._require_connected()
-        return {"x": self._position["x"], "y": self._position["y"]}
