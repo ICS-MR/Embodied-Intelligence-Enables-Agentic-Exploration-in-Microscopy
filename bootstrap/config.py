@@ -134,6 +134,69 @@ DEMO_TRANSMITTED_LIGHT: Dict[str, Any] = {
     "surrogate_scale": 100.0,
 }
 
+DEFAULT_DEMO_ENVIRONMENT: Dict[str, Any] = {
+    "sample_density": 100,
+    "sample_size": 2.0,
+    "bead_blur_rate": 0.5,
+    "exposure_reference_ms": 100.0,
+    "exposure_max_gain": 4.0,
+    "sensor_drop_pixels": False,
+    "sensor_saturate_pixels": False,
+    "sensor_defect_fraction": 0.002,
+    "sensor_defect_seed": 42,
+}
+
+DEMO_ENVIRONMENT_RANGES: Dict[str, Tuple[float, float]] = {
+    "sample_density": (10, 500),
+    "sample_size": (1.0, 10.0),
+    "bead_blur_rate": (0.1, 1.0),
+    "exposure_reference_ms": (1.0, 1000.0),
+    "exposure_max_gain": (1.0, 100.0),
+    "sensor_defect_fraction": (0.0, 0.1),
+}
+
+
+def _clamp_float(value: Any, lower: float, upper: float, default: float) -> float:
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return default
+    if num != num or num in (float("inf"), float("-inf")):
+        return default
+    return max(lower, min(upper, num))
+
+
+def _coerce_seed(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_demo_environment(mapping: Any) -> Dict[str, Any]:
+    """Fill defaults, coerce types and clamp ranges for the demo virtual environment."""
+    raw = dict(mapping or {})
+    defaults = DEFAULT_DEMO_ENVIRONMENT
+    ranges = DEMO_ENVIRONMENT_RANGES
+    return {
+        "sample_density": int(
+            round(_clamp_float(raw.get("sample_density"), *ranges["sample_density"], defaults["sample_density"]))
+        ),
+        "sample_size": _clamp_float(raw.get("sample_size"), *ranges["sample_size"], defaults["sample_size"]),
+        "bead_blur_rate": _clamp_float(raw.get("bead_blur_rate"), *ranges["bead_blur_rate"], defaults["bead_blur_rate"]),
+        "exposure_reference_ms": _clamp_float(
+            raw.get("exposure_reference_ms"), *ranges["exposure_reference_ms"], defaults["exposure_reference_ms"]
+        ),
+        "exposure_max_gain": _clamp_float(raw.get("exposure_max_gain"), *ranges["exposure_max_gain"], defaults["exposure_max_gain"]),
+        "sensor_drop_pixels": _coerce_bool(raw.get("sensor_drop_pixels"), defaults["sensor_drop_pixels"]),
+        "sensor_saturate_pixels": _coerce_bool(raw.get("sensor_saturate_pixels"), defaults["sensor_saturate_pixels"]),
+        "sensor_defect_fraction": _clamp_float(
+            raw.get("sensor_defect_fraction"), *ranges["sensor_defect_fraction"], defaults["sensor_defect_fraction"]
+        ),
+        "sensor_defect_seed": _coerce_seed(raw.get("sensor_defect_seed"), defaults["sensor_defect_seed"]),
+    }
+
+
 DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "2Dcell": {
         "target_class_id": 0,
@@ -201,6 +264,7 @@ class SystemConfig:
     objectives: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_OBJECTIVES)))
     channels: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_CHANNELS)))
     transmitted_light: Dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_TRANSMITTED_LIGHT))
+    demo_environment: Dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_DEMO_ENVIRONMENT))
     Max_X_position: float = 100000.0
     Min_X_position: float = 0.0
     Max_Y_position: float = 70000.0
@@ -214,7 +278,10 @@ class SystemConfig:
     PSF_40X: str = "PSF/40x.tif"
     PSF_60X: str = "PSF/60x.tif"
     PSF_100X: str = "PSF/100x.tif"
-    in_process_executor_timeout_seconds: float = 180.0
+    in_process_executor_timeout_seconds: float = 0.0  # 0 = no timeout (real hardware long acquisitions)
+    demo_executor_timeout_seconds: float = 600.0
+    acquisition_timeout_base_seconds: float = 0.0  # 0 = no acquisition deadline
+    acquisition_timeout_per_position_seconds: float = 0.0  # extra seconds per XY position
     fiji_executor_timeout_seconds: float = 300.0
 
 
@@ -275,9 +342,46 @@ def build_demo_startup_overrides() -> Dict[str, Any]:
     return {
         "objective": "40x",
         "channel": "brightfield",
-        "exposure": 10.0,
+        "exposure": 100.0,
         "brightness": 100,
         "z_position": 0.0,
+        "x_position": 50000.0,
+        "y_position": 50000.0,
+        "start_preview": True,
+    }
+
+
+def build_mock_system_overrides() -> Dict[str, Any]:
+    return {
+        "CONFIG_PATH": str(DEMO_CONFIG_PATH),
+        "camera_device": "DCam",
+        "xy_stage_device": "DXYStage",
+        "objective_device": "DObjective",
+        "focus_drive": "DStage",
+        "Dichroic": "DStateDevice",
+        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "channels": json.loads(json.dumps(DEMO_CHANNELS)),
+        "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
+        "Min_X_position": -500000.0,
+        "Max_X_position": 500000.0,
+        "Min_Y_position": -500000.0,
+        "Max_Y_position": 500000.0,
+        "Min_Z_position": 0.0,
+        "Max_Z_position": 10000.0,
+        "Min_brightness": 0,
+        "Max_brightness": 250,
+        "Min_exposure": 0,
+        "Max_exposure": 1000,
+    }
+
+
+def build_mock_startup_overrides() -> Dict[str, Any]:
+    return {
+        "objective": "40x",
+        "channel": "brightfield",
+        "exposure": 10.0,
+        "brightness": 100,
+        "z_position": 4323.0,
         "x_position": 50000.0,
         "y_position": 50000.0,
         "start_preview": True,
@@ -350,8 +454,10 @@ def _update_dataclass(instance: Any, updates: Mapping[str, Any]) -> None:
             merged = dict(current)
             merged.update(dict(value))
             setattr(instance, key, merged)
+        elif key == "demo_environment" and isinstance(value, Mapping):
+            setattr(instance, key, normalize_demo_environment(value))
         elif key == "microscope_mode":
-            setattr(instance, key, _coerce_mode(value, allowed=("demo", "real"), default=current))
+            setattr(instance, key, _coerce_mode(value, allowed=("demo", "real", "mock"), default=current))
         elif key in {"image_analysis_mode", "segmentation_mode"}:
             setattr(instance, key, _coerce_mode(value, allowed=("real", "mock"), default=current))
         else:
@@ -393,6 +499,15 @@ def _apply_demo_system_overrides(system_config: SystemConfig) -> None:
 
 def _apply_demo_startup_overrides(startup_config: StartupConfig) -> None:
     _update_dataclass(startup_config, build_demo_startup_overrides())
+
+
+def _apply_mock_system_overrides(system_config: SystemConfig) -> None:
+    _update_dataclass(system_config, build_mock_system_overrides())
+    _normalize_system_semantics(system_config)
+
+
+def _apply_mock_startup_overrides(startup_config: StartupConfig) -> None:
+    _update_dataclass(startup_config, build_mock_startup_overrides())
 
 
 def _objectives_from_legacy_labels(objective_labels: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -515,6 +630,10 @@ def is_demo_mode_settings(settings: RuntimeSettings) -> bool:
     return str(getattr(settings.model, "microscope_mode", "demo")).strip().lower() == "demo"
 
 
+def is_mock_mode_settings(settings: RuntimeSettings) -> bool:
+    return str(getattr(settings.model, "microscope_mode", "demo")).strip().lower() == "mock"
+
+
 def is_demo_mode_snapshot(snapshot: Mapping[str, Any]) -> bool:
     agent_cfg = snapshot.get("agent", {}) if isinstance(snapshot, Mapping) else {}
     return str(agent_cfg.get("microscope_mode", "demo")).strip().lower() == "demo"
@@ -626,6 +745,9 @@ def load_runtime_settings(
     if apply_demo_overlay and is_demo_mode_settings(settings):
         _apply_demo_system_overrides(settings.system)
         _apply_demo_startup_overrides(settings.startup)
+    elif apply_demo_overlay and is_mock_mode_settings(settings):
+        _apply_mock_system_overrides(settings.system)
+        _apply_mock_startup_overrides(settings.startup)
     return settings
 
 
@@ -753,6 +875,9 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "FIJI_PATH": settings.system.FIJI_PATH,
             "MAVEN_BIN": settings.system.MAVEN_BIN,
             "in_process_executor_timeout_seconds": settings.system.in_process_executor_timeout_seconds,
+            "demo_executor_timeout_seconds": settings.system.demo_executor_timeout_seconds,
+            "acquisition_timeout_base_seconds": settings.system.acquisition_timeout_base_seconds,
+            "acquisition_timeout_per_position_seconds": settings.system.acquisition_timeout_per_position_seconds,
             "fiji_executor_timeout_seconds": settings.system.fiji_executor_timeout_seconds,
             "camera_device": settings.system.camera_device,
             "xy_stage_device": settings.system.xy_stage_device,
@@ -762,6 +887,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "objectives": settings.system.objectives,
             "channels": settings.system.channels,
             "transmitted_light": settings.system.transmitted_light,
+            "demo_environment": settings.system.demo_environment,
             "Max_X_position": settings.system.Max_X_position,
             "Min_X_position": settings.system.Min_X_position,
             "Max_Y_position": settings.system.Max_Y_position,

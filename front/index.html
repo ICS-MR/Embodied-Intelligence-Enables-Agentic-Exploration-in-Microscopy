@@ -845,6 +845,57 @@
             white-space: nowrap;
         }
 
+        .decision-bar {
+            padding: 12px 20px;
+            background: #f7f8fc;
+            border-top: 1px solid #eeeeee;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .decision-bar[hidden] {
+            display: none;
+        }
+
+        .decision-bar-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .decision-bar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .decision-bar-actions button {
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(18, 24, 40, 0.14);
+            background: #ffffff;
+            color: var(--text-primary);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .decision-bar-actions button.primary {
+            background: var(--gradient-main);
+            color: var(--text-white);
+            border: none;
+        }
+
+        .decision-bar-actions button.danger {
+            color: #c0392b;
+            border-color: rgba(192, 57, 43, 0.4);
+        }
+
+        .decision-bar-actions button:focus-visible {
+            outline: 2px solid rgba(102, 126, 234, 0.7);
+            outline-offset: 2px;
+        }
+
         .message {
             display: flex;
             flex-direction: column;
@@ -1448,16 +1499,16 @@
                             <h4>Motion, Brightness & Exposure Limits</h4>
                             <p class="group-description">Constrain the values that runtime tools are allowed to request.</p>
                             <div class="field-grid">
-                                <div class="field"><label for="minXPosition">Min X Position</label><input id="minXPosition" type="number" step="any"></div>
-                                <div class="field"><label for="maxXPosition">Max X Position</label><input id="maxXPosition" type="number" step="any"></div>
-                                <div class="field"><label for="minYPosition">Min Y Position</label><input id="minYPosition" type="number" step="any"></div>
-                                <div class="field"><label for="maxYPosition">Max Y Position</label><input id="maxYPosition" type="number" step="any"></div>
-                                <div class="field"><label for="minZPosition">Min Z Position</label><input id="minZPosition" type="number" step="any"></div>
-                                <div class="field"><label for="maxZPosition">Max Z Position</label><input id="maxZPosition" type="number" step="any"></div>
-                                <div class="field"><label for="minBrightness">Min Brightness</label><input id="minBrightness" type="number" step="1"></div>
-                                <div class="field"><label for="maxBrightness">Max Brightness</label><input id="maxBrightness" type="number" step="1"></div>
-                                <div class="field"><label for="minExposure">Min Exposure</label><input id="minExposure" type="number" step="1"></div>
-                                <div class="field"><label for="maxExposure">Max Exposure</label><input id="maxExposure" type="number" step="1"></div>
+                                <div class="field"><label for="minXPosition">Min X Position (µm)</label><input id="minXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxXPosition">Max X Position (µm)</label><input id="maxXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minYPosition">Min Y Position (µm)</label><input id="minYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxYPosition">Max Y Position (µm)</label><input id="maxYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minZPosition">Min Z Position (µm)</label><input id="minZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="maxZPosition">Max Z Position (µm)</label><input id="maxZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="minBrightness">Min Brightness (0–250)</label><input id="minBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="maxBrightness">Max Brightness (0–250)</label><input id="maxBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="minExposure">Min Exposure (ms)</label><input id="minExposure" type="number" step="1"></div>
+                                <div class="field"><label for="maxExposure">Max Exposure (ms)</label><input id="maxExposure" type="number" step="1"></div>
                             </div>
                         </div>
 
@@ -1467,15 +1518,37 @@
                             <div class="field-grid">
                                 <div class="field"><label for="startupObjective">Startup Objective</label><select id="startupObjective"></select></div>
                                 <div class="field"><label for="startupChannel">Startup Channel</label><select id="startupChannel"></select></div>
-                                <div class="field"><label for="startupXPosition">Startup X Position</label><input id="startupXPosition" type="number" step="any"></div>
-                                <div class="field"><label for="startupYPosition">Startup Y Position</label><input id="startupYPosition" type="number" step="any"></div>
-                                <div class="field"><label for="startupZPosition">Startup Z Position</label><input id="startupZPosition" type="number" step="any"></div>
-                                <div class="field"><label for="startupBrightness">Startup Brightness</label><input id="startupBrightness" type="number" step="1"></div>
-                                <div class="field"><label for="startupExposure">Startup Exposure</label><input id="startupExposure" type="number" step="any"></div>
+                                <div class="field"><label for="startupXPosition">Startup X Position (µm)</label><input id="startupXPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupYPosition">Startup Y Position (µm)</label><input id="startupYPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupZPosition">Startup Z Position (µm)</label><input id="startupZPosition" type="number" step="any"></div>
+                                <div class="field"><label for="startupBrightness">Startup Brightness (0–250)</label><input id="startupBrightness" type="number" step="1"></div>
+                                <div class="field"><label for="startupExposure">Startup Exposure (ms)</label><input id="startupExposure" type="number" step="any"></div>
                                 <div class="field"><label for="startupStartPreview">Startup Preview</label><select id="startupStartPreview">
                                         <option value="true">Start preview after initialization</option>
                                         <option value="false">Do not start preview automatically</option>
                                     </select></div>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Demo Virtual Environment</h4>
+                            <p class="group-description">Only applies in demo mode. Defines the virtual sample and camera model; applied when the environment starts.</p>
+                            <div class="field-grid">
+                                <div class="field"><label for="demoSampleDensity">Sample Density (beads)</label><input id="demoSampleDensity" type="number" step="1"></div>
+                                <div class="field"><label for="demoSampleSize">Target Size (px)</label><input id="demoSampleSize" type="number" step="0.1"></div>
+                                <div class="field"><label for="demoBeadBlurRate">Defocus Coefficient</label><input id="demoBeadBlurRate" type="number" step="0.05"></div>
+                                <div class="field"><label for="demoExposureReference">Exposure Reference (ms)</label><input id="demoExposureReference" type="number" step="1"></div>
+                                <div class="field"><label for="demoExposureMaxGain">Exposure Max Gain</label><input id="demoExposureMaxGain" type="number" step="0.1"></div>
+                                <div class="field"><label for="demoSensorDropPixels">Dead Pixel Defects</label><select id="demoSensorDropPixels">
+                                        <option value="false">Off</option>
+                                        <option value="true">On</option>
+                                    </select></div>
+                                <div class="field"><label for="demoSensorSaturatePixels">Saturated Pixel Defects</label><select id="demoSensorSaturatePixels">
+                                        <option value="false">Off</option>
+                                        <option value="true">On</option>
+                                    </select></div>
+                                <div class="field"><label for="demoSensorDefectFraction">Defect Fraction</label><input id="demoSensorDefectFraction" type="number" step="0.001"></div>
+                                <div class="field"><label for="demoSensorDefectSeed">Defect Seed</label><input id="demoSensorDefectSeed" type="number" step="1"></div>
                             </div>
                         </div>
                     </div>
@@ -1538,6 +1611,10 @@
                         </div>
                     </div>
                     <div class="chat-messages" id="chatMessages"></div>
+                    <div class="decision-bar" id="decisionBar" hidden>
+                        <div class="decision-bar-text" id="decisionBarText">Awaiting your decision.</div>
+                        <div class="decision-bar-actions" id="decisionBarActions"></div>
+                    </div>
                     <div class="chat-input">
                         <input type="text" id="userInput" placeholder="Enter experiment command..." autocomplete="off"
                             autocapitalize="off" spellcheck="false" disabled>
@@ -1555,6 +1632,7 @@
             eventSource: null,
             isTaskRunning: false,
             isWaitingForUserInput: false,
+            awaitMode: "general",
             messageQueue: [],
             isProcessingQueue: false,
             streamStarted: false,
@@ -1747,6 +1825,7 @@
             $("dichroicDevice").value = system.Dichroic || "";
             fillSemanticMappingFields(system);
             fillLimitFields(system);
+            fillDemoEnvironmentFields(system.demo_environment);
             fillStartupFields(startup, currentSemanticMapping(system));
             $("microscopeMode").value = agent.microscope_mode || "demo";
             applyRuntimeTransmittedLightInfo(data.transmitted_light_runtime || {});
@@ -1847,6 +1926,33 @@
                 Max_brightness: readNumberValue("maxBrightness"),
                 Min_exposure: readNumberValue("minExposure"),
                 Max_exposure: readNumberValue("maxExposure"),
+            };
+        }
+
+        function fillDemoEnvironmentFields(env) {
+            const e = env || {};
+            setNumberValue("demoSampleDensity", e.sample_density);
+            setNumberValue("demoSampleSize", e.sample_size);
+            setNumberValue("demoBeadBlurRate", e.bead_blur_rate);
+            setNumberValue("demoExposureReference", e.exposure_reference_ms);
+            setNumberValue("demoExposureMaxGain", e.exposure_max_gain);
+            $("demoSensorDropPixels").value = String(!!e.sensor_drop_pixels);
+            $("demoSensorSaturatePixels").value = String(!!e.sensor_saturate_pixels);
+            setNumberValue("demoSensorDefectFraction", e.sensor_defect_fraction);
+            setNumberValue("demoSensorDefectSeed", e.sensor_defect_seed);
+        }
+
+        function collectDemoEnvironmentPayload() {
+            return {
+                sample_density: readNumberValue("demoSampleDensity"),
+                sample_size: readNumberValue("demoSampleSize"),
+                bead_blur_rate: readNumberValue("demoBeadBlurRate"),
+                exposure_reference_ms: readNumberValue("demoExposureReference"),
+                exposure_max_gain: readNumberValue("demoExposureMaxGain"),
+                sensor_drop_pixels: $("demoSensorDropPixels").value === "true",
+                sensor_saturate_pixels: $("demoSensorSaturatePixels").value === "true",
+                sensor_defect_fraction: readNumberValue("demoSensorDefectFraction"),
+                sensor_defect_seed: readNumberValue("demoSensorDefectSeed"),
             };
         }
 
@@ -2061,6 +2167,20 @@
                     "transmittedLightProperty",
                 ],
                 demoModeEnabled
+            );
+            setElementsDisabled(
+                [
+                    "demoSampleDensity",
+                    "demoSampleSize",
+                    "demoBeadBlurRate",
+                    "demoExposureReference",
+                    "demoExposureMaxGain",
+                    "demoSensorDropPixels",
+                    "demoSensorSaturatePixels",
+                    "demoSensorDefectFraction",
+                    "demoSensorDefectSeed",
+                ],
+                !demoModeEnabled
             );
             for (const elementId of allMappingDraftInputIds()) {
                 const picker = document.getElementById(`${elementId}Candidates`);
@@ -2942,6 +3062,7 @@
                 objectives: semanticMapping.objectives,
                 channels: semanticMapping.channels,
                 transmitted_light: semanticMapping.transmitted_light,
+                demo_environment: collectDemoEnvironmentPayload(),
                 startup_objective: $("startupObjective").value,
                 startup_channel: $("startupChannel").value,
                 startup_exposure: readNumberValue("startupExposure"),
@@ -3205,6 +3326,7 @@
         }
 
         function enableInput() {
+            hideDecisionBar();
             $("userInput").disabled = false;
             $("sendBtn").disabled = false;
             $("sendBtn").textContent = "Send";
@@ -3214,19 +3336,78 @@
             $("videoModeBadge").textContent = "Runtime Online";
         }
 
+        function showDecisionBar(mode) {
+            const bar = $("decisionBar");
+            const actions = $("decisionBarActions");
+            actions.innerHTML = "";
+            const addButton = (label, value, kind) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = label;
+                btn.dataset.value = value;
+                if (kind) btn.classList.add(kind);
+                actions.appendChild(btn);
+            };
+            if (mode === "plan_confirmation") {
+                $("decisionBarText").textContent = "Choose an action, or type a revision below. Press Enter with an empty input to confirm.";
+                addButton("Confirm", "confirm", "primary");
+                addButton("Edit", "edit");
+                addButton("Debug", "debug_plan");
+                addButton("Cancel", "cancel", "danger");
+            } else if (mode === "clarification") {
+                $("decisionBarText").textContent = "The planner needs one more detail. Answer in the input below, or cancel.";
+                addButton("Cancel", "cancel", "danger");
+            } else if (mode === "revision") {
+                $("decisionBarText").textContent = "The planner could not build a plan yet. Type your revision below, or cancel.";
+                addButton("Cancel", "cancel", "danger");
+            } else {
+                if (mode !== "general") {
+                    console.warn("unknown ask_user mode:", mode);
+                }
+                $("decisionBarText").textContent = "Awaiting your input below.";
+                addButton("Cancel", "cancel", "danger");
+            }
+            bar.hidden = false;
+        }
+
+        function hideDecisionBar() {
+            const bar = $("decisionBar");
+            if (bar) bar.hidden = true;
+        }
+
+        async function submitUserText(text) {
+            const normalized = String(text || "").trim();
+            if (!normalized) return;
+            const input = $("userInput");
+            input.value = "";
+            hideDecisionBar();
+            addUserMessage(normalized);
+            uiState.isWaitingForUserInput = false;
+            disableInput();
+            await sendUserInputToBackend(normalized);
+        }
+
         function setAwaitingUserInput(mode = "general") {
+            uiState.awaitMode = mode;
             setLifecycleControlsDisabled(true);
             $("userInput").disabled = false;
             $("sendBtn").disabled = false;
             $("sendBtn").textContent = "Reply";
+            showDecisionBar(mode);
             if (mode === "plan_confirmation") {
-                $("userInput").placeholder = "Reply \"continue/confirm\" or \"cancel\"";
+                $("userInput").placeholder = "Type a revision, or press Enter to confirm";
                 $("consoleStatus").textContent = "Awaiting Confirmation/Edits";
                 $("runtimeSubtitle").textContent = "Awaiting confirmation or edits";
                 $("videoModeBadge").textContent = "Pending Confirmation";
                 return;
             }
-            $("userInput").placeholder = "Enter additional info...";
+            if (mode === "clarification") {
+                $("userInput").placeholder = "Answer the question and press Enter";
+            } else if (mode === "revision") {
+                $("userInput").placeholder = "Type your revision and press Enter";
+            } else {
+                $("userInput").placeholder = "Enter additional info...";
+            }
             $("consoleStatus").textContent = "Awaiting Confirmation/Edits";
             $("runtimeSubtitle").textContent = "Awaiting user input";
             $("videoModeBadge").textContent = "Awaiting Input";
@@ -3429,17 +3610,23 @@
         // User interaction wiring
         async function handleUserCommand() {
             const input = $("userInput");
-            const text = input.value.trim();
-            if (!text) return;
+            let text = input.value.trim();
 
             if (uiState.isWaitingForUserInput) {
+                if (!text && uiState.awaitMode === "plan_confirmation") {
+                    text = "confirm";
+                }
+                if (!text) return;
                 input.value = "";
+                hideDecisionBar();
                 addUserMessage(text);
                 uiState.isWaitingForUserInput = false;
                 disableInput();
                 await sendUserInputToBackend(text);
                 return;
             }
+
+            if (!text) return;
 
             if (!uiState.isTaskRunning) {
                 input.value = "";
@@ -3567,6 +3754,18 @@
 
         function bindChatEvents() {
             $("sendBtn").addEventListener("click", handleUserCommand);
+            $("decisionBarActions").addEventListener("click", (event) => {
+                const btn = event.target.closest("button[data-value]");
+                if (!btn || !uiState.isWaitingForUserInput) return;
+                const value = btn.dataset.value;
+                if (value === "edit") {
+                    const input = $("userInput");
+                    input.focus();
+                    input.placeholder = "Type your revision and press Enter";
+                    return;
+                }
+                submitUserText(value);
+            });
             $("userInput").addEventListener("keydown", (event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
                     event.preventDefault();

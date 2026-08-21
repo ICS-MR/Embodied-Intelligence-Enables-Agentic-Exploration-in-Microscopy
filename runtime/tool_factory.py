@@ -16,6 +16,7 @@ from adapters.tool_registry import ToolRegistry
 from agent.experiment_executor import ExperimentExecuteAgent
 from core_tool.tool_utils import SayCapture
 from runtime.agent_factory import build_microscope_executor_cfg, build_system_executor_cfg, build_user_executor_cfg
+from runtime.executor_timeout import resolve_in_process_executor_timeout_seconds
 from storage.managers import HistoryManager, StorageManager
 from tool.base import BaseTool, _slugify_tool_name
 from tooling.doc_paths import DEFAULT_USER_TOOL_DOCS_DIR
@@ -279,11 +280,18 @@ def _build_executor_execution_context(
     storage_manager: StorageManager,
     say_capture: SayCapture,
 ) -> Dict[str, Any]:
-    in_process_timeout = float(
-        getattr(system_config, "in_process_executor_timeout_seconds", 180.0) or 180.0
+    real_timeout = float(
+        getattr(system_config, "in_process_executor_timeout_seconds", 0.0) or 0.0
     )
+    virtual_timeout = float(getattr(system_config, "demo_executor_timeout_seconds", 600.0) or 600.0)
     if role != "image_analysis" or role_mode != "real":
-        return {"timeout_seconds": in_process_timeout}
+        return {
+            "timeout_seconds": resolve_in_process_executor_timeout_seconds(
+                role_mode=role_mode,
+                in_process_timeout_seconds=real_timeout,
+                virtual_timeout_seconds=virtual_timeout,
+            )
+        }
     return {
         "use_fiji_subprocess": True,
         "session_dir": session_dir,
@@ -418,7 +426,11 @@ def _normalize_mode(value: Any, *, allowed: tuple[str, ...], default: str) -> st
 
 def _role_mode_map(agent_config: Any) -> dict[str, str]:
     return {
-        "microscope": _normalize_mode(getattr(agent_config, "microscope_mode", "demo"), allowed=("demo", "real"), default="demo"),
+        "microscope": _normalize_mode(
+            getattr(agent_config, "microscope_mode", "demo"),
+            allowed=("demo", "real", "mock"),
+            default="demo",
+        ),
         "image_analysis": _normalize_mode(
             getattr(agent_config, "image_analysis_mode", "mock"),
             allowed=("real", "mock"),
@@ -434,6 +446,8 @@ def _role_mode_map(agent_config: Any) -> dict[str, str]:
 
 def _resolve_system_tool_class_path(spec: Any, *, role: str, role_mode: str) -> str:
     if role == "microscope":
+        if role_mode == "mock" and spec.mock_class_path:
+            return spec.mock_class_path
         return spec.real_class_path
     if role_mode == "real":
         return spec.real_class_path

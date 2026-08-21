@@ -229,8 +229,8 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
     startup_current = snapshot["startup"]
     microscope_mode = str(req.microscope_mode or "demo").strip().lower()
     preserve_persisted_hardware_fields = (
-        microscope_mode != "demo"
-        and is_demo_mapping_payload(
+        microscope_mode in ("demo", "mock")
+        or is_demo_mapping_payload(
             config_path=req.config_path,
             camera_device=req.camera_device,
             xy_stage_device=req.xy_stage_device,
@@ -292,6 +292,8 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         system_updates["channels"] = req.channels
     if req.transmitted_light and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
         system_updates["transmitted_light"] = req.transmitted_light
+    if req.demo_environment:
+        system_updates["demo_environment"] = req.demo_environment
     model_updates = {
         "microscope_mode": microscope_mode,
         "image_analysis_mode": req.image_analysis_mode,

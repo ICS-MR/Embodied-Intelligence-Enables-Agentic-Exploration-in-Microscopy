@@ -98,12 +98,13 @@ class ConfigSaveRequest(BaseModel):
     vlm_model_name: str = ""
     clarify_enabled: bool = False
     checker_enabled: bool = True
-    microscope_mode: Literal["demo", "real"] = "demo"
+    microscope_mode: Literal["demo", "real", "mock"] = "demo"
     image_analysis_mode: Literal["real", "mock"] = "mock"
     segmentation_mode: Literal["real", "mock"] = "mock"
     objectives: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     channels: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     transmitted_light: Dict[str, Any] = Field(default_factory=dict)
+    demo_environment: Dict[str, Any] = Field(default_factory=dict)
     startup_objective: str = ""
     startup_channel: str = ""
     startup_exposure: float | None = None
@@ -137,7 +138,7 @@ class VLMConnectionTestResponse(BaseModel):
 
 
 class AgentConfigView(BaseModel):
-    microscope_mode: Literal["demo", "real"] = "demo"
+    microscope_mode: Literal["demo", "real", "mock"] = "demo"
     image_analysis_mode: Literal["real", "mock"] = "mock"
     segmentation_mode: Literal["real", "mock"] = "mock"
     clarify_enabled: bool = False
@@ -245,7 +246,7 @@ class PreviewStatusResponse(BaseModel):
     thread_alive: bool = False
     has_frame: bool = False
     fallback_active: bool = False
-    microscope_mode: Literal["demo", "real"] = "demo"
+    microscope_mode: Literal["demo", "real", "mock"] = "demo"
     image_analysis_mode: Literal["real", "mock"] = "mock"
     segmentation_mode: Literal["real", "mock"] = "mock"
     mode_summary: str = ""

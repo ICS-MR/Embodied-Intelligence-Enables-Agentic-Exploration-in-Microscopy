@@ -33,14 +33,13 @@ try:
 except Exception:
     torch = None
 
-from bootstrap.config import is_demo_mapping_payload, load_runtime_settings
+from bootstrap.config import is_demo_mapping_payload, load_runtime_settings, normalize_demo_environment
+from core_tool.demo_environment import apply_demo_defects, apply_demo_exposure_gain, build_demo_defect_mask
 from bootstrap.microscope_semantics import channel_semantic_for_label
 logger = logging.getLogger(__name__)
 
 AUTOFOCUS_TIMEOUT_SEC = 60.0
 AUTOBRIGHTNESS_TIMEOUT_SEC = 20.0
-ACQUISITION_TIMEOUT_BASE_SEC = 120.0
-ACQUISITION_TIMEOUT_PER_POSITION_SEC = 30.0
 TRANSMITTED_LIGHT_PROPERTY_TOKENS = ("brightness", "intensity", "power", "level", "percent")
 
 
@@ -396,6 +395,7 @@ class MicroscopeController(BaseTool):
         self.microscope_mode = str(
             getattr(getattr(load_runtime_settings(), "model", object()), "microscope_mode", "real")
         ).strip().lower()
+        self.demo_environment = normalize_demo_environment(getattr(system_config, "demo_environment", {}))
 
         # Axis ranges
         self.Max_X_position = getattr(system_config, "Max_X_position", 100000.0)
@@ -408,6 +408,12 @@ class MicroscopeController(BaseTool):
         self.Min_brightness = int(transmitted_light.get("min", getattr(system_config, "Min_brightness", 0)))
         self.Max_exposure = getattr(system_config, "Max_exposure", 1000)
         self.Min_exposure = getattr(system_config, "Min_exposure", 0)
+        self.acquisition_timeout_base_seconds = float(
+            getattr(system_config, "acquisition_timeout_base_seconds", 0.0) or 0.0
+        )
+        self.acquisition_timeout_per_position_seconds = float(
+            getattr(system_config, "acquisition_timeout_per_position_seconds", 0.0) or 0.0
+        )
 
         # Current state
         self.current_channel = ''
@@ -466,6 +472,8 @@ class MicroscopeController(BaseTool):
             40: 0.36,
             60: 0.28,
         }
+        self._demo_defect_mask: Optional[Dict[str, np.ndarray]] = None
+        self._demo_defect_mask_shape: Optional[Tuple[int, int]] = None
 
     def set_task_progress_listener(
         self,
@@ -1058,6 +1066,8 @@ class MicroscopeController(BaseTool):
         if self.shutdown_event.is_set():
             raise RuntimeError("microscope initialization cancelled")
 
+        self._apply_demo_environment()
+
         self.current_X_position, self.current_Y_position = self.get_x_y_position()
         self.current_Z_position = self.get_z_position()
         self.current_channel = self.get_channel()
@@ -1200,6 +1210,45 @@ class MicroscopeController(BaseTool):
         brightfield_entry = self.channels.get("brightfield", {})
         return str(brightfield_entry.get("label") or "").strip()
 
+    def _apply_demo_environment(self) -> None:
+        """Write the configured demo virtual-environment world settings to the
+        DemoCamera device. Environment-level setup only; not an agent tool."""
+        if self.microscope_mode != "demo":
+            return
+        env = self.demo_environment
+        properties = {
+            "Mode": "Fluorescent Beads",
+            "BeadDensity": int(env.get("sample_density", 100)),
+            "BeadSize": float(env.get("sample_size", 2.0)),
+            "BeadBlurRate": float(env.get("bead_blur_rate", 0.5)),
+        }
+        for prop, value in properties.items():
+            try:
+                self.core.setProperty(self.camera_device, prop, value)
+                self.core.waitForDevice(self.camera_device)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to apply demo environment %s.%s=%s: %s",
+                    self.camera_device,
+                    prop,
+                    value,
+                    exc,
+                )
+
+    def _demo_defect_mask_for(self, shape: Tuple[int, int]) -> Optional[Dict[str, np.ndarray]]:
+        key = tuple(shape)
+        if self._demo_defect_mask is None or self._demo_defect_mask_shape != key:
+            env = self.demo_environment
+            self._demo_defect_mask = build_demo_defect_mask(
+                key,
+                fraction=env.get("sensor_defect_fraction", 0.002),
+                drop=bool(env.get("sensor_drop_pixels", False)),
+                saturate=bool(env.get("sensor_saturate_pixels", False)),
+                seed=int(env.get("sensor_defect_seed", 42)),
+            )
+            self._demo_defect_mask_shape = key
+        return self._demo_defect_mask
+
     def _uses_demo_image_postprocessing(self) -> bool:
         return (
             self.microscope_mode == "demo"
@@ -1296,6 +1345,14 @@ class MicroscopeController(BaseTool):
             image_array,
             objective_label or self.current_objective or self.get_objective(),
         )
+        exposure_ms = self.current_exposure_time if self.current_exposure_time > 0 else self.get_exposure()
+        transformed = apply_demo_exposure_gain(
+            transformed,
+            exposure_ms=exposure_ms,
+            reference_ms=self.demo_environment.get("exposure_reference_ms", 100.0),
+            max_gain=self.demo_environment.get("exposure_max_gain", 4.0),
+        )
+        transformed = apply_demo_defects(transformed, self._demo_defect_mask_for(transformed.shape))
         transformed = self._apply_demo_channel_transform(
             transformed,
             channel_label or self.current_channel or self.get_channel(),
@@ -2024,10 +2081,16 @@ class MicroscopeController(BaseTool):
             )
             completed_timepoints = 0
             total_positions = max(len(position_data) * max(time_num_frames, 1), 1)
-            acquisition_deadline = time.monotonic() + max(
-                ACQUISITION_TIMEOUT_BASE_SEC,
-                float(len(position_data)) * ACQUISITION_TIMEOUT_PER_POSITION_SEC,
-            )
+            acquisition_timeout_base = float(self.acquisition_timeout_base_seconds)
+            acquisition_timeout_per_position = float(self.acquisition_timeout_per_position_seconds)
+            acquisition_deadline: Optional[float]
+            if acquisition_timeout_base > 0 or acquisition_timeout_per_position > 0:
+                acquisition_deadline = time.monotonic() + max(
+                    acquisition_timeout_base,
+                    float(len(position_data)) * acquisition_timeout_per_position,
+                )
+            else:
+                acquisition_deadline = None
             self._emit_task_progress(
                 task_kind="acquisition",
                 status="started",
@@ -2045,12 +2108,13 @@ class MicroscopeController(BaseTool):
                         break
                     start_time = time.time()
                     for pos_index, pos_item in enumerate(position_data, start=1):
-                        self._raise_if_long_task_timed_out(
-                            deadline=acquisition_deadline,
-                            task_kind="acquisition",
-                            stage_label="position capture",
-                            detail=f"position={pos_item['name']} frame={t_idx + 1}",
-                        )
+                        if acquisition_deadline is not None:
+                            self._raise_if_long_task_timed_out(
+                                deadline=acquisition_deadline,
+                                task_kind="acquisition",
+                                stage_label="position capture",
+                                detail=f"position={pos_item['name']} frame={t_idx + 1}",
+                            )
                         progress_index = (t_idx * len(position_data)) + pos_index
                         self._emit_task_progress(
                             task_kind="acquisition",
