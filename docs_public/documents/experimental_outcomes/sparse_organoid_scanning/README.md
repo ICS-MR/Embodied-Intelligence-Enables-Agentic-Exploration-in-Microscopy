@@ -1,6 +1,6 @@
 # Sparse organoid scanning
 
-Fig. 7f evidence: organoid collection workflow display dialogue.
+Fig. 7f: organoid collection workflow display dialogue.
 
 ## Contents
 
