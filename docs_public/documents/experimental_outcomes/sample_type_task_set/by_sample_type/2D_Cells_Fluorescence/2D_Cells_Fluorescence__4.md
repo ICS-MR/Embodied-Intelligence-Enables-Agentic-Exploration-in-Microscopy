@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Observation target: fluorescent section; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.
+Observation target: 2D cells; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.
 ```
 
 ## 2. Biosample
 
-fluorescent section
+2D cells
 
 ## 3. Method
 
@@ -48,7 +48,7 @@ Overall assessment: Success
 
 ```text
 ## task
-Observation target: fluorescent section; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.
+Observation target: 2D cells; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.
 
 ## planner_summary
 clarify round 1:

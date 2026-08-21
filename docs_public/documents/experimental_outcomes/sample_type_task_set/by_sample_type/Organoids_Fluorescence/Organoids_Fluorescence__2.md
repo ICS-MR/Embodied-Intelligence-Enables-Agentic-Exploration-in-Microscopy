@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: Organoids; use a low-magnification objective to locate the distribution of organoids within the field of view, then use a high-magnification objective to sequentially acquire brightfield and green fluorescence data. The operation should continue for 24 hours, with imaging performed every 30 minutes.
+Imaging target: Organoids; under blue fluorescence, capture images of organoids in 24-well plates every 1 hour using a high-magnification 20× objective for 24 hours continuously
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Organoids
 
 ## 3. Expected Results
 
-It is expected to complete low‑magnification full‑field distribution mapping of organoid samples, and to switch to a high‑magnification objective in selected regions for continuous time‑series acquisition. The high‑magnification acquisition phase should be carried out once every 30 minutes for 24 hours, sequentially acquiring brightfield and green fluorescence data, and, in light of the 3D characteristics of the organoids, either configure or reasonably incorporate Z‑stack acquisition.
+It is expected to achieve full-well imaging coordinate configuration for organoids in a 24-well plate, and perform Z-stack acquisition of organoids at the target well positions under a 20× high-magnification objective and blue fluorescence channel. The time series should run continuously once every hour for 24 hours, generating blue fluorescence organoid image data at 24 time points.
 
 ## 4. Execution Results
 
-Execution result: The process first uses 4x brightfield auto-brightness adjustment and focusing, then captures an overview of the current field of view and detects organoid positions. It then switches to 40x, loads the detected positions, configures brightfield and FITC green channel, Z-stack, and a 24-hour multi-position time-lapse acquisition with 48 frames at 1800-second intervals.
+Execution results: The workflow set up the DAPI/blue fluorescence channel under a 20× objective, generated 24 well positions for a 24-well plate, configured organoid Z-stacks, and performed automated time-lapse acquisition at 1-hour intervals for 24 frames.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: Organoids; use a low-magnification objective to locate the distribution of organoids within the field of view, then use a high-magnification objective to sequentially acquire brightfield and green fluorescence data. The operation should continue for 24 hours, with imaging performed every 30 minutes.
+Imaging target: Organoids; under blue fluorescence, capture images of organoids in 24-well plates every 1 hour using a high-magnification 20× objective for 24 hours continuously
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the low-magnification overview image'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired low-magnification brightfield image; \n#Target Detection: Detect organoid regions in the imported low-magnification image and save the detection results as a JSON file'}, {'subtask_index': 3, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 40x; \n#Target Position Loading: Load the target position bounding boxes of detected organoid regions from the JSON file; \n#Parameter Setting: Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets for brightfield and FITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to the loaded organoid positions, with size requirement matching each organoid region; configure the Z-axis stack parameter to the recommended range; configure the time parameter to a total duration of 24 hours with an acquisition interval of 30 minutes; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to sequentially capture brightfield and FITC fluorescence data of each organoid every 30 minutes for 24 hours'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids; \n#Auxiliary Operation: Obtain the position information of 24-well plates; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameters; configure the XY position parameters to cover all wells in the 24-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for 3D organoid imaging; configure the time parameters to a total duration of 24 hours with an acquisition interval of 1 hour; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters, capturing organoids under DAPI fluorescence in all wells of the 24-well plate every 1 hour for 24 hours continuously'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,168 +47,70 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the low-magnification overview image.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting parameter setup for 4x brightfield overview imaging")
-target_objective = '1-UPLFLN4XPH'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
-
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
-
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
-
-say("[INFO] Configuring automatic acquisition parameters for overview image")
-current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Current exposure time: {current_exposure} ms")
-
-add_acquisition_position(name="overview_4x", x=current_x, y=current_y, width=None, height=None)
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Acquisition parameters configured: brightfield mode with exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for low-magnification overview")
-run_acquisition()
-say("[INFO] Low-magnification overview image acquisition completed successfully")
-```
-
-### Module: Image Analysis Platform
-
-#### Execution Instructions
-
-```text
-Image Import: Import the acquired low-magnification brightfield image;
-Target Detection: Detect organoid regions in the imported low-magnification image and save the detection results as a JSON file.
-```
-
-#### Execute Code
-
-```python
-fiji_initialize()
-input_file = "overview_4x.ome.tif"
-say("[ACTION] Loading low-magnification brightfield image: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Detecting organoid regions in the brightfield image")
-detection_result = analysis_platform_find_organoid_position(image, "Organoid regions detected in 4x brightfield overview image")
-say("[ACTION] Detection results saved as JSON file")
-fiji_shutdown()
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Parameter Setting: Set the currently used objective lens to 40x;
-Target Position Loading: Load the target position bounding boxes of detected organoid regions from the JSON file;
-Parameter Setting: Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level, then perform autofocus on the current field of view;
+Parameter Setting: Set the filter set to DAPI fluorescence mode;
+Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids;
+Auxiliary Operation: Obtain the position information of 24-well plates;
 Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets for brightfield and FITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to the loaded organoid positions, with size requirement matching each organoid region; configure the Z-axis stack parameter to the recommended range; configure the time parameter to a total duration of 24 hours with an acquisition interval of 30 minutes;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to sequentially capture brightfield and FITC fluorescence data of each organoid every 30 minutes for 24 hours.
+Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameters; configure the XY position parameters to cover all wells in the 24-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for 3D organoid imaging; configure the time parameters to a total duration of 24 hours with an acquisition interval of 1 hour;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters, capturing organoids under DAPI fluorescence in all wells of the 24-well plate every 1 hour for 24 hours continuously.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for 40x objective lens")
-target_objective = '4-LUCPLFLN40X'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 40x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 40x (label: {target_objective}), no change needed")
-
-say("[INFO] Loading organoid target positions from JSON file")
-target_filename = "organoid_locations_list.json"
-say(f"[ACTION] Loading organoid locations from file {target_filename}")
-organoid_bounding_boxes = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(organoid_bounding_boxes)} organoid bounding boxes")
-
-say("[INFO] Setting filter to brightfield mode")
-target_channel_bright = '1-NONE'
+say("[INFO] Starting parameter setup for DAPI fluorescence imaging")
+target_channel_dapi = '2-U-FUNA'
 current_channel = get_channel()
-if current_channel != target_channel_bright:
-    set_channel(target_channel_bright)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel_bright})")
+if current_channel != target_channel_dapi:
+    set_channel(target_channel_dapi)
+    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel_dapi})")
 else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel_bright}), no change needed")
+    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
 
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
+say("[INFO] Performing auxiliary operations for optimal DAPI imaging")
+target_exposure_dapi = 100.0
+set_exposure(target_exposure_dapi)
+say(f"[INFO] Camera exposure time automatically configured to {target_exposure_dapi} ms for DAPI fluorescence")
 
-say("[INFO] Performing autofocus on current field of view")
+set_brightness(0)
+say("[INFO] Light source brightness set to 0 for fluorescence imaging")
+
+say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Analyzing current field of view to determine Z-stack range for organoid 3D imaging")
+say("[INFO] Obtaining 24-well plate position information")
+wells_positions = create_24_wells_positions()
+say(f"[INFO] Generated {len(wells_positions)} positions for 24-well plate")
+
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
 z_max, z_min = z_stack_range()
-z_step = 0.75
-say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm for 40x objective")
+z_step = 1.5
+say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm for 20x objective")
+
+say("[INFO] Configuring DAPI fluorescence acquisition parameters for all 24 wells")
+well_size = 17000
+for i, (well_x, well_y) in enumerate(wells_positions):
+    well_name = f"well_{i+1:02d}_DAPI"
+    add_acquisition_position(name=well_name, x=well_x, y=well_y, width=well_size, height=well_size)
+say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 24 wells with size {well_size} μm")
+
+add_channels(channel=target_channel_dapi, exposure=target_exposure_dapi)
+say(f"[INFO] DAPI channel configured: channel {target_channel_dapi} with exposure {target_exposure_dapi} ms")
+
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
+say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring time series parameters for 24-hour imaging with 30-minute intervals")
-num_frames = 48
-interval_sec = 1800
+say("[INFO] Configuring time series parameters for 24-hour continuous imaging")
+num_frames = 24
+interval_sec = 3600
 set_time_series(num_frames=num_frames, interval_sec=interval_sec)
-say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 30-minute intervals")
+say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 1-hour intervals")
 
-say("[INFO] Configuring acquisition positions for each organoid region")
-for i, (center_x, center_y, width, height) in enumerate(organoid_bounding_boxes):
-    position_name = f"organoid_{i+1}"
-    add_acquisition_position(name=position_name, x=center_x, y=center_y, width=width, height=height)
-    say(f"[INFO] Added acquisition position {position_name} at ({center_x}, {center_y}) with size {width}x{height} μm")
-
-say("[INFO] Configuring brightfield channel parameters")
-target_exposure_bright = 10.0
-add_channels(channel=target_channel_bright, exposure=target_exposure_bright)
-say(f"[INFO] Brightfield channel configured: {target_channel_bright} with exposure {target_exposure_bright} ms")
-
-say("[INFO] Configuring FITC fluorescence channel parameters")
-target_channel_fitc = '3-U-FBNA'
-target_exposure_fitc = 100.0
-add_channels(channel=target_channel_fitc, exposure=target_exposure_fitc)
-say(f"[INFO] FITC fluorescence channel configured: {target_channel_fitc} with exposure {target_exposure_fitc} ms")
-
-say("[INFO] Initiating automated image acquisition for organoid time-lapse imaging")
+say("[INFO] Initiating automated DAPI fluorescence acquisition for 24-well plate organoids")
 run_acquisition()
-say("[INFO] 24-hour time-lapse acquisition of organoids completed successfully")
+say("[INFO] 24-hour continuous DAPI fluorescence imaging of 24-well plate organoids completed successfully")
 ```
 
 

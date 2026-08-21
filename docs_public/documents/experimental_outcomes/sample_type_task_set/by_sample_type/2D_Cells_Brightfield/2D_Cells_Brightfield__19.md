@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
+Imaging target: 2D cells; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
+Imaging target: 2D cells; adjust the brightness, perform focusing, acquire a global image using a 4× objective, detect the positions of 2D cells, move to the position with the largest 2D cell area, adjust the brightness and perform focusing again, and capture an image using a 20× objective.
 ```
 
 ### Planning Output

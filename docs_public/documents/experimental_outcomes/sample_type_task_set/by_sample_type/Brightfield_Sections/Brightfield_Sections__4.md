@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; first move to the middle of the Z-axis, capture brightfield images under a 20× objective, and perform denoising processing
+Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, automatically adjust the contrast, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; first move to the middle of the Z-axis, capture brig
 
 ## 3. Expected Results
 
-It is expected that the two-dimensional slice sample will first be positioned at the midpoint of the device’s Z-axis, i.e., approximately 5000 μm, and then brightness and focus will be set and images acquired under 20× objective bright-field conditions. The acquired bright-field images should be denoised, and the denoised imaging results should be saved for subsequent review.
+The brightness adjustment and focusing of the two-dimensional slice sample should be completed. An image should be captured under the current microscope state, and automatic contrast adjustment should be applied to the captured image to obtain a processed image. It is expected that both the original image and the contrast-adjusted image will be converted into displayable array formats, and shown simultaneously using an executable matplotlib dual-image display, with the window closing after 10 seconds.
 
-## 4. Execution Result
+## 4. Execution Results
 
-Execution result: The process first moved the Z-axis to the midpoint of the device's travel range at 5000 μm, performed automatic brightness, autofocus, and bright-field image acquisition under the current 20× bright-field conditions, then applied Gaussian denoising to the acquired OME-TIFF image and saved it.
+Execution result: The process completed brightfield automatic brightness adjustment, autofocus, current field-of-view acquisition, automatic contrast adjustment, and displayed both the original and processed images simultaneously using matplotlib for about 10 seconds before closing.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; first move to the middle of the Z-axis, capture brightfield images under a 20× objective, and perform denoising processing
+Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, automatically adjust the contrast, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Position Control: Move the Z-axis focusing position to the middle position of the Z-axis range; \n#Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images under 20× objective'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield images captured under 20× objective; \n#Image Processing: Apply denoising processing to the imported brightfield images'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary operation: Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image from the microscope operation platform; \n#Image Processing: Automatically adjust the contrast of the imported brightfield image to enhance image quality; \n#Image Display: Display both the original and contrast-adjusted images simultaneously using matplotlib for 10 seconds, then automatically close the display'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,43 +47,41 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Position Control: Move the Z-axis focusing position to the middle position of the Z-axis range;
-Auxiliary Operation: Firstly, Perform automatic brightness adjustment; Secondly, Perform auto-focus;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture brightfield images under 20× objective.
+Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level;
+Auxiliary operation: Perform autofocus on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters.
 ```
 
 #### Execute Code
 
 ```python
-say("[ACTION] Moving Z-axis to middle position of range")
-middle_z = 5000.0
-set_z_position(middle_z)
-say(f"[INFO] Z-axis moved to middle position: {middle_z} μm")
-
-say("[INFO] Performing automatic brightness adjustment")
+say("[INFO] Starting auxiliary operations for optimal imaging")
+say("[INFO] Performing automatic brightness adjustment for halogen lamp")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
-say(f"[INFO] Auto-brightness adjustment completed, halogen lamp brightness set to {optimal_brightness}")
+say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
 
-say("[INFO] Performing auto-focus")
+say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
-say(f"[INFO] Auto-focus completed, Z position set to optimal value: {optimal_z} μm")
+say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
 
-say("[INFO] Configuring brightfield image acquisition parameters")
+say("[INFO] Configuring automatic image acquisition parameters")
 current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 say(f"[INFO] Current exposure time: {current_exposure} ms")
 
-add_acquisition_position(name="brightfield_20x", x=current_x, y=current_y, width=None, height=None)
-add_channels(channel='1-NONE', exposure=current_exposure)
-say("[INFO] Brightfield acquisition parameters configured")
+add_acquisition_position(name="brightfield_current_position", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position configured to current field of view")
 
-say("[INFO] Starting 20x brightfield image acquisition")
+add_channels(channel='1-NONE', exposure=current_exposure)
+say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
+
+say("[INFO] Starting automatic image acquisition")
 run_acquisition()
-say("[INFO] 20x brightfield image acquisition completed")
+say("[INFO] Automatic image acquisition completed successfully")
 ```
 
 ### Module: Image Analysis Platform
@@ -91,22 +89,38 @@ say("[INFO] 20x brightfield image acquisition completed")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired brightfield images captured under 20× objective;
-Image Processing: Apply denoising processing to the imported brightfield images.
+Image Import: Import the acquired brightfield image from the microscope operation platform;
+Image Processing: Automatically adjust the contrast of the imported brightfield image to enhance image quality;
+Image Display: Display both the original and contrast-adjusted images simultaneously using matplotlib for 10 seconds, then automatically close the display.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "brightfield_20x.ome.tif"
-say("[ACTION] Loading brightfield image captured under 20× objective: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Applying denoising processing to the brightfield image")
-denoised_image = denoise(image, method="Gaussian", radius=1.0)
-output_file = "denoised_brightfield_20x.ome.tif"
-say("[ACTION] Saving denoised image to: " + output_file)
-save_image(denoised_image, output_file, "Brightfield image processed with Gaussian denoising")
+input_file = "brightfield_current_position.ome.tif"
+say("[ACTION] Loading brightfield image from microscope: " + input_file)
+original_image = load_image(input_file)
+say("[ACTION] Applying automatic contrast enhancement to improve image quality")
+contrast_adjusted_image = adjust_contrast(original_image, saturated=0.35)
+say("[ACTION] Converting images to numpy arrays for display")
+original_array = convert_to_numpy(original_image)
+adjusted_array = convert_to_numpy(contrast_adjusted_image)
+say("[ACTION] Displaying original and contrast-adjusted images side by side")
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.imshow(original_array, cmap='gray')
+plt.title('Original Brightfield Image')
+plt.axis('off')
+plt.subplot(1, 2, 2)
+plt.imshow(adjusted_array, cmap='gray')
+plt.title('Contrast-Adjusted Image')
+plt.axis('off')
+plt.tight_layout()
+plt.show(block=False)
+plt.pause(10)
+plt.close('all')
+say("[INFO] Image display completed and closed automatically after 10 seconds")
 fiji_shutdown()
 ```
 

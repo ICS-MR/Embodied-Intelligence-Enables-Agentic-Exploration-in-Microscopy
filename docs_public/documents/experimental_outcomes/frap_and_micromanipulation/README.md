@@ -8,11 +8,6 @@ FRAP + micromanipulation driving tasks and tools.
   (cell bleaching, letter drawing, geometric patterns, spiral drawing, 36-point circle installed/uninstalled).
 
 - `mp285/` - processed MP-285 tool interaction records
-  (movement, circle drawing, pump aspiration/dispensing, ball transfer tasks).
+  (movement, circle drawing, pump aspiration/dispensing, ball transfer tasks), plus
+  `eims_mp285.md`, a 9-round end-to-end EIMS spheroid-transfer workflow execution record.
 
-- VLA micromanipulation research code and ACT weight materials live under `docs_public/VLA/`.
-
-## Note
-
-The FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) is not duplicated here;
-it lives at the top-level `docs_public/frap/` and is read by `tool/frap.py`.

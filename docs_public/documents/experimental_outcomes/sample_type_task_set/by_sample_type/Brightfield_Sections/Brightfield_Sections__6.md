@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, automatically adjust the contrast, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
+Imaging target: 2D section; adjust the brightness, perform focusing, acquire an image of a 3 × 3 mm region, add a scale bar and a text label in the lower-left corner of the image, display it using plt for 10 seconds, then close the display.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; adjust the brightness, perform focusing, capture the
 
 ## 3. Expected Results
 
-The brightness adjustment and focusing of the two-dimensional slice sample should be completed. An image should be captured under the current microscope state, and automatic contrast adjustment should be applied to the captured image to obtain a processed image. It is expected that both the original image and the contrast-adjusted image will be converted into displayable array formats, and shown simultaneously using an executable matplotlib dual-image display, with the window closing after 10 seconds.
+It is expected to achieve brightness adjustment and clear focus on the two-dimensional slice sample, and to capture a microscopic image covering an area of approximately 3 × 3 mm (about 3000 × 3000 μm). The image should include a scale bar and a text label at the bottom left corner, and be displayed via plt or an equivalent method for about 10 seconds before closing the display window.
 
-## 4. Execution Results
+## 4. Execution Result
 
-Execution result: The process completed brightfield automatic brightness adjustment, autofocus, current field-of-view acquisition, automatic contrast adjustment, and displayed both the original and processed images simultaneously using matplotlib for about 10 seconds before closing.
+Execution result: The process completed brightfield automatic brightness adjustment and autofocus, acquired an image of a 3×3 mm area (approx. 3000×3000 μm) at the current position, added a 500 μm scale bar and text label at the bottom-left corner, and then displayed it using plt for 10 seconds before closing.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, automatically adjust the contrast, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
+Imaging target: 2D section; adjust the brightness, perform focusing, acquire an image of a 3 × 3 mm region, add a scale bar and a text label in the lower-left corner of the image, display it using plt for 10 seconds, then close the display.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary operation: Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image from the microscope operation platform; \n#Image Processing: Automatically adjust the contrast of the imported brightfield image to enhance image quality; \n#Image Display: Display both the original and contrast-adjusted images simultaneously using matplotlib for 10 seconds, then automatically close the display'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary Operation: Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3 × 3 mm region'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image of the 3 × 3 mm region; \n#Image Processing: Add a scale bar and a text label in the lower-left corner of the imported image; \n#Image Processing: Display the processed image with scale bar and text label using plt for 10 seconds, then close the display'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,22 +47,22 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level;
-Auxiliary operation: Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters.
+Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level;
+Auxiliary Operation: Perform autofocus on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the 3 × 3 mm region.
 ```
 
 #### Execute Code
 
 ```python
 say("[INFO] Starting auxiliary operations for optimal imaging")
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
+say("[ACTION] Performing automatic brightness adjustment for halogen lamp")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
 say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
 
-say("[INFO] Performing autofocus on current field of view")
+say("[ACTION] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
@@ -73,15 +73,19 @@ current_exposure = get_exposure()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 say(f"[INFO] Current exposure time: {current_exposure} ms")
 
-add_acquisition_position(name="brightfield_current_position", x=current_x, y=current_y, width=None, height=None)
-say("[INFO] Acquisition position configured to current field of view")
+width = 3000
+height = 3000
+say(f"[INFO] Acquisition size set to {width} μm × {height} μm to cover 3×3 mm region")
+
+add_acquisition_position(name="3x3mm_region", x=current_x, y=current_y, width=width, height=height)
+say("[INFO] Acquisition position parameters configured")
 
 add_channels(channel='1-NONE', exposure=current_exposure)
 say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
 
-say("[INFO] Starting automatic image acquisition")
+say("[INFO] Initiating automatic image acquisition for 3×3 mm region")
 run_acquisition()
-say("[INFO] Automatic image acquisition completed successfully")
+say("[INFO] Automatic image acquisition of 3×3 mm region completed successfully")
 ```
 
 ### Module: Image Analysis Platform
@@ -89,38 +93,43 @@ say("[INFO] Automatic image acquisition completed successfully")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired brightfield image from the microscope operation platform;
-Image Processing: Automatically adjust the contrast of the imported brightfield image to enhance image quality;
-Image Display: Display both the original and contrast-adjusted images simultaneously using matplotlib for 10 seconds, then automatically close the display.
+Image Import: Import the acquired brightfield image of the 3 × 3 mm region;
+Image Processing: Add a scale bar and a text label in the lower-left corner of the imported image;
+Image Processing: Display the processed image with scale bar and text label using plt for 10 seconds, then close the display.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "brightfield_current_position.ome.tif"
-say("[ACTION] Loading brightfield image from microscope: " + input_file)
-original_image = load_image(input_file)
-say("[ACTION] Applying automatic contrast enhancement to improve image quality")
-contrast_adjusted_image = adjust_contrast(original_image, saturated=0.35)
-say("[ACTION] Converting images to numpy arrays for display")
-original_array = convert_to_numpy(original_image)
-adjusted_array = convert_to_numpy(contrast_adjusted_image)
-say("[ACTION] Displaying original and contrast-adjusted images side by side")
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1)
-plt.imshow(original_array, cmap='gray')
-plt.title('Original Brightfield Image')
+input_file = "3x3mm_region.ome.tif"
+say("[ACTION] Loading brightfield image of 3×3mm region: " + input_file)
+image = load_image(input_file)
+say("[ACTION] Converting image to numpy array for processing")
+img_array = convert_to_numpy(image)
+pixel_size_um = image.pixel_size_x_um
+scale_bar_length_um = 500
+scale_bar_length_pixels = int(scale_bar_length_um / pixel_size_um)
+scale_bar_thickness = 10
+margin = 20
+height, width = img_array.shape
+start_x = margin
+start_y = height - margin - scale_bar_thickness
+end_x = start_x + scale_bar_length_pixels
+end_y = start_y + scale_bar_thickness
+img_array[start_y:end_y, start_x:end_x] = 255
+say("[ACTION] Adding scale bar and text label to image")
+plt.figure(figsize=(10, 8))
+plt.imshow(img_array, cmap='gray')
+plt.text(margin, height - margin - scale_bar_thickness - 30, "500 μm", color='white', fontsize=12, weight='bold')
+plt.text(margin, height - margin - scale_bar_thickness - 60, "3×3mm Region", color='white', fontsize=14, weight='bold')
 plt.axis('off')
-plt.subplot(1, 2, 2)
-plt.imshow(adjusted_array, cmap='gray')
-plt.title('Contrast-Adjusted Image')
-plt.axis('off')
-plt.tight_layout()
+plt.title("Brightfield Image with Scale Bar and Label")
+say("[ACTION] Displaying processed image for 10 seconds")
 plt.show(block=False)
 plt.pause(10)
-plt.close('all')
-say("[INFO] Image display completed and closed automatically after 10 seconds")
+plt.close()
+say("[ACTION] Display closed after 10 seconds")
 fiji_shutdown()
 ```
 

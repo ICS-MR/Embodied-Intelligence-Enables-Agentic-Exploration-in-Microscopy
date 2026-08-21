@@ -2,13 +2,13 @@
 ## 1. User Input
 
 ```text
-[input 1] Observation target: section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
+[input 1] Observation target: 2D cells. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
 [input 2] Use a 40× objective for the high-magnification imaging step.
 ```
 
 ## 2. Biosample
 
-section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
+2D cells. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
 [input 2] Use a 40× objective for the high-magnification imaging step.
 
 ## 3. Method
@@ -39,7 +39,7 @@ A1: Use a 40× objective for the high-magnification imaging step.
 
 ```text
 ## task
-Observation target: section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
+Observation target: 2D cells. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.
 
 ## planner
 candidate answer 1:

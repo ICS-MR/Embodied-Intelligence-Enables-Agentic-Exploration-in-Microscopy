@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, capture an image, detect the positions of 2D cells, then acquire images in descending order of 2D cell area.
+Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, perform denoising and deconvolution, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; adjust the brightness, perform focusing, capture an 
 
 ## 3. Expected Results
 
-It is expected to complete brightness adjustment and focusing for the 2D section, capture an image in the current field of view, and detect the positions and area information of 2D cells within it. Subsequently, the acquisition order should be determined based on the detected 2D cell areas from largest to smallest, and the corresponding cell images should be acquired sequentially in that order.
+Expected: adjust the brightness and focus for the two-dimensional slice in the current field of view, then acquire the image; perform denoising and Richardson-Lucy deconvolution on the captured image; afterwards, use matplotlib to simultaneously display the original and processed images, keep the display window open for 10 seconds, and then close it.
 
 ## 4. Execution Results
 
-Execution results: The process completed brightfield automatic brightness adjustment and autofocus, acquired the current 2D slice image, detected 2D cell positions and saved them as JSON, then sorted by detection box area in descending order and added acquisition positions one by one to perform brightfield acquisition.
+Execution result: The process completed brightfield automatic brightness adjustment and focusing, captured an image at the current position, and performed denoising, Richardson-Lucy deconvolution on the captured image, and displayed the original/processed images side by side for 10 seconds before closing.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; adjust the brightness, perform focusing, capture an image, detect the positions of 2D cells, then acquire images in descending order of 2D cell area.
+Imaging target: 2D section; adjust the brightness, perform focusing, capture the current image, perform denoising and deconvolution, then display both the original and processed images simultaneously using plt for 10 seconds before closing the display.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary operation: Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image of the 2D section; \n#Target Detection: Detect regions suspected of being 2Dcell in the imported brightfield image and save the detection results as a JSON file'}, {'subtask_index': 3, 'module': 'Microscope Operation Platform', 'command': 'Target Position Loading: Load the target position bounding boxes of detected 2D cells from the JSON file, sorted in descending order of cell area; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameters to the loaded positions of detected 2D cells in descending order of area, with size requirements matching each detected cell region; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture images of 2D cells in descending order of area'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level; \n#Auxiliary operation: Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image from the microscope operation platform; \n#Image Processing: Apply denoising processing to the imported brightfield image; \n#Image Processing: Apply deconvolution processing to the denoised image; \n#Image Display: Display both the original imported image and the processed image (after denoising and deconvolution) simultaneously using matplotlib for 10 seconds, then automatically close the display'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -49,7 +49,7 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 ```text
 Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level;
 Auxiliary operation: Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current XY coordinate position of the stage, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
 Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters.
 ```
 
@@ -74,10 +74,10 @@ say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 say(f"[INFO] Current exposure time: {current_exposure} ms")
 
 add_acquisition_position(name="brightfield_current_position", x=current_x, y=current_y, width=None, height=None)
-say("[INFO] Acquisition position configured at current location with current field of view size")
+say("[INFO] Acquisition position configured to current field of view")
 
 add_channels(channel='1-NONE', exposure=current_exposure)
-say(f"[INFO] Brightfield channel configured with exposure time: {current_exposure} ms")
+say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
 
 say("[INFO] Starting automatic image acquisition")
 run_acquisition()
@@ -89,8 +89,10 @@ say("[INFO] Automatic image acquisition completed successfully")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired brightfield image of the 2D section;
-Target Detection: Detect regions suspected of being 2Dcell in the imported brightfield image and save the detection results as a JSON file.
+Image Import: Import the acquired brightfield image from the microscope operation platform;
+Image Processing: Apply denoising processing to the imported brightfield image;
+Image Processing: Apply deconvolution processing to the denoised image;
+Image Display: Display both the original imported image and the processed image (after denoising and deconvolution) simultaneously using matplotlib for 10 seconds, then automatically close the display.
 ```
 
 #### Execute Code
@@ -98,59 +100,32 @@ Target Detection: Detect regions suspected of being 2Dcell in the imported brigh
 ```python
 fiji_initialize()
 input_file = "brightfield_current_position.ome.tif"
-say("[ACTION] Loading brightfield image of 2D section: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Detecting suspected 2Dcell regions in the brightfield image")
-detection_result = analysis_platform_find_target_positions(image, "2Dcell", "Suspected 2Dcell regions detected in brightfield image of 2D section")
-say("[ACTION] Detection results saved as JSON file")
+say("[ACTION] Loading brightfield image from microscope: " + input_file)
+original_image = load_image(input_file)
+say("[ACTION] Applying denoising processing to the brightfield image")
+denoised_image = denoise(original_image, method="Gaussian", radius=1.0)
+magnification = 20
+say("[ACTION] Applying Richardson-Lucy deconvolution to the denoised image")
+deconvolved_image = richardson_lucy(denoised_image, magnification, iterations=10, out_filename="deconvolved_brightfield", out_dir=".")
+say("[ACTION] Converting images to numpy arrays for display")
+original_array = convert_to_numpy(original_image)
+processed_array = convert_to_numpy(deconvolved_image)
+say("[ACTION] Displaying original and processed images simultaneously for 10 seconds")
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.imshow(original_array, cmap='gray')
+plt.title('Original Brightfield Image')
+plt.axis('off')
+plt.subplot(1, 2, 2)
+plt.imshow(processed_array, cmap='gray')
+plt.title('Processed Image (Denoised + Deconvolved)')
+plt.axis('off')
+plt.tight_layout()
+plt.show(block=False)
+plt.pause(10)
+plt.close()
+say("[INFO] Image display completed and closed automatically")
 fiji_shutdown()
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Target Position Loading: Load the target position bounding boxes of detected 2D cells from the JSON file, sorted in descending order of cell area;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameters to the loaded positions of detected 2D cells in descending order of area, with size requirements matching each detected cell region; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture images of 2D cells in descending order of area.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting to load target bounding boxes of detected 2D cells from JSON file")
-target_filename = "2Dcell_locations_list.json"
-say(f"[ACTION] Loading target locations from file {target_filename}")
-target_bounding_boxes = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of detected 2D cells")
-
-say("[INFO] Sorting cells by area in descending order")
-sorted_boxes = sorted(target_bounding_boxes, key=lambda box: box[2] * box[3], reverse=True)
-say(f"[INFO] Cells sorted by area, largest cell area: {sorted_boxes[0][2] * sorted_boxes[0][3]} square pixels")
-
-say("[INFO] Configuring automatic image acquisition parameters for 2D cell imaging")
-current_exposure = get_exposure()
-target_channel = '1-NONE'
-say(f"[INFO] Using brightfield mode (channel: {target_channel}) with current exposure: {current_exposure} ms")
-
-for i, (center_x, center_y, width, height) in enumerate(sorted_boxes):
-    cell_name = f"2Dcell_{i+1}_area_{width*height}"
-    add_acquisition_position(name=cell_name, x=float(center_x), y=float(center_y), width=float(width), height=float(height))
-    say(f"[INFO] Added acquisition position {i+1}: {cell_name} at ({center_x}, {center_y}) with size {width}x{height}")
-
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Channel configured: brightfield (channel {target_channel}) with exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for 2D cells in descending order of area")
-acquisition_results = run_acquisition()
-say(f"[INFO] Automatic image acquisition completed for {len(acquisition_results)} 2D cell positions")
 ```
 
 

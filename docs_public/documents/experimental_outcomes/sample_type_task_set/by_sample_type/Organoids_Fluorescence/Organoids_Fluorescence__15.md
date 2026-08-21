@@ -2,12 +2,14 @@
 ## 1. User Input
 
 ```text
-Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels.
+[input 1] Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.
+[input 2] Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC.
 ```
 
 ## 2. Biosample
 
-organoids
+organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.
+[input 2] Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC.
 
 ## 3. Method
 
@@ -21,28 +23,25 @@ ambiguous
 
 The method should complete the user's microscopy task and, when ambiguity or missing operational detail is present, produce the necessary clarification before execution.
 
-## 6. Execution Result And Failure Analysis
+## 6. Execution Result
 
-Execution result: Executed automatically. See the original execution record below for details.
+Execution result: Executed automatically. See the cleaned raw execution record below for details.
 
-
-Overall assessment: Success
+Overall assessment: Successful
 
 
 ## 7. Clarification Q&A
 
-- Round 1 question: For the fluorescence imaging at 20× magnification, do you want to acquire images in just one specific fluorescence channel, or do you need multi-channel fluorescence images (e.g., DAPI, FITC, TRITC)?
-- Round 1 user answer: DAPI and FITC
+Q1: Which fluorescence channels would you like to acquire for each organoid - just FITC, or multiple channels (FITC, DAPI, TRITC)?
+A1: Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC.
 
 ## 8. Cleaned Raw Execution Record
 
 ```text
 ## task
-Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels.
+Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.
 
-## planner_summary
-clarify round 1:
-type: clarify blocking question
+## planner
 candidate answer 1:
 <Planner State>
 {"status": "final_plan"}
@@ -57,27 +56,27 @@ candidate answer 1:
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform auto-focus"
+        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform auto-focus on the current field of view"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; configure the XY position parameter to the current position, with size requirement covering the 3 mm × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position with size requirement covering the entire current well area; do not configure Z-axis stack parameters; do not configure time parameters"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 3 mm × 3 mm region in brightfield mode"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture a panoramic image of the entire well"
     },
     {
         "subtask_index": 5,
         "module": "Image Analysis Platform",
-        "command": "Image Import: Import the acquired 4× brightfield image of the 3 mm × 3 mm region"
+        "command": "Image Import: Import the acquired 4× brightfield panoramic image of the well"
     },
     {
         "subtask_index": 6,
         "module": "Image Analysis Platform",
-        "command": "Target Detection: Detect regions suspected of being organoids in the imported brightfield image and save the detection results as a JSON file containing center coordinates"
+        "command": "Target Detection: Detect organoid regions in the imported 4× brightfield image and save the detection results as a JSON file"
     },
     {
         "subtask_index": 7,
@@ -87,40 +86,46 @@ candidate answer 1:
     {
         "subtask_index": 8,
         "module": "Microscope Operation Platform",
-        "command": "Target Position Loading: Load the target position coordinates of all detected organoids from the JSON file"
+        "command": "Target Position Loading: Load the target position bounding boxes of detected organoids from the JSON file"
     },
     {
         "subtask_index": 9,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the XY coordinates of the first detected organoid"
+        "command": "Parameter Setting: Set the filter set to FITC fluorescence mode"
     },
     {
         "subtask_index": 10,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the filter set to FITC fluorescence mode"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0"
     },
     {
         "subtask_index": 11,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Set the light source brightness to 0; Perform auto-focus on the current field of view containing the organoid"
+        "command": "Position Control: Move to the position of the first detected organoid"
     },
     {
         "subtask_index": 12,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid to determine appropriate Z-stack range for 3D imaging"
+        "command": "Auxiliary Operation: Perform auto-focus on the current field of view containing the organoid"
     },
     {
         "subtask_index": 13,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to FITC fluorescence mode and set the exposure parameter to the current exposure value; configure the XY position parameter to the current organoid position, with size requirement matching the current field of view; configure Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 14,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to acquire FITC fluorescence images of the first organoid"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to FITC fluorescence mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameters to sequentially cover all detected organoid positions with size requirements matching each organoid region; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+    },
+    {
+        "subtask_index": 15,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC fluorescence images of each detected organoid"
     }
 ]
 </Task steps>
+
 candidate answer 2:
 <Planner State>
 {"status": "final_plan"}
@@ -140,37 +145,37 @@ candidate answer 2:
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 mm × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the entire well area; do not configure Z-axis stack parameters; do not configure time parameters"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 3 mm × 3 mm region in brightfield mode"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the panoramic view of the current well"
     },
     {
         "subtask_index": 5,
         "module": "Image Analysis Platform",
-        "command": "Image Import: Import the acquired brightfield image of the 3 mm × 3 mm region"
+        "command": "Image Import: Import the acquired panoramic brightfield image of the well"
     },
     {
         "subtask_index": 6,
         "module": "Image Analysis Platform",
-        "command": "Target Detection: Detect all organoid regions in the imported brightfield image and save the detection results with center coordinates as a JSON file"
+        "command": "Target Detection: Detect organoid regions in the imported panoramic image and save the detection results as a JSON file"
     },
     {
         "subtask_index": 7,
         "module": "Microscope Operation Platform",
-        "command": "Target Position Loading: Load the target position bounding boxes of all detected organoids from the JSON file"
+        "command": "Parameter Setting: Set the currently used objective lens to 20×"
     },
     {
         "subtask_index": 8,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 20×"
+        "command": "Target Position Loading: Load the target position bounding boxes of all detected organoids from the JSON file"
     },
     {
         "subtask_index": 9,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move the XY coordinate position to the center coordinates of the first detected organoid"
+        "command": "Position Control: Move to the location of the first organoid"
     },
     {
         "subtask_index": 10,
@@ -180,25 +185,26 @@ candidate answer 2:
     {
         "subtask_index": 11,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing the organoid"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 12,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid and determine an appropriate Z-stack range for 3D imaging"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 13,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI, FITC, and TRITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position of the first organoid, with size requirement matching the current field of view; set Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to FITC fluorescence mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameters to all loaded organoid positions, with size requirements matching each organoid region; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 14,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture multi-channel fluorescence images of the first organoid"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to sequentially capture FITC fluorescence images of each organoid at 20× magnification"
     }
 ]
 </Task steps>
+
 candidate answer 3:
 <Planner State>
 {"status": "final_plan"}
@@ -218,22 +224,22 @@ candidate answer 3:
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 mm × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position with size requirement covering the entire current well area; do not configure Z-axis stack parameters; do not configure time parameters"
     },
     {
         "subtask_index": 4,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 3 mm × 3 mm region in brightfield mode"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture a panoramic brightfield image of the entire well"
     },
     {
         "subtask_index": 5,
         "module": "Image Analysis Platform",
-        "command": "Image Import: Import the acquired 4× brightfield image of the 3 mm × 3 mm region"
+        "command": "Image Import: Import the acquired 4× magnified brightfield panoramic image of the well"
     },
     {
         "subtask_index": 6,
         "module": "Image Analysis Platform",
-        "command": "Target Detection: Detect all organoid regions in the imported 4× brightfield image and save the detection results with center coordinates as a JSON file"
+        "command": "Target Detection: Detect regions suspected of being organoids in the imported 4× brightfield image and save the detection results as a JSON file"
     },
     {
         "subtask_index": 7,
@@ -243,12 +249,12 @@ candidate answer 3:
     {
         "subtask_index": 8,
         "module": "Microscope Operation Platform",
-        "command": "Target Position Loading: Load the target position coordinates of all detected organoids from the JSON file"
+        "command": "Target Position Loading: Load the target position bounding boxes of all detected organoids from the JSON file"
     },
     {
         "subtask_index": 9,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the center coordinates of the first organoid"
+        "command": "Position Control: Move to the location of the first organoid position"
     },
     {
         "subtask_index": 10,
@@ -258,31 +264,33 @@ candidate answer 3:
     {
         "subtask_index": 11,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing the organoid"
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids"
     },
     {
         "subtask_index": 12,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid and determine an appropriate Z-stack range for 3D imaging"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 13,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI, FITC, and TRITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to the current organoid position, with size requirement matching the current field of view; configure Z-stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter sets for FITC, DAPI, and TRITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to cover all loaded organoid positions with size requirements matching each organoid region; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 14,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture multi-channel fluorescence images of the first organoid"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to sequentially capture multi-channel fluorescence images of each detected organoid at 20× magnification"
     }
 ]
 </Task steps>
-question:
-For the fluorescence imaging at 20× magnification, do you want to acquire images in just one specific fluorescence channel, or do you need multi-channel fluorescence images (e.g., DAPI, FITC, TRITC)?
-user answer:
-DAPI and FITC
 
-## final_executable_plan
+question:
+Which fluorescence channels would you like to acquire for each organoid - just FITC, or multiple channels (FITC, DAPI, TRITC)?
+
+answer:
+Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC.
+
+plan:
 <Planner State>
 {"status": "final_plan"}
 </Planner State>
@@ -291,222 +299,211 @@ DAPI and FITC
     {
         "subtask_index": 1,
         "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to brightfield mode"
+        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform auto-focus on the current field of view"
     },
     {
         "subtask_index": 2,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire well area; do not configure Z-axis stack parameters; do not configure time parameters"
     },
     {
         "subtask_index": 3,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 mm × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture a panoramic brightfield image of the current well"
     },
     {
         "subtask_index": 4,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 3 mm × 3 mm region in brightfield mode"
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired brightfield panoramic image of the well"
     },
     {
         "subtask_index": 5,
         "module": "Image Analysis Platform",
-        "command": "Image Import: Import the acquired 4× magnified brightfield image of the 3 mm × 3 mm region"
+        "command": "Target Detection: Detect organoid regions in the imported brightfield image and save the detection results as a JSON file"
     },
     {
         "subtask_index": 6,
-        "module": "Image Analysis Platform",
-        "command": "Target Detection: Detect all organoid regions in the imported 4× magnified brightfield image and save the detection results as a JSON file containing center coordinates"
-    },
-    {
-        "subtask_index": 7,
-        "module": "Microscope Operation Platform",
-        "command": "Target Position Loading: Load the target position coordinates of all organoids from the JSON file"
-    },
-    {
-        "subtask_index": 8,
         "module": "Microscope Operation Platform",
         "command": "Parameter Setting: Set the currently used objective lens to 20×"
     },
     {
-        "subtask_index": 9,
+        "subtask_index": 7,
         "module": "Microscope Operation Platform",
-        "command": "Position Control: Move to the center coordinates of the first organoid"
+        "command": "Target Position Loading: Load the target position bounding boxes of detected organoids from the JSON file"
     },
     {
-        "subtask_index": 10,
+        "subtask_index": 8,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Move to the location of the first organoid"
+    },
+    {
+        "subtask_index": 9,
         "module": "Microscope Operation Platform",
         "command": "Parameter Setting: Set the filter set to FITC fluorescence mode"
     },
     {
+        "subtask_index": 10,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+    },
+    {
         "subtask_index": 11,
         "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Set the light source brightness to 0; Perform autofocus on the current field of view containing the first organoid"
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging"
     },
     {
         "subtask_index": 12,
         "module": "Microscope Operation Platform",
-        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid to determine appropriate Z-stack range for 3D imaging"
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and FITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to cover all loaded organoid positions sequentially; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters"
     },
     {
         "subtask_index": 13,
         "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and FITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position of the first organoid, with size requirement matching the current field of view; set Z-axis stack parameters to the recommended range; do not configure time parameters"
-    },
-    {
-        "subtask_index": 14,
-        "module": "Microscope Operation Platform",
-        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and FITC fluorescence images of the first organoid"
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and FITC fluorescence channel images of each organoid"
     }
 ]
 </Task steps>
 
-## original_execution_record
-Module: Microscope Operation Platform
-Current environment:
-Current xy_position:(12500.0, 12500.0), z_position:5000.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:70
-Execution instructions:
-Parameter Setting: Set the currently used objective lens to 4×; Set the filter set to brightfield mode;
-Auxiliary Operation: Perform automatic brightness adjustment; Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 3 mm × 3 mm region; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 3 mm × 3 mm region in brightfield mode.
-Execute code:
-say("[INFO] Starting parameter setup for 4x objective and brightfield mode")
-target_objective = '1-UPLFLN4XPH'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
+## executor
+executor step 1:
+module: ## Event 14: Microscope Operation Platform
+command:
+[Context]
+# Saved documents:
+ {}
+# Current environment:Current xy_position:(12500.0, 12500.0), z_position:5000.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:70
 
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment")
+[Query]
+#Auxiliary Operation: Perform automatic brightness adjustment; Perform auto-focus on the current field of view; 
+#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the entire well area; do not configure Z-axis stack parameters; do not configure time parameters; 
+#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture a panoramic brightfield image of the current well.
+generated code:
+say("[INFO] Starting auxiliary operations for optimal imaging")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
 say(f"[INFO] Auto-brightness adjustment completed, halogen lamp brightness set to {optimal_brightness}")
 
-say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Auto-focus completed, Z position set to optimal value: {optimal_z} μm")
 
-say("[INFO] Configuring automatic image acquisition parameters")
+say("[INFO] Configuring brightfield image acquisition parameters")
 current_x, current_y = get_x_y_position()
 current_exposure = get_exposure()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 say(f"[INFO] Current exposure time: {current_exposure} ms")
 
-width = 3000
-height = 3000
-say(f"[INFO] Acquisition size set to {width} μm × {height} μm to cover 3mm×3mm region")
+well_size_um = 35000
+add_acquisition_position(name="well_panoramic", x=current_x, y=current_y, width=well_size_um, height=well_size_um)
+say(f"[INFO] Acquisition position configured to cover entire well area: {well_size_um} μm × {well_size_um} μm")
 
-add_acquisition_position(name="brightfield_3mm_scan", x=current_x, y=current_y, width=width, height=height)
-say("[INFO] Acquisition position parameters added")
-
-add_channels(channel=target_channel, exposure=current_exposure)
+add_channels(channel='1-NONE', exposure=current_exposure)
 say(f"[INFO] Brightfield channel configured with exposure {current_exposure} ms")
 
-say("[INFO] Initiating automated image acquisition for 3mm×3mm region scan")
+say("[INFO] Starting panoramic brightfield image acquisition")
 run_acquisition()
-say("[INFO] Automated image acquisition task completed successfully")
+say("[INFO] Panoramic brightfield image acquisition completed successfully")
 
-Module: Image Analysis Platform
-Execution instructions:
-Image Import: Import the acquired 4× magnified brightfield image of the 3 mm × 3 mm region;
-Target Detection: Detect all organoid regions in the imported 4× magnified brightfield image and save the detection results as a JSON file containing center coordinates.
-Execute code:
+executor step 2:
+module: ## Event 16: Image Analysis Platform
+command:
+[Context]
+# Saved documents:
+ {'well_panoramic.ome.tif': {'filename': 'well_panoramic.ome.tif', 'description': 'channel_names: [(128, 128, 128)], pixel_size: 1.62, objective_label: 1-UPLFLN4XPH, magnification: 4, frames: 1', 'created_by': 'microscope', 'file_type': 'ome-tiff'}}
+
+[Query]
+#Image Import: Import the acquired brightfield panoramic image of the well; 
+#Target Detection: Detect organoid regions in the imported brightfield image and save the detection results as a JSON file.
+generated code:
 fiji_initialize()
-input_file = "brightfield_3mm_scan.ome.tif"
-say("[ACTION] Loading 4× magnified brightfield image of 3mm×3mm region: " + input_file)
+input_file = "well_panoramic.ome.tif"
+say("[ACTION] Loading brightfield panoramic image of the well: " + input_file)
 image = load_image(input_file)
-say("[ACTION] Detecting organoid regions in the brightfield image")
-detection_result = analysis_platform_find_target_positions(image, "organoid", "Organoid regions detected in 4× brightfield image of 3mm×3mm region")
-say("[ACTION] Detection results saved as JSON file with center coordinates")
+say("[ACTION] Detecting organoid regions in the brightfield panoramic image")
+detection_result = analysis_platform_find_target_positions(image, "organoid", "Organoid regions detected in brightfield panoramic image of the well")
+say("[ACTION] Detection results saved as JSON file")
 fiji_shutdown()
 
-Module: Microscope Operation Platform
-Current environment:
-Current xy_position:(12500.0, 12500.0), z_position:5005.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:75
-Execution instructions:
-Target Position Loading: Load the target position coordinates of all organoids from the JSON file;
-Parameter Setting: Set the currently used objective lens to 20×;
-Position Control: Move to the center coordinates of the first organoid;
-Parameter Setting: Set the filter set to FITC fluorescence mode;
-Auxiliary Operation: Set the light source brightness to 0; Perform autofocus on the current field of view containing the first organoid;
-Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid to determine appropriate Z-stack range for 3D imaging;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and FITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position of the first organoid, with size requirement matching the current field of view; set Z-axis stack parameters to the recommended range; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and FITC fluorescence images of the first organoid.
-Execute code:
-say("[INFO] Starting to load organoid target positions from JSON file")
-target_filename = "organoid_locations_list.json"
-say(f"[ACTION] Loading organoid locations from file {target_filename}")
-organoid_positions = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(organoid_positions)} organoid positions")
+executor step 3:
+module: ## Event 18: Microscope Operation Platform
+command:
+[Context]
+# Saved documents:
+ {'well_panoramic.ome.tif': {'filename': 'well_panoramic.ome.tif', 'description': 'channel_names: [(128, 128, 128)], pixel_size: 1.62, objective_label: 1-UPLFLN4XPH, magnification: 4, frames: 1', 'created_by': 'microscope', 'file_type': 'ome-tiff'}, 'organoid_locations_list.json': {'filename': 'organoid_locations_list.json', 'description': 'Organoid regions detected in brightfield panoramic image of the well', 'created_by': 'analysis_platform', 'file_type': 'json'}}
+# Current environment:Current xy_position:(12500.0, 12500.0), z_position:5005.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:75
 
-say("[INFO] Setting objective lens to 20x")
+[Query]
+#Parameter Setting: Set the currently used objective lens to 20×; 
+#Target Position Loading: Load the target position bounding boxes of detected organoids from the JSON file; 
+#Position Control: Move to the location of the first organoid; 
+#Parameter Setting: Set the filter set to FITC fluorescence mode; 
+#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; 
+#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging; 
+#Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and FITC fluorescence channels with their corresponding exposure parameters; configure the XY position parameter to cover all loaded organoid positions sequentially; configure Z-axis stack parameters to the recommended range for 3D organoid imaging; do not configure time parameters; 
+#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and FITC fluorescence channel images of each organoid.
+generated code:
+say("[INFO] Starting parameter setup: switching to 20x objective")
 target_objective = '3-LUCPLFLN20XRC'
 current_objective = get_objective()
 if current_objective != target_objective:
     set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 20x (label: {target_objective})")
+    say(f"[INFO] Objective lens switched to 20x (label: {target_objective})")
 else:
     say(f"[INFO] Objective lens is already 20x (label: {target_objective}), no change needed")
 
-say("[INFO] Moving to the center coordinates of the first organoid")
-first_organoid_x, first_organoid_y, _, _ = organoid_positions[0]
-say(f"[ACTION] Moving to first organoid position: X={first_organoid_x} μm, Y={first_organoid_y} μm")
+say("[INFO] Loading organoid target positions from JSON file")
+target_filename = "organoid_locations_list.json"
+organoid_bounding_boxes = load_target_locations(target_filename)
+say(f"[INFO] Successfully loaded {len(organoid_bounding_boxes)} organoid bounding boxes")
+
+say("[INFO] Moving to the first organoid location")
+first_organoid_x, first_organoid_y, width, height = organoid_bounding_boxes[0]
 set_x_y_position(first_organoid_x, first_organoid_y)
+say(f"[INFO] Moved to first organoid position: X={first_organoid_x} μm, Y={first_organoid_y} μm")
 
 say("[INFO] Setting filter to FITC fluorescence mode")
 target_channel_fitc = '3-U-FBNA'
 set_channel(target_channel_fitc)
 say(f"[INFO] Filter set to FITC fluorescence mode (channel: {target_channel_fitc})")
 
+say("[INFO] Configuring camera exposure time for fluorescence imaging")
+target_exposure_fitc = 200.0
+set_exposure(target_exposure_fitc)
+say(f"[INFO] Camera exposure time set to {target_exposure_fitc} ms for FITC fluorescence")
+
 say("[INFO] Setting light source brightness to 0 for fluorescence imaging")
 set_brightness(0)
 say("[INFO] Halogen lamp brightness set to 0")
 
-say("[INFO] Performing autofocus on current field of view containing first organoid")
+say("[INFO] Performing autofocus on current organoid field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Analyzing current field of view to determine Z-stack range for 3D imaging")
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
 z_max, z_min = z_stack_range()
 z_step = 1.5
-say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
+say(f"[INFO] Recommended Z-stack range: {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring automatic acquisition parameters for DAPI and FITC channels")
-current_x, current_y = get_x_y_position()
-add_acquisition_position(name="organoid_1_fluorescence", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Configuring acquisition parameters for DAPI and FITC channels")
+target_exposure_dapi = 150.0
+add_channels(channel='2-U-FUNA', exposure=target_exposure_dapi)
+say(f"[INFO] DAPI channel configured with exposure {target_exposure_dapi} ms")
+add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
+say(f"[INFO] FITC channel configured with exposure {target_exposure_fitc} ms")
 
-say("[INFO] Adding DAPI channel configuration")
-dapi_channel = '2-U-FUNA'
-dapi_exposure = 300.0
-add_channels(channel=dapi_channel, exposure=dapi_exposure)
-say(f"[INFO] DAPI channel configured: {dapi_channel} with exposure {dapi_exposure} ms")
+say("[INFO] Configuring XY positions for all organoid locations")
+for i, (center_x, center_y, bbox_width, bbox_height) in enumerate(organoid_bounding_boxes, start=1):
+    add_acquisition_position(name=f"organoid_{i:02d}", x=center_x, y=center_y, width=bbox_width, height=bbox_height)
+say(f"[INFO] Added {len(organoid_bounding_boxes)} acquisition positions for all organoids")
 
-say("[INFO] Adding FITC channel configuration")
-fitc_channel = '3-U-FBNA'
-fitc_exposure = 250.0
-add_channels(channel=fitc_channel, exposure=fitc_exposure)
-say(f"[INFO] FITC channel configured: {fitc_channel} with exposure {fitc_exposure} ms")
-
-say("[INFO] Setting Z-stack parameters")
+say("[INFO] Configuring Z-stack parameters")
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
 say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Starting automatic image acquisition for DAPI and FITC fluorescence of first organoid")
+say("[INFO] Starting automated image acquisition for DAPI and FITC fluorescence channels")
 run_acquisition()
-say("[INFO] Automatic image acquisition completed for first organoid DAPI and FITC channels")
+say("[INFO] Automated image acquisition for all organoids completed successfully")
 ```
 
 

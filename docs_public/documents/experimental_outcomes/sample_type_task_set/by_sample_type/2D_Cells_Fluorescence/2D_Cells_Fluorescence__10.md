@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; scan and stitch the entire image under blue fluorescence conditions, and count the number of labeled cells.
+Imaging target: 2D cells; scan and stitch the entire image under blue fluorescence conditions, and count the number of labeled cells.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; scan and stitch the entire image under blue fluorescence conditions, and count the number of labeled cells.
+Imaging target: 2D cells; scan and stitch the entire image under blue fluorescence conditions, and count the number of labeled cells.
 ```
 
 ### Planning Output

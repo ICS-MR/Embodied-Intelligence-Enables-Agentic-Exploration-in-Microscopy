@@ -17,8 +17,6 @@ It is expected to complete the microscopy operations, detection, stage movement,
 
 Execution result: The workflow switched to the 4× objective, scanned the 5×1 mm brightfield region for organoid detection, loaded the first detected target position and moved the stage there, then switched to the 20× objective and acquired a 3×3 mm brightfield Z-stack of the target organoid field.
 
-Failure analysis: The key acceptance points were covered in the corrected execution: low-magnification regional scan, organoid detection, movement to the first detected target, and 20× high-magnification acquisition. The final high-magnification organoid imaging stage performed auto-brightness adjustment, autofocus, and Z-stack range recommendation/configuration, which is consistent with 3D organoid imaging requirements. No blocking omission is visible in the final corrected run.
-
 Overall assessment: Successful
 
 ## Original Execution Record
@@ -226,6 +224,4 @@ say("[INFO] Starting automatic image acquisition for 3×3 mm organoid field")
 run_acquisition()
 say("[INFO] 3×3 mm organoid Z-stack acquisition completed successfully")
 ```
-
-
 

@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; use the 20× objective to capture images of the 3×3 mm fluorescent slice in brightfield, blue, and green fluorescent channels, and count the size and number of cell nuclei in the blue fluorescent image.
+Imaging target: 2D cells; use the 20× objective to capture images of the 3×3 mm fluorescent slice in brightfield, blue, and green fluorescent channels, and count the size and number of cell nuclei in the blue fluorescent image.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; use the 20× objective to capture images of the 3×3 mm fluorescent slice in brightfield, blue, and green fluorescent channels, and count the size and number of cell nuclei in the blue fluorescent image.
+Imaging target: 2D cells; use the 20× objective to capture images of the 3×3 mm fluorescent slice in brightfield, blue, and green fluorescent channels, and count the size and number of cell nuclei in the blue fluorescent image.
 ```
 
 ### Planning Output

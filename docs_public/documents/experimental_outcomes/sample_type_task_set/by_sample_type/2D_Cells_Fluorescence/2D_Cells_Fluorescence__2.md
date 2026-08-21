@@ -3,13 +3,13 @@
 ## 1. User Input
 
 ```text
-[input 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
+[input 1] Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
 [input 2] The 200 ms exposure is specified for DAPI; no separate FITC exposure time is given.
 ```
 
 ## 2. Biosample
 
-2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
+2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
 [input 2] The 200 ms exposure is specified for DAPI; no separate FITC exposure time is given.
 
 ## 3. Method
@@ -40,7 +40,7 @@ A1: The 200 ms exposure is specified for DAPI; no separate FITC exposure time is
 
 ```text
 ## task
-Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
+Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.
 
 ## planner
 candidate answer 1:

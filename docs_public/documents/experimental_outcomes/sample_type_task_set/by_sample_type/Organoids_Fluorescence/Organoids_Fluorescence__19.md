@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: Organoids; perform continuous 24-hour imaging of the green and red fluorescent channels of organoids in a 2×2 mm gel droplet, capturing one image per hour.
+Imaging target: Organoids; perform blue and green fluorescence imaging of organoids in a 96-well plate every 1 hour.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Organoids
 
 ## 3. Expected Results
 
-Continuous 24-hour imaging of organoids within a 2×2 mm gel droplet should be performed in green and red fluorescence channels, forming a dual-channel time series covering the entire time course at one-hour intervals. Acquisition should include Z-stack information of the organoids within that region to support subsequent evaluation of the dynamic changes and spatial distribution of green/red fluorescence.
+Expected to achieve whole-plate imaging of organoids in a 96-well plate according to well coordinates, with repeated acquisition of blue and green fluorescence channels at 1-hour intervals over the set total duration, and to obtain corresponding Z-stack image sequences for each well. Ultimately, this will form a fluorescence microscopic imaging dataset of organoids that can be tracked by well, time point, channel, and Z-level.
 
-## 4. Execution Result
+## 4. Execution Results
 
-Execution Result: The workflow configured an automatic acquisition covering a 2×2 mm gel droplet with dual-channel FITC/TRITC fluorescence, Z-stack, and 1 frame per hour for a total of 24 frames under the current organoid field of view.
+Execution results: The workflow generated 96-well plate positions, configured DAPI blue and FITC green fluorescence channels, a 24-frame time series with hourly intervals, and set up Z-stack for the organoids before performing automated acquisition for all well positions.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: Organoids; perform continuous 24-hour imaging of the green and red fluorescent channels of organoids in a 2×2 mm gel droplet, capturing one image per hour.
+Imaging target: Organoids; perform blue and green fluorescence imaging of organoids in a 96-well plate every 1 hour.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets for FITC and TRITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm gel droplet area; configure the Z-axis stack parameter to the recommended range for 3D organoid imaging; configure the time parameter to a total duration of 24 hours with an acquisition interval of 1 hour; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC and TRITC fluorescence channels of organoids in the 2×2 mm gel droplet every hour for 24 hours'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0.; \n#Auxiliary Operation: Obtain the position information of 96-well plates; \n#Position Control: Move to the position of the first well in the 96-well plate; \n#Auxiliary Operation: Perform autofocus on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D organoid imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to include DAPI fluorescence and FITC fluorescence channels, and set their corresponding exposure parameters; configure the XY position parameters to sequentially cover all wells in the 96-well plate, with size requirements matching each well; set Z-axis stack parameters to the recommended range for 3D organoid imaging; configure time parameters for acquisition every 1 hour; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture blue (DAPI) and green (FITC) fluorescence images of organoids in each well of the 96-well plate every 1 hour'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -48,10 +48,13 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 
 ```text
 Parameter Setting: Set the filter set to FITC fluorescence mode;
-Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids;
-Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids and determine an appropriate Z-stack range for 3D imaging;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets for FITC and TRITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm gel droplet area; configure the Z-axis stack parameter to the recommended range for 3D organoid imaging; configure the time parameter to a total duration of 24 hours with an acquisition interval of 1 hour;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC and TRITC fluorescence channels of organoids in the 2×2 mm gel droplet every hour for 24 hours.
+Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0.;
+Auxiliary Operation: Obtain the position information of 96-well plates;
+Position Control: Move to the position of the first well in the 96-well plate;
+Auxiliary Operation: Perform autofocus on the current field of view containing organoids;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the Z-axis stack range for 3D organoid imaging;
+Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to include DAPI fluorescence and FITC fluorescence channels, and set their corresponding exposure parameters; configure the XY position parameters to sequentially cover all wells in the 96-well plate, with size requirements matching each well; set Z-axis stack parameters to the recommended range for 3D organoid imaging; configure time parameters for acquisition every 1 hour;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture blue (DAPI) and green (FITC) fluorescence images of organoids in each well of the 96-well plate every 1 hour.
 ```
 
 #### Execute Code
@@ -66,15 +69,23 @@ if current_channel != target_channel_fitc:
 else:
     say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel_fitc}), no change needed")
 
-say("[INFO] Performing auxiliary operations for optimal fluorescence imaging")
-say("[INFO] Automatically configuring camera exposure time for FITC")
-target_exposure_fitc = 100.0
+say("[INFO] Automatically configuring camera exposure time for FITC fluorescence")
+target_exposure_fitc = 200.0
 set_exposure(target_exposure_fitc)
 say(f"[INFO] Camera exposure time set to {target_exposure_fitc} ms for FITC fluorescence")
 
 say("[INFO] Setting light source brightness to 0 for fluorescence imaging")
 set_brightness(0)
-say("[INFO] Light source brightness set to 0")
+say("[INFO] Halogen lamp brightness set to 0")
+
+say("[INFO] Obtaining 96-well plate position information")
+wells_positions = create_96_wells_positions()
+say(f"[INFO] Generated {len(wells_positions)} positions for 96-well plate")
+
+say("[INFO] Moving to first well position")
+first_well_x, first_well_y = wells_positions[0]
+set_x_y_position(first_well_x, first_well_y)
+say(f"[ACTION] Moved to first well position: X={first_well_x} μm, Y={first_well_y} μm")
 
 say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
@@ -84,38 +95,34 @@ say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 say("[INFO] Analyzing current field of view to determine Z-stack range for 3D organoid imaging")
 z_max, z_min = z_stack_range()
 z_step = 1.5
-say(f"[INFO] Recommended Z-stack range: {z_min} to {z_max} μm with step {z_step} μm for 20x objective")
+say(f"[INFO] Recommended Z-stack range for organoids: {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring automatic acquisition parameters for dual fluorescence channels")
-current_x, current_y = get_x_y_position()
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
+say("[INFO] Configuring automatic acquisition parameters for all 96 wells")
+well_size_um = 6500
+for i, (x, y) in enumerate(wells_positions, start=1):
+    add_acquisition_position(name=f"well_{i:02d}", x=x, y=y, width=well_size_um, height=well_size_um)
+say(f"[INFO] Added {len(wells_positions)} acquisition positions for all 96 wells")
 
-gel_droplet_size = 2000
-say(f"[INFO] Setting acquisition area to cover 2×2 mm gel droplet ({gel_droplet_size} μm × {gel_droplet_size} μm)")
-add_acquisition_position(name="organoid_gel_droplet", x=current_x, y=current_y, width=gel_droplet_size, height=gel_droplet_size)
-
-say("[INFO] Configuring FITC fluorescence channel parameters")
+say("[INFO] Configuring DAPI and FITC fluorescence channels")
+target_exposure_dapi = 150.0
+add_channels(channel='2-U-FUNA', exposure=target_exposure_dapi)
+say(f"[INFO] DAPI channel configured: channel 2-U-FUNA with exposure {target_exposure_dapi} ms")
 add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
-say(f"[INFO] FITC channel configured: channel 3-U-FBNA, exposure {target_exposure_fitc} ms")
-
-say("[INFO] Configuring TRITC fluorescence channel parameters")
-target_exposure_tritc = 100.0
-add_channels(channel='4-U-FGNA', exposure=target_exposure_tritc)
-say(f"[INFO] TRITC channel configured: channel 4-U-FGNA, exposure {target_exposure_tritc} ms")
+say(f"[INFO] FITC channel configured: channel 3-U-FBNA with exposure {target_exposure_fitc} ms")
 
 say("[INFO] Setting Z-stack parameters for 3D organoid imaging")
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
 say(f"[INFO] Z-stack parameters set: range {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring time series parameters for 24-hour imaging")
+say("[INFO] Configuring time series parameters for hourly acquisition")
 num_frames = 24
 interval_sec = 3600
 set_time_series(num_frames=num_frames, interval_sec=interval_sec)
-say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 1-hour intervals")
+say(f"[INFO] Time series configured: {num_frames} frames with 1-hour intervals")
 
-say("[INFO] Initiating automated image acquisition for dual-channel fluorescence time-lapse")
+say("[INFO] Initiating automated image acquisition for 96-well plate organoids")
 run_acquisition()
-say("[INFO] 24-hour dual-channel fluorescence time-lapse acquisition of organoids completed successfully")
+say("[INFO] Automated image acquisition completed successfully - captured DAPI and FITC fluorescence images of organoids in all 96 wells with hourly time-lapse and Z-stack imaging")
 ```
 
 

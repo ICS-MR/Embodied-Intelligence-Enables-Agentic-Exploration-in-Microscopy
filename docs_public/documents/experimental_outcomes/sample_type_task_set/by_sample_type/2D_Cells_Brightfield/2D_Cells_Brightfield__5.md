@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: cell section; acquire images of the cellular state across the entire culture dish, automatically identify the cells within the dish, and perform cell counting.
+Imaging target: 2D cells; acquire images of the cellular state across the entire culture dish, automatically identify the cells within the dish, and perform cell counting.
 ```
 
 ## 2. Biological Samples Used
 
-cell section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: cell section; acquire images of the cellular state across the entire culture dish, automatically identify the cells within the dish, and perform cell counting.
+Imaging target: 2D cells; acquire images of the cellular state across the entire culture dish, automatically identify the cells within the dish, and perform cell counting.
 ```
 
 ### Planning Output

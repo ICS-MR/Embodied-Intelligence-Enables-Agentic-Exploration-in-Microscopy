@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; switch to the 10× objective, perform a brightfield scan of a 4×4 mm region, detect 2D cells, move to the first detected region, switch to the 40× objective, sequentially activate the green and red fluorescence channels, acquire images of a 2×2 mm field of view, and measure the fluorescence intensity.
+Imaging target: 2D section; simultaneously capture images of multiple fluorescent labels (stained with TMRM, Hoechst, and Calcein), and merge the different channels.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; switch to the 10× objective, perform a brightfield 
 
 ## 3. Expected Results
 
-The 2D slice sample is expected to be scanned in brightfield at 10× over a 4×4 mm area, and based on the scan results, 2D cells are to be detected and the first detection region located. The objective is then switched to 40× in that region, followed by sequential fluorescence imaging in green and red channels over a 2×2 mm field of view, with the corresponding fluorescence intensity measurements output.
+Simultaneous imaging acquisition of TMRM, Hoechst, and Calcein multi-fluorescence labeling in two-dimensional slice samples should be completed, obtaining the corresponding red, blue, and green channel images, respectively. The acquired channels are expected to be split and merged according to Red, Blue, Green color mapping to generate a merged image containing the three fluorescence signals.
 
-## 4. Execution Results
+## 4. Execution Result
 
-Execution result: The process completed a 10× brightfield 4×4 mm area scan, 2D cell detection, moved to the first detection area, performed FITC/TRITC dual-channel 2×2 mm fluorescence acquisition at 40×, and quantified green and red fluorescence intensities respectively.
+Execution result: In the current field of view, a 2D slice was configured, and three-channel fluorescence images of DAPI/Hoechst, FITC/Calcein, TRITC/TMRM were acquired. The acquired multi-channel OME-TIFF was split and output with red, green, blue pseudo-color merging.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; switch to the 10× objective, perform a brightfield scan of a 4×4 mm region, detect 2D cells, move to the first detected region, switch to the 40× objective, sequentially activate the green and red fluorescence channels, acquire images of a 2×2 mm field of view, and measure the fluorescence intensity.
+Imaging target: 2D section; simultaneously capture images of multiple fluorescent labels (stained with TMRM, Hoechst, and Calcein), and merge the different channels.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 10x; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 4×4 mm region; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 4×4 mm region under brightfield with 10× objective'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired brightfield image of the 4×4 mm region; \n#Target Detection: Detect 2D cell regions in the imported brightfield image and save the detection results as a JSON file'}, {'subtask_index': 3, 'module': 'Microscope Operation Platform', 'command': 'Target Position Loading: Load the target position bounding boxes of detected 2D cell regions from the JSON file; \n#Position Control: Move the stage to the XY coordinates of the first detected 2D cell region; \n#Parameter Setting: Set the currently used objective lens to 40x; \n#Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets for FITC and TRITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC and TRITC fluorescence images of the 2×2 mm field of view'}, {'subtask_index': 4, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired FITC and TRITC fluorescence images; \n#Fluorescence Analysis: Perform fluorescence signal analysis on the imported FITC and TRITC images to measure fluorescence intensity'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to DAPI (for Hoechst), FITC (for Calcein), and TRITC (for TMRM) fluorescence modes, and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the DAPI, FITC, and TRITC fluorescent channels of the 2D section'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired multi-channel fluorescent images containing DAPI (Hoechst), FITC (Calcein), and TRITC (TMRM) channels; \n#Image Merging: Merge the imported DAPI, FITC, and TRITC multi-channel images into an RGB composite image'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,159 +47,60 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the currently used objective lens to 10x;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the corresponding exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement covering the 4×4 mm region; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 4×4 mm region under brightfield with 10× objective.
+Parameter Setting: Set the filter set to DAPI fluorescence mode;
+Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter sets required for automatic acquisition to DAPI (for Hoechst), FITC (for Calcein), and TRITC (for TMRM) fluorescence modes, and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the DAPI, FITC, and TRITC fluorescent channels of the 2D section.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for 4×4 mm region scanning")
-target_objective = '2-SOB'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 10x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 10x (label: {target_objective}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
-
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
-
-say("[INFO] Configuring brightfield acquisition parameters for 4×4 mm region")
-current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-width = 4000
-height = 4000
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Acquisition size set to {width} μm × {height} μm to cover 4×4 mm region")
-
-add_acquisition_position(name="brightfield_4x4mm", x=current_x, y=current_y, width=width, height=height)
-add_channels(channel='1-NONE', exposure=current_exposure)
-say(f"[INFO] Brightfield acquisition parameters configured: channel 1-NONE, exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition for 4×4 mm region scanning")
-run_acquisition()
-say("[INFO] 4×4 mm region brightfield scanning completed successfully")
-```
-
-### Module: Image Analysis Platform
-
-#### Execution Instructions
-
-```text
-Image Import: Import the acquired brightfield image of the 4×4 mm region;
-Target Detection: Detect 2D cell regions in the imported brightfield image and save the detection results as a JSON file.
-```
-
-#### Execute Code
-
-```python
-fiji_initialize()
-input_file = "brightfield_4x4mm.ome.tif"
-say("[ACTION] Loading brightfield image of 4×4 mm region: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Detecting 2D cell regions in the brightfield image")
-detection_result = analysis_platform_find_2Dcell_position(image, "2D cell regions detected in brightfield image of 4×4 mm region")
-say("[ACTION] Detection results saved as JSON file")
-fiji_shutdown()
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:2-SOB (10x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Target Position Loading: Load the target position bounding boxes of detected 2D cell regions from the JSON file;
-Position Control: Move the stage to the XY coordinates of the first detected 2D cell region;
-Parameter Setting: Set the currently used objective lens to 40x;
-Parameter Setting: Set the filter set to FITC fluorescence mode;
-Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets for FITC and TRITC fluorescence channels and set their corresponding exposure parameters; configure the XY position parameter to the current position, with size requirement covering the 2×2 mm field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture FITC and TRITC fluorescence images of the 2×2 mm field of view.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting to load target bounding boxes of detected 2D cell regions from JSON file")
-target_filename = "2Dcell_locations_list.json"
-say(f"[ACTION] Loading target locations from file {target_filename}")
-target_bounding_boxes = load_target_locations(target_filename)
-say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of detected 2D cell regions")
-
-say("[ACTION] Moving stage to XY coordinates of first detected 2D cell region")
-first_cell_x, first_cell_y, width, height = target_bounding_boxes[0]
-say(f"[INFO] First cell region center: ({first_cell_x}, {first_cell_y}) with size {width}×{height}")
-set_x_y_position(first_cell_x, first_cell_y)
-say(f"[INFO] Stage moved to position ({first_cell_x}, {first_cell_y}) μm")
-
-say("[INFO] Setting objective lens to 40x")
-target_objective = '4-LUCPLFLN40X'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 40x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 40x (label: {target_objective}), no change needed")
-
-say("[INFO] Setting filter to FITC fluorescence mode")
-target_channel_fitc = '3-U-FBNA'
+say("[INFO] Starting parameter setup for DAPI fluorescence mode")
+target_channel_dapi = '2-U-FUNA'
 current_channel = get_channel()
-if current_channel != target_channel_fitc:
-    set_channel(target_channel_fitc)
-    say(f"[INFO] Filter set to FITC fluorescence mode (channel: {target_channel_fitc})")
+if current_channel != target_channel_dapi:
+    set_channel(target_channel_dapi)
+    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel_dapi})")
 else:
-    say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel_fitc}), no change needed")
+    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
 
-say("[INFO] Automatically configuring camera exposure time for FITC fluorescence")
-target_exposure_fitc = 100.0
-set_exposure(target_exposure_fitc)
-say(f"[INFO] Camera exposure time set to {target_exposure_fitc} ms for FITC fluorescence")
+say("[INFO] Performing auxiliary operations for optimal fluorescence imaging")
+target_exposure_dapi = 100.0
+set_exposure(target_exposure_dapi)
+say(f"[INFO] Camera exposure time configured to {target_exposure_dapi} ms for DAPI fluorescence")
 
-say("[INFO] Setting light source brightness to 0 for fluorescence imaging")
 set_brightness(0)
-say("[INFO] Light source brightness set to 0")
+say("[INFO] Light source brightness set to 0 for fluorescence imaging")
 
 say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Configuring automatic acquisition parameters for FITC and TRITC fluorescence channels")
+say("[INFO] Configuring multi-channel fluorescence acquisition parameters")
 current_x, current_y = get_x_y_position()
-field_width = 2000
-field_height = 2000
-say(f"[INFO] Setting acquisition area to cover 2×2 mm field of view ({field_width}×{field_height} μm)")
-add_acquisition_position(name="dual_fluorescence_2x2mm", x=current_x, y=current_y, width=field_width, height=field_height)
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
 
-say("[INFO] Adding FITC fluorescence channel")
-add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
-say(f"[INFO] FITC channel configured: channel 3-U-FBNA, exposure {target_exposure_fitc} ms")
+add_acquisition_position(name="multi_fluorescence_2D", x=current_x, y=current_y, width=None, height=None)
+say("[INFO] Acquisition position configured for current field of view")
 
-say("[INFO] Adding TRITC fluorescence channel")
+target_exposure_dapi = 100.0
+target_exposure_fitc = 100.0
 target_exposure_tritc = 100.0
-add_channels(channel='4-U-FGNA', exposure=target_exposure_tritc)
-say(f"[INFO] TRITC channel configured: channel 4-U-FGNA, exposure {target_exposure_tritc} ms")
 
-say("[INFO] Starting automatic image acquisition for FITC and TRITC fluorescence channels")
+add_channels(channel='2-U-FUNA', exposure=target_exposure_dapi)
+say(f"[INFO] DAPI channel configured (channel: 2-U-FUNA, exposure: {target_exposure_dapi} ms)")
+
+add_channels(channel='3-U-FBNA', exposure=target_exposure_fitc)
+say(f"[INFO] FITC channel configured (channel: 3-U-FBNA, exposure: {target_exposure_fitc} ms)")
+
+add_channels(channel='4-U-FGNA', exposure=target_exposure_tritc)
+say(f"[INFO] TRITC channel configured (channel: 4-U-FGNA, exposure: {target_exposure_tritc} ms)")
+
+say("[INFO] Starting multi-channel fluorescence image acquisition")
 run_acquisition()
-say("[INFO] Dual fluorescence image acquisition completed successfully")
+say("[INFO] Multi-channel fluorescence acquisition completed - DAPI, FITC, and TRITC channels captured")
 ```
 
 ### Module: Image Analysis Platform
@@ -207,26 +108,25 @@ say("[INFO] Dual fluorescence image acquisition completed successfully")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired FITC and TRITC fluorescence images;
-Fluorescence Analysis: Perform fluorescence signal analysis on the imported FITC and TRITC images to measure fluorescence intensity.
+Image Import: Import the acquired multi-channel fluorescent images containing DAPI (Hoechst), FITC (Calcein), and TRITC (TMRM) channels;
+Image Merging: Merge the imported DAPI, FITC, and TRITC multi-channel images into an RGB composite image.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "dual_fluorescence_2x2mm.ome.tif"
-say("[ACTION] Loading dual fluorescence image with FITC and TRITC channels: " + input_file)
-dual_fluorescence_image = load_image(input_file)
-say("[ACTION] Splitting dual fluorescence image into individual channels")
-single_channels = split_channels(dual_fluorescence_image)
-say("[ACTION] Measuring fluorescence intensity of FITC channel (green)")
-fitc_intensity = quantify_fluorescence(single_channels[0])
-say("[INFO] FITC fluorescence intensity: " + str(fitc_intensity))
-say("[ACTION] Measuring fluorescence intensity of TRITC channel (red)")
-tritc_intensity = quantify_fluorescence(single_channels[1])
-say("[INFO] TRITC fluorescence intensity: " + str(tritc_intensity))
-say("[INFO] Fluorescence analysis completed for both FITC and TRITC channels")
+input_file = "multi_fluorescence_2D.ome.tif"
+say("[ACTION] Loading multi-channel fluorescent image with DAPI, FITC, and TRITC channels: " + input_file)
+multi_channel_image = load_image(input_file)
+say("[ACTION] Splitting multi-channel image into individual channels")
+single_channels = split_channels(multi_channel_image)
+channel_colors = ["blue", "green", "red"]
+output_file = "merged_DAPI_FITC_TRITC_rgb.tif"
+say("[ACTION] Merging DAPI (blue), FITC (green), and TRITC (red) channels into RGB composite image: " + output_file)
+merged_image = merge_channels(single_channels, colors=channel_colors, outpath=output_file)
+say("[ACTION] Saving merged RGB composite image")
+save_image(merged_image, output_file, "RGB composite image of DAPI (blue), FITC (green), and TRITC (red) channels")
 fiji_shutdown()
 ```
 

@@ -3,12 +3,12 @@
 ## 1. User Input
 
 ```text
-Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
+Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
 ```
 
 ## 2. Biosample
 
-2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
+2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
 
 ## 3. Method
 
@@ -37,7 +37,7 @@ None.
 
 ```text
 ## task
-Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
+Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations.
 
 ## planner
 candidate answer 1:

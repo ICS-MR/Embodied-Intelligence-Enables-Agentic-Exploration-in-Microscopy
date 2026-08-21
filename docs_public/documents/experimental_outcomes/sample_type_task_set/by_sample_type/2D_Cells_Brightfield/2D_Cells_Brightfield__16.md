@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; acquire a 3×3 mm brightfield image under a 4× objective and detect the positions of 2D cells.
+Imaging target: 2D cells; acquire a 3×3 mm brightfield image under a 4× objective and detect the positions of 2D cells.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; acquire a 3×3 mm brightfield image under a 4× objective and detect the positions of 2D cells.
+Imaging target: 2D cells; acquire a 3×3 mm brightfield image under a 4× objective and detect the positions of 2D cells.
 ```
 
 ### Planning Output

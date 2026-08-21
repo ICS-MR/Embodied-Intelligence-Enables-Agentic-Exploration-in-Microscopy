@@ -2,14 +2,14 @@
 ## 1. User Input
 
 ```text
-[input 1] Observation target: 2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
+[input 1] Observation target: 2D cells. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
 [input 2] Use the 20× objective for the high-magnification fluorescence imaging.
 [input 3] Use the DAPI fluorescence channel.
 ```
 
 ## 2. Biosample
 
-2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
+2D cells. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
 [input 2] Use the 20× objective for the high-magnification fluorescence imaging.
 [input 3] Use the DAPI fluorescence channel.
 
@@ -44,7 +44,7 @@ A2: Use the DAPI fluorescence channel.
 
 ```text
 ## task
-Observation target: 2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
+Observation target: 2D cells. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.
 
 ## planner
 candidate answer 1:

@@ -3,12 +3,12 @@
 ## 1. User Input
 
 ```text
-Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
+Observation target: 2D cells. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
 ```
 
 ## 2. Biosample
 
-2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
+2D cells. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
 
 ## 3. Method
 
@@ -37,7 +37,7 @@ None.
 
 ```text
 ## task
-Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
+Observation target: 2D cells. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours.
 
 ## planner
 candidate answer 1:

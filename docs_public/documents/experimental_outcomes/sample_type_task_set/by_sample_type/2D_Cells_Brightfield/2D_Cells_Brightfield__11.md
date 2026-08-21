@@ -3,12 +3,12 @@
 ## 1. User Input
 
 ```text
-Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
+Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
 ```
 
 ## 2. Biosample
 
-2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
+2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
 
 ## 3. Method
 
@@ -37,7 +37,7 @@ None.
 
 ```text
 ## task
-Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
+Observation target: 2D cells. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.
 
 ## planner
 candidate answer 1:

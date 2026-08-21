@@ -2,229 +2,83 @@
 ## 1. User Input
 
 ```text
-Observation target: 2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state.
+Imaging target: 2D section; adjust the brightness to the optimal level, capture an image, then set the brightness to half of that optimal level.
 ```
 
-## 2. Biosample
+## 2. Biological Samples Used
 
-2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state.
+2D section
 
-## 3. Method
+## 3. Expected Results
 
-clarify
+The expected outcome is to complete optimal brightness imaging of the 2D slice under the current channel, exposure, and position. First adjust the brightness to the optimal or predetermined level and capture an image. After capture, read the current brightness value, and set the brightness to half of that value as the task end state.
 
-## 4. Task Type
+## 4. Execution Result
 
-ambiguous
-
-## 5. Expected Result
-
-The method should complete the user's microscopy task and, when ambiguity or missing operational detail is present, produce the necessary clarification before execution.
-
-## 6. Execution Result
-
-Execution result: Executed automatically. See the cleaned raw execution record below for details.
+Execution result: The execution process first automatically optimized the brightness of the brightfield halogen lamp, acquired a brightfield image at the current position with the current exposure, and then set the brightness to half of the optimized brightness.
+Failure analysis: None.
 
 Overall assessment: Successful
 
 
-## 7. Clarification Q&A
 
-None.
+## Original Execution Record
 
-## 8. Cleaned Raw Execution Record
+### Task Decomposition Input
 
 ```text
-## task
-Observation target: 2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state.
+Imaging target: 2D section; adjust the brightness to the optimal level, capture an image, then set the brightness to half of that optimal level.
+```
 
-## planner
-candidate answer 1:
-<Planner State>
-{"status": "final_plan"}
-</Planner State>
-<Task steps>
-[
-    {
-        "subtask_index": 1,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Move the Z-axis to the midpoint of its range"
-    },
-    {
-        "subtask_index": 2,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the filter set to brightfield mode"
-    },
-    {
-        "subtask_index": 3,
-        "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic focusing on the current field of view"
-    },
-    {
-        "subtask_index": 4,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
-    },
-    {
-        "subtask_index": 5,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
-    }
-]
-</Task steps>
+### Planning Output
 
-candidate answer 2:
-<Planner State>
-{"status": "final_plan"}
-</Planner State>
-<Task steps>
-[
-    {
-        "subtask_index": 1,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Move the Z-axis to the midpoint of its range"
-    },
-    {
-        "subtask_index": 2,
-        "module": "Microscope Operation Platform",
-        "command": "Auxiliary operation: Perform autofocus via images"
-    },
-    {
-        "subtask_index": 3,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
-    },
-    {
-        "subtask_index": 4,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
-    }
-]
-</Task steps>
+```text
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to optimal level; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters; \n#Parameter Setting: Set the halogen lamp brightness to half of the optimal brightness level'}]
+```
 
-candidate answer 3:
-<Planner State>
-{"status": "final_plan"}
-</Planner State>
-<Task steps>
-[
-    {
-        "subtask_index": 1,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Move the Z-axis focusing position to the midpoint of its available range"
-    },
-    {
-        "subtask_index": 2,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the filter set to brightfield mode"
-    },
-    {
-        "subtask_index": 3,
-        "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic brightness adjustment"
-    },
-    {
-        "subtask_index": 4,
-        "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic focusing on the current field of view"
-    },
-    {
-        "subtask_index": 5,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
-    },
-    {
-        "subtask_index": 6,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
-    }
-]
-</Task steps>
+### Module: Microscope Operation Platform
 
-plan:
-<Planner State>
-{"status": "final_plan"}
-</Planner State>
-<Task steps>
-[
-    {
-        "subtask_index": 1,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Move the Z-axis to the midpoint of its range"
-    },
-    {
-        "subtask_index": 2,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Set the filter set to brightfield mode"
-    },
-    {
-        "subtask_index": 3,
-        "module": "Microscope Operation Platform",
-        "command": "Auxiliary Operation: Perform automatic focusing on the current field of view"
-    },
-    {
-        "subtask_index": 4,
-        "module": "Microscope Operation Platform",
-        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
-    },
-    {
-        "subtask_index": 5,
-        "module": "Microscope Operation Platform",
-        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
-    }
-]
-</Task steps>
+#### Current Environment
 
-## executor
-executor step 1:
-module: ## Event 8: Microscope Operation Platform
-command:
-[Context]
-# Saved documents:
- {}
-# Current environment:Current xy_position:(12500.0, 12500.0), z_position:5000.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:70
+```text
+Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
+```
 
-[Query]
-#Position Control: Move the Z-axis to the midpoint of its range; 
-#Parameter Setting: Set the filter set to brightfield mode; 
-#Auxiliary Operation: Perform automatic focusing on the current field of view; 
-#Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination; 
-#Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage.
-generated code:
-say("[ACTION] Moving Z-axis to midpoint of its range")
-midpoint_z = 5000.0
-set_z_position(midpoint_z)
-say(f"[INFO] Z-axis moved to midpoint position: {midpoint_z} μm")
+#### Execution Instructions
 
-say("[INFO] Setting filter to brightfield mode")
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
+```text
+Auxiliary operation: Automatically adjust the halogen lamp brightness to optimal level;
+Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters;
+Parameter Setting: Set the halogen lamp brightness to half of the optimal brightness level.
+```
 
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+#### Execute Code
 
-say("[INFO] Retrieving current camera and hardware parameters")
-current_exposure = get_exposure()
-current_objective = get_objective()
-current_channel = get_channel()
-current_brightness = get_brightness()
-say(f"[INFO] Current exposure time: {current_exposure} ms")
-say(f"[INFO] Current objective lens: {current_objective}")
-say(f"[INFO] Current filter set: {current_channel}")
-say(f"[INFO] Current halogen lamp brightness: {current_brightness}")
+```python
+say("[INFO] Starting auxiliary operation: automatic brightness adjustment")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal level: {optimal_brightness}")
 
-say("[INFO] Retrieving current stage positions")
+say("[INFO] Configuring brightfield image acquisition parameters")
 current_x, current_y = get_x_y_position()
-current_z = get_z_position()
+current_exposure = get_exposure()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Current Z position: {current_z} μm")
+say(f"[INFO] Current exposure time: {current_exposure} ms")
+
+add_acquisition_position(name="brightfield_current", x=current_x, y=current_y, width=None, height=None)
+add_channels(channel='1-NONE', exposure=current_exposure)
+say("[INFO] Brightfield acquisition parameters configured")
+
+say("[INFO] Starting automatic image acquisition")
+run_acquisition()
+say("[INFO] Automatic image acquisition completed")
+
+say("[INFO] Setting halogen lamp brightness to half of optimal level")
+half_brightness = int(optimal_brightness / 2)
+set_brightness(half_brightness)
+say(f"[INFO] Halogen lamp brightness set to {half_brightness} (half of optimal level {optimal_brightness})")
 ```
 
 

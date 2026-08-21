@@ -3,12 +3,12 @@
 ## 1. User Input
 
 ```text
-Observation target: 2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
+Observation target: 2D cells. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
 ```
 
 ## 2. Biosample
 
-2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
+2D cells. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
 
 ## 3. Method
 
@@ -37,7 +37,7 @@ None.
 
 ```text
 ## task
-Observation target: 2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
+Observation target: 2D cells. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask.
 
 ## planner
 candidate answer 1:

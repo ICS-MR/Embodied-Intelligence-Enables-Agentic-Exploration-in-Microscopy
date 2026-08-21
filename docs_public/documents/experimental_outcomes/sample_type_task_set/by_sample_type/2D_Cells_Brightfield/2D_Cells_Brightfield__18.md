@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
+Imaging target: 2D cells; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
+Imaging target: 2D cells; use a low-magnification objective to complete a full scan of the entire section, automatically detect and record 2D cells, and output all detected locations.
 ```
 
 ### Planning Output

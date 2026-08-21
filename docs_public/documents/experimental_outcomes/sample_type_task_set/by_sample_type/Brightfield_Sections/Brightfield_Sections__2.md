@@ -2,85 +2,188 @@
 ## 1. User Input
 
 ```text
-Imaging target: section; use time to measure the procedure, adjust the brightness, perform focusing, and output the elapsed time.
+[input 1] Imaging target: 2D section; move the Z-axis to the middle, perform auto-focus, and return the current hardware status
+[input 2] Imaging target: 2D section; move the Z-axis to the middle, perform auto-focus, and return the current hardware status
+Brightness adjustment shall be performed prior to focusing.
 ```
 
-## 2. Biological Samples Used
+## 2. Biosample
 
-section
+2D section
 
-## 3. Expected Results
+## 3. Method
 
-It is expected to complete the microscopy operations, analysis, and acquisition tasks described in the user input: Imaging target: section; use time to measure the procedure, adjust the brightness, perform focusing, and output the elapsed time.
+clarify
 
-## 4. Execution Results
+## 4. Task Type
 
-Execution result: The corrected workflow covered the required operations and was judged successful. See the detailed stage-by-stage record below for the exact planning, corrections, and execution code.
+ambiguous
+
+## 5. Expected Result
+
+The method should complete the user's microscopy task and, when ambiguity or missing operational detail is present, produce the necessary clarification before execution.
+
+## 6. Execution Result And Failure Analysis
+
+Execution result: Executed automatically. See the original execution record below for details.
 
 Overall assessment: Successful
 
-## Original Execution Record
+## 7. Clarification Q&A
 
-### Task Instruction
+- Round 1 question: User requested replanning after reviewing the plan preview.
+- Round 1 user answer: Brightness adjustment shall be performed prior to focusing.
 
-```text
-Imaging target: section; use time to measure the procedure, adjust the brightness, perform focusing, and output the elapsed time.
-```
-
-### Stage 1 Instruction
-```text
-Imaging target: section; use time to measure the procedure, adjust the brightness, perform focusing, and output the elapsed time.
-```
-
-### Stage 1 Planning
-```text
-[step 1] Microscope Operation Platform
-Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level for the current 20x objective and brightfield imaging conditions; 
-#Auxiliary operation: Perform autofocus on the current field of view containing the section
-```
-
-### Stage 1 Correction Info
-#### Correction Reason
+## 8. Cleaned Raw Execution Record
 
 ```text
-The candidate includes brightness adjustment and autofocus but omits the required timing start and elapsed-time output that are core stages in the reference workflow and the original task.
-```
+## task
+[input 1] Imaging target: 2D section; move the Z-axis to the middle, perform auto-focus, and return the current hardware status
+[input 2] Imaging target: 2D section; move the Z-axis to the middle, perform auto-focus, and return the current hardware status
+Brightness adjustment shall be performed prior to focusing.
 
-#### Supplemental Information
+## planner_summary
+user replan round 1:
+type: user-initiated supplement after plan preview
+previous plan preview:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Move the Z-axis focusing position to the middle position of the available Z-axis range"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary operation: Perform autofocus via images"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
+    }
+]
+</Task steps>
+supplement:
+Brightness adjustment shall be performed prior to focusing.
+replanned preview:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Move the Z-axis focusing position to the middle of the available Z-range"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary operation: Perform automatic brightness adjustment"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary operation: Perform autofocus via images"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
+    }
+]
+</Task steps>
 
-```text
-Start timing before brightness adjustment and output the elapsed time after autofocus.
-```
+latest executable plan:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Move the Z-axis focusing position to the middle of the available Z-range"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary operation: Perform automatic brightness adjustment"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary operation: Perform autofocus via images"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage"
+    }
+]
+</Task steps>
 
-### Stage 1 Replanning
-```text
-[step 1] Microscope Operation Platform
-Auxiliary Operation: Start timing measurement before brightness adjustment; 
-#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level for the current field of view; 
-#Auxiliary Operation: Perform autofocus on the current field of view containing the section; 
-#Auxiliary Operation: Stop timing measurement and output the elapsed time after autofocus completion
-```
+## original_execution_record
+Module: Microscope Operation Platform
+Current environment:
+Current xy_position:(12500.0, 12500.0), z_position:5000.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:70
+Execution instructions:
+Position Control: Move the Z-axis focusing position to the middle of the available Z-range;
+Auxiliary operation: Perform automatic brightness adjustment;
+Auxiliary operation: Perform autofocus via images;
+Parameter Setting: Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination;
+Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage.
+Execute code:
+say("[ACTION] Moving Z-axis to middle of available range")
+middle_z = 5000.0
+set_z_position(middle_z)
+say(f"[INFO] Z-axis position set to middle of range: {middle_z} μm")
 
-### Stage 1 Corrected Execute Code
-```python
-say("[INFO] Starting auxiliary operations with timing measurement")
-import time
-start_time = time.time()
-say("[ACTION] Starting timing measurement before brightness adjustment")
-
-say("[INFO] Performing automatic brightness adjustment for current field of view")
+say("[ACTION] Performing automatic brightness adjustment")
 optimal_brightness = perform_autobrightness()
 set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
+say(f"[INFO] Auto-brightness adjustment completed, halogen lamp brightness set to {optimal_brightness}")
 
-say("[INFO] Performing autofocus on current field of view containing the section")
+say("[ACTION] Performing autofocus via image analysis")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
 
-end_time = time.time()
-elapsed_time = end_time - start_time
-say(f"[ACTION] Timing measurement stopped. Total elapsed time: {elapsed_time:.2f} seconds")
+say("[INFO] Retrieving current camera and hardware parameters")
+current_exposure = get_exposure()
+current_objective = get_objective()
+current_channel = get_channel()
+current_brightness = get_brightness()
+say(f"[INFO] Current exposure time: {current_exposure} ms")
+say(f"[INFO] Current objective lens: {current_objective}")
+say(f"[INFO] Current filter set: {current_channel}")
+say(f"[INFO] Current halogen lamp brightness: {current_brightness}")
+
+say("[INFO] Retrieving current stage position")
+current_x, current_y = get_x_y_position()
+current_z = get_z_position()
+say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
+say(f"[INFO] Current Z position: {current_z} μm")
 ```
 
 

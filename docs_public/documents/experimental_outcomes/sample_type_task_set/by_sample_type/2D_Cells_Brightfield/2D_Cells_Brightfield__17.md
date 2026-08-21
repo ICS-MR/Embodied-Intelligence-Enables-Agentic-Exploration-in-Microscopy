@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-[input 1] Imaging target: 2D section; switch to the 4× objective
+[input 1] Imaging target: 2D cells; switch to the 4× objective
 [input 2] scan a 5×1 mm region to detect 2D cell areas
 [input 3] move to the first detected region
 [input 4] switch to the 20× objective, and acquire an image of a 3×3 mm field of view.
@@ -10,7 +10,7 @@
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -31,7 +31,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; switch to the 4× objective
+Imaging target: 2D cells; switch to the 4× objective
 ```
 
 ### Planning Output

@@ -1,175 +1,370 @@
-﻿# Experiment Record
+# Experiment Record - clarify - ambiguous - 19
+
 ## 1. User Input
 
 ```text
-Imaging target: Organoids; detect organoids at the current position using the low-magnification (4×) brightfield mode and record their coordinates; switch to the 20× objective, capture images of the blue and red fluorescent channels in the area of the second organoid's position, and merge the images.
+[input 1] Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.
+[input 2] Neither 20× nor 40×; use the 10× objective.
 ```
 
-## 2. Biological Samples Used
+## 2. Biosample
 
-Organoids
+3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.
+[input 2] Neither 20× nor 40×; use the 10× objective.
 
-## 3. Expected Results
+## 3. Method
 
-Expected to complete a 4× brightfield low-magnification scan of the organoid sample at the current position, record the detected organoid coordinates, and clearly localize the second organoid region. Subsequently, acquire images of the second organoid using blue and red fluorescence channels under the 20× objective. The acquisition process should include or configure the appropriate Z-axis range, and merge the blue and red channels using a suitable color mapping to generate a merged image.
+clarify
 
-## 4. Results
+## 4. Task Type
 
-Results: The workflow completed 4× bright-field imaging and detection of organoids at the current position and saved the coordinates, then after selecting the second organoid, switched to 20× to acquire DAPI blue and TRITC red fluorescence Z-stack images, and performed blue/red channel merging and output.
-Failure analysis: None.
+ambiguous
+
+## 5. Expected Result
+
+The method should complete the user's microscopy task and, when ambiguity or missing operational detail is present, produce the necessary clarification before execution.
+
+## 6. Execution Result
+
+Execution result: Executed automatically. See the cleaned raw execution record below for details.
 
 Overall assessment: Successful
 
 
+## 7. Clarification Q&A
 
-## Original Execution Record
+Q1: What specific magnification do you prefer for the high-magnification objective - 20× or 40×?
+A1: Neither 20× nor 40×; use the 10× objective.
 
-### Task Decomposition Input
-
-```text
-Imaging target: Organoids; detect organoids at the current position using the low-magnification (4×) brightfield mode and record their coordinates; switch to the 20× objective, capture images of the blue and red fluorescent channels in the area of the second organoid's position, and merge the images.
-```
-
-### Planning Output
+## 8. Cleaned Raw Execution Record
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode; \n#Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired 4x brightfield image; \n#Target Detection: Detect organoid regions in the imported 4x brightfield image and save the detection results as a JSON file'}, {'subtask_index': 3, 'module': 'Microscope Operation Platform', 'command': 'Target Position Loading: Load the organoid position bounding boxes from the JSON file; \n#Parameter Setting: Set the currently used objective lens to 20x; \n#Position Control: Move to the location of the second organoid from the loaded positions; \n#Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform autofocus on the current field of view containing the organoid; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid and determine an appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and TRITC fluorescence channels with their corresponding exposure parameters; set the XY position parameter to the current position of the second organoid, with size requirements matching the organoid area; configure Z-axis stack parameters to the recommended range; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and TRITC fluorescence channels of the second organoid'}, {'subtask_index': 4, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired DAPI and TRITC fluorescence channel images of the second organoid; \n#Image Merging: Merge the imported DAPI and TRITC fluorescence channel images into an RGB composite image'}]
-```
+## task
+Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.
 
-### Module: Microscope Operation Platform
+## planner
+candidate answer 1:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 20×; Set the filter set to DAPI fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine appropriate Z-stack range"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the 2 mm × 2 mm region; configure Z-axis stack parameters to the recommended range for 3D cell imaging; do not configure time parameters"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 2 mm × 2 mm region under DAPI fluorescence"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Cell Segmentation Platform",
+        "command": "Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for cell segmentation"
+    },
+    {
+        "subtask_index": 7,
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Process the acquired Z-stack DAPI images to generate a single focused image by merging sharp parts from different focal planes"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Cell Segmentation Platform",
+        "command": "Image Reading: Read the extended depth of field processed image data"
+    },
+    {
+        "subtask_index": 9,
+        "module": "Cell Segmentation Platform",
+        "command": "Segmentation Inference: Execute cell segmentation inference on the processed image to output a dictionary containing segmentation masks, flow fields, and cell feature style vectors"
+    },
+    {
+        "subtask_index": 10,
+        "module": "Cell Segmentation Platform",
+        "command": "Masks Analysis: Analyze the segmented cell masks to obtain the total cell count in the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 11,
+        "module": "Cell Segmentation Platform",
+        "command": "Analysis Saving: Save the cell counting analysis results"
+    },
+    {
+        "subtask_index": 12,
+        "module": "Cell Segmentation Platform",
+        "command": "Resource Release: Release model resources and clean up the environment"
+    }
+]
+</Task steps>
 
-#### Current Environment
+candidate answer 2:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 40×; Set the filter set to DAPI fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine the appropriate Z-stack range"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the 2 mm × 2 mm region; configure Z-axis stack parameters to the recommended range for 3D cell imaging; do not configure time parameters"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 2 mm × 2 mm region under DAPI fluorescence"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Cell Segmentation Platform",
+        "command": "Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for 3D cell segmentation"
+    },
+    {
+        "subtask_index": 7,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired DAPI fluorescence Z-stack images of the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack DAPI images to generate a single merged image with all focal planes"
+    },
+    {
+        "subtask_index": 9,
+        "module": "Cell Segmentation Platform",
+        "command": "Image Reading: Read the extended depth of field processed DAPI image data"
+    },
+    {
+        "subtask_index": 10,
+        "module": "Cell Segmentation Platform",
+        "command": "Segmentation Inference: Execute cell segmentation inference on the processed DAPI image to output segmentation masks, flow fields, and cell feature vectors"
+    },
+    {
+        "subtask_index": 11,
+        "module": "Cell Segmentation Platform",
+        "command": "Masks Analysis: Analyze the segmented cell masks to obtain the total cell count and area distribution"
+    },
+    {
+        "subtask_index": 12,
+        "module": "Cell Segmentation Platform",
+        "command": "Analysis Saving: Save the cell counting analysis results"
+    },
+    {
+        "subtask_index": 13,
+        "module": "Cell Segmentation Platform",
+        "command": "Resource Release: Release model resources and clean up the environment"
+    }
+]
+</Task steps>
 
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
-```
+candidate answer 3:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 40×; Set the filter set to DAPI fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine the appropriate Z-stack range for 3D imaging"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement covering the 2 mm × 2 mm region; configure Z-axis stack parameters to the recommended range for 3D cell imaging; do not configure time parameters"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to scan the 2 mm × 2 mm region under DAPI fluorescence"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired DAPI fluorescence Z-stack images from the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 7,
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the Z-stack DAPI images, generating a single image by merging sharp parts from different focal planes"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Cell Segmentation Platform",
+        "command": "Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a segmentation model type suitable for DAPI-stained cell nuclei"
+    },
+    {
+        "subtask_index": 9,
+        "module": "Cell Segmentation Platform",
+        "command": "Image Reading: Read the extended depth of field DAPI image data"
+    },
+    {
+        "subtask_index": 10,
+        "module": "Cell Segmentation Platform",
+        "command": "Segmentation Inference: Execute cell segmentation inference on the DAPI image to output a dictionary containing segmentation masks of cell nuclei, flow fields, and cell feature style vectors"
+    },
+    {
+        "subtask_index": 11,
+        "module": "Cell Segmentation Platform",
+        "command": "Masks Analysis: Analyze the segmented cell nucleus masks to obtain the total count and distribution of cells in the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 12,
+        "module": "Cell Segmentation Platform",
+        "command": "Analysis Saving: Save the cell counting analysis results"
+    },
+    {
+        "subtask_index": 13,
+        "module": "Cell Segmentation Platform",
+        "command": "Resource Release: Release model resources and clean up the environment"
+    }
+]
+</Task steps>
 
-#### Execution Instructions
+question:
+What specific magnification do you prefer for the high-magnification objective - 20× or 40×?
 
-```text
-Parameter Setting: Set the currently used objective lens to 4x; Set the filter set to brightfield mode;
-Auxiliary Operation: Automatically adjust the halogen lamp brightness to an appropriate level; Perform autofocus on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set to brightfield mode and set the exposure parameter to the current exposure value; set the XY position parameter to the current position, with size requirements matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters.
-```
+answer:
+Neither 20× nor 40×; use the 10× objective.
 
-#### Execute Code
+plan:
+<Planner State>
+{"status": "final_plan"}
+</Planner State>
+<Task steps>
+[
+    {
+        "subtask_index": 1,
+        "module": "Microscope Operation Platform",
+        "command": "Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to DAPI fluorescence mode"
+    },
+    {
+        "subtask_index": 2,
+        "module": "Microscope Operation Platform",
+        "command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view"
+    },
+    {
+        "subtask_index": 3,
+        "module": "Microscope Operation Platform",
+        "command": "Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine the appropriate Z-stack range"
+    },
+    {
+        "subtask_index": 4,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement covering the 2 mm × 2 mm region; set Z-axis stack parameters to the recommended range for 3D cell imaging; do not configure time parameters"
+    },
+    {
+        "subtask_index": 5,
+        "module": "Microscope Operation Platform",
+        "command": "Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI images of the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 6,
+        "module": "Image Analysis Platform",
+        "command": "Image Import: Import the acquired DAPI Z-stack images of the 2 mm × 2 mm region"
+    },
+    {
+        "subtask_index": 7,
+        "module": "Image Analysis Platform",
+        "command": "Extended Depth of Field: Perform extended depth of field processing on the imported Z-stack images to generate a single focused image"
+    },
+    {
+        "subtask_index": 8,
+        "module": "Cell Segmentation Platform",
+        "command": "Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for cell counting"
+    },
+    {
+        "subtask_index": 9,
+        "module": "Cell Segmentation Platform",
+        "command": "Image Reading: Read the extended depth of field processed DAPI image"
+    },
+    {
+        "subtask_index": 10,
+        "module": "Cell Segmentation Platform",
+        "command": "Segmentation Inference: Execute cell segmentation inference on the processed image to output segmentation masks and cell features"
+    },
+    {
+        "subtask_index": 11,
+        "module": "Cell Segmentation Platform",
+        "command": "Masks Analysis: Analyze the segmented masks to obtain the total cell count and area distribution"
+    },
+    {
+        "subtask_index": 12,
+        "module": "Cell Segmentation Platform",
+        "command": "Analysis Saving: Save the cell counting analysis results"
+    },
+    {
+        "subtask_index": 13,
+        "module": "Cell Segmentation Platform",
+        "command": "Resource Release: Release model resources and clean up the environment"
+    }
+]
+</Task steps>
 
-```python
-say("[INFO] Starting parameter setup for 4x brightfield imaging")
-target_objective = '1-UPLFLN4XPH'
+## executor
+executor step 1:
+module: ## Event 14: Microscope Operation Platform
+command:
+[Context]
+# Saved documents:
+ {}
+# Current environment:Current xy_position:(12500.0, 12500.0), z_position:5000.0, exposure_time:10.0, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:70
+
+[Query]
+#Parameter Setting: Set the currently used objective lens to 10×; Set the filter set to DAPI fluorescence mode; 
+#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; 
+#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing 3D cells to determine the appropriate Z-stack range; 
+#Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence and set the corresponding exposure parameter to the camera's current exposure time; configure the XY position parameter to the current position, with size requirement covering the 2 mm × 2 mm region; set Z-axis stack parameters to the recommended range for 3D cell imaging; do not configure time parameters; 
+#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI images of the 2 mm × 2 mm region.
+generated code:
+say("[INFO] Starting parameter setup for DAPI fluorescence imaging")
+target_objective = '2-SOB'
 current_objective = get_objective()
 if current_objective != target_objective:
     set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 4x (label: {target_objective})")
+    say(f"[INFO] Objective lens set to 10x (label: {target_objective})")
 else:
-    say(f"[INFO] Objective lens is already 4x (label: {target_objective}), no change needed")
+    say(f"[INFO] Objective lens is already 10x (label: {target_objective}), no change needed")
 
-target_channel = '1-NONE'
-current_channel = get_channel()
-if current_channel != target_channel:
-    set_channel(target_channel)
-    say(f"[INFO] Filter set to brightfield mode (channel: {target_channel})")
-else:
-    say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel}), no change needed")
-
-say("[INFO] Performing automatic brightness adjustment for halogen lamp")
-optimal_brightness = perform_autobrightness()
-set_brightness(optimal_brightness)
-say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal value: {optimal_brightness}")
-
-say("[INFO] Performing autofocus on current field of view")
-optimal_z = perform_autofocus()
-set_z_position(optimal_z)
-say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
-
-say("[INFO] Configuring brightfield image acquisition parameters")
-current_x, current_y = get_x_y_position()
-current_exposure = get_exposure()
-say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-say(f"[INFO] Using current exposure time: {current_exposure} ms")
-
-add_acquisition_position(name="brightfield_4x", x=current_x, y=current_y, width=None, height=None)
-add_channels(channel=target_channel, exposure=current_exposure)
-say(f"[INFO] Acquisition parameters configured: channel {target_channel}, exposure {current_exposure} ms")
-
-say("[INFO] Starting automatic image acquisition")
-run_acquisition()
-say("[INFO] Brightfield image acquisition completed successfully")
-```
-
-### Module: Image Analysis Platform
-
-#### Execution Instructions
-
-```text
-Image Import: Import the acquired 4x brightfield image;
-Target Detection: Detect organoid regions in the imported 4x brightfield image and save the detection results as a JSON file.
-```
-
-#### Execute Code
-
-```python
-fiji_initialize()
-input_file = "brightfield_4x.ome.tif"
-say("[ACTION] Loading 4x brightfield image: " + input_file)
-image = load_image(input_file)
-say("[ACTION] Detecting organoid regions in the brightfield image")
-detection_result = analysis_platform_find_organoid_position(image, "Organoid regions detected in 4x brightfield image")
-say("[ACTION] Detection results saved as JSON file")
-fiji_shutdown()
-```
-
-### Module: Microscope Operation Platform
-
-#### Current Environment
-
-```text
-Current xy_position:(35123.8, 12353.6), z_position:4155.0, exposure_time:100, objective:1-UPLFLN4XPH (4x objective), dichroic:1-NONE (Brightfield), brightness:85
-```
-
-#### Execution Instructions
-
-```text
-Target Position Loading: Load the organoid position bounding boxes from the JSON file;
-Parameter Setting: Set the currently used objective lens to 20x;
-Position Control: Move to the location of the second organoid from the loaded positions;
-Parameter Setting: Set the filter set to DAPI fluorescence mode;
-Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform autofocus on the current field of view containing the organoid;
-Z-axis Stack Parameter Recommendation: Analyze the current field of view containing the organoid and determine an appropriate Z-stack range for 3D imaging;
-Image Automatic Acquisition Parameter Setting: Configure the filter sets for DAPI and TRITC fluorescence channels with their corresponding exposure parameters; set the XY position parameter to the current position of the second organoid, with size requirements matching the organoid area; configure Z-axis stack parameters to the recommended range; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture DAPI and TRITC fluorescence channels of the second organoid.
-```
-
-#### Execute Code
-
-```python
-say("[INFO] Starting to load organoid position bounding boxes from JSON file")
-organoid_filename = "organoid_locations_list.json"
-say(f"[ACTION] Loading organoid locations from file {organoid_filename}")
-organoid_bounding_boxes = load_target_locations(organoid_filename)
-say(f"[INFO] Successfully loaded {len(organoid_bounding_boxes)} organoid bounding boxes")
-
-say("[INFO] Setting objective lens to 20x")
-target_objective = '3-LUCPLFLN20XRC'
-current_objective = get_objective()
-if current_objective != target_objective:
-    set_objective(target_objective)
-    say(f"[INFO] Objective lens set to 20x (label: {target_objective})")
-else:
-    say(f"[INFO] Objective lens is already 20x (label: {target_objective}), no change needed")
-
-say("[INFO] Moving to the location of the second organoid")
-if len(organoid_bounding_boxes) >= 2:
-    second_organoid = organoid_bounding_boxes[1]
-    center_x, center_y, width, height = second_organoid
-    say(f"[ACTION] Moving to second organoid position: X={center_x} μm, Y={center_y} μm")
-    set_x_y_position(center_x, center_y)
-    say(f"[INFO] Successfully moved to second organoid location")
-else:
-    say("[ERROR] Less than 2 organoids found in the loaded data")
-
-say("[INFO] Setting filter to DAPI fluorescence mode")
 target_channel_dapi = '2-U-FUNA'
 current_channel = get_channel()
 if current_channel != target_channel_dapi:
@@ -178,69 +373,131 @@ if current_channel != target_channel_dapi:
 else:
     say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
 
-say("[INFO] Performing auxiliary operations for optimal fluorescence imaging")
-target_exposure_dapi = 100.0
+say("[INFO] Performing auxiliary operations for optimal DAPI imaging")
+target_exposure_dapi = 150.0
 set_exposure(target_exposure_dapi)
-say(f"[INFO] Camera exposure time automatically configured to {target_exposure_dapi} ms for DAPI")
+say(f"[INFO] Camera exposure time automatically configured to {target_exposure_dapi} ms for DAPI fluorescence")
 
 set_brightness(0)
 say("[INFO] Light source brightness set to 0 for fluorescence imaging")
 
-say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Analyzing current organoid field to determine Z-stack range")
+say("[INFO] Analyzing current field of view to determine Z-stack range for 3D cells")
 z_max, z_min = z_stack_range()
-z_step = 1.5
-say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm")
+z_step = 3.0
 set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
+say(f"[INFO] Z-stack parameters set for 3D cell imaging: range {z_min} to {z_max} μm with step {z_step} μm")
 
-say("[INFO] Configuring dual-channel fluorescence acquisition parameters")
+say("[INFO] Configuring DAPI fluorescence acquisition parameters for 2mm × 2mm region")
 current_x, current_y = get_x_y_position()
-organoid_width = second_organoid[2]
-organoid_height = second_organoid[3]
-add_acquisition_position(name="second_organoid_fluorescence", x=current_x, y=current_y, width=organoid_width, height=organoid_height)
-say(f"[INFO] Acquisition position set to cover organoid area: {organoid_width} × {organoid_height} μm")
+region_size = 2000.0
+add_acquisition_position(name="DAPI_2mm_region", x=current_x, y=current_y, width=region_size, height=region_size)
+say(f"[INFO] Acquisition position configured: center ({current_x}, {current_y}) μm, size {region_size} × {region_size} μm")
 
-add_channels(channel='2-U-FUNA', exposure=100.0)
-say("[INFO] DAPI channel configured with 100ms exposure")
+current_exposure_dapi = get_exposure()
+add_channels(channel=target_channel_dapi, exposure=current_exposure_dapi)
+say(f"[INFO] DAPI channel configured with exposure {current_exposure_dapi} ms")
 
-add_channels(channel='4-U-FGNA', exposure=100.0)
-say("[INFO] TRITC channel configured with 100ms exposure")
-
-say("[INFO] Starting dual-channel fluorescence Z-stack acquisition of second organoid")
+say("[INFO] Starting DAPI fluorescence Z-stack image acquisition for 2mm × 2mm region")
 run_acquisition()
-say("[INFO] DAPI and TRITC fluorescence Z-stack acquisition of second organoid completed")
-```
+say("[INFO] DAPI fluorescence Z-stack acquisition completed successfully")
 
-### Module: Image Analysis Platform
+executor step 2:
+module: ## Event 16: Image Analysis Platform
+command:
+[Context]
+# Saved documents:
+ {'DAPI_2mm_region.ome.tif': {'filename': 'DAPI_2mm_region.ome.tif', 'description': 'channel_names: [(0, 0, 255)], pixel_size: 0.65, objective_label: 2-SOB, magnification: 10, frames: 1', 'created_by': 'microscope', 'file_type': 'ome-tiff'}}
 
-#### Execution Instructions
-
-```text
-Image Import: Import the acquired DAPI and TRITC fluorescence channel images of the second organoid;
-Image Merging: Merge the imported DAPI and TRITC fluorescence channel images into an RGB composite image.
-```
-
-#### Execute Code
-
-```python
+[Query]
+#Image Import: Import the acquired DAPI Z-stack images of the 2 mm × 2 mm region; 
+#Extended Depth of Field: Perform extended depth of field processing on the imported Z-stack images to generate a single focused image.
+generated code:
 fiji_initialize()
-input_file = "second_organoid_fluorescence.ome.tif"
-say("[ACTION] Loading DAPI and TRITC fluorescence channel images of the second organoid: " + input_file)
-multi_channel_image = load_image(input_file)
-say("[ACTION] Splitting multi-channel image into individual channels")
-single_channels = split_channels(multi_channel_image)
-channel_colors = ["blue", "red"]
-output_file = "merged_second_organoid_rgb.tif"
-say("[ACTION] Merging DAPI and TRITC channels into RGB composite image: " + output_file)
-merged_image = merge_channels(single_channels, colors=channel_colors, outpath=output_file)
-say("[ACTION] Saving merged RGB composite image")
-save_image(merged_image, output_file, "RGB composite image of second organoid with DAPI (blue) and TRITC (red) channels")
+input_file = "DAPI_2mm_region.ome.tif"
+say("[ACTION] Loading DAPI Z-stack images of 2mm×2mm region: " + input_file)
+image = load_image(input_file)
+say("[ACTION] Performing extended depth of field processing via maximum intensity Z-projection")
+extended_depth_image = z_projection(image, method="max")
+output_file = "extended_depth_DAPI_2mm.ome.tif"
+say("[ACTION] Saving extended depth of field image to: " + output_file)
+save_image(extended_depth_image, output_file, "Extended depth of field DAPI image generated via maximum intensity Z-projection from 2mm×2mm region")
 fiji_shutdown()
+
+executor step 3:
+module: ## Event 18: Cell Segmentation Platform
+command:
+[Context]
+# Saved documents:
+ {'DAPI_2mm_region.ome.tif': {'filename': 'DAPI_2mm_region.ome.tif', 'description': 'channel_names: [(0, 0, 255)], pixel_size: 0.65, objective_label: 2-SOB, magnification: 10, frames: 1', 'created_by': 'microscope', 'file_type': 'ome-tiff'}, 'extended_depth_DAPI_2mm.ome.tif': {'filename': 'extended_depth_DAPI_2mm.ome.tif', 'description': 'Extended depth of field DAPI image generated via maximum intensity Z-projection from 2mm×2mm region', 'created_by': 'analysis_platform', 'file_type': 'ome-tiff'}}
+
+[Query]
+#Initialization: Initialize the cell segmentation model, enable GPU acceleration, and select a suitable segmentation model type for cell counting; 
+#Image Reading: Read the extended depth of field processed DAPI image; 
+#Segmentation Inference: Execute cell segmentation inference on the processed image to output segmentation masks and cell features; 
+#Masks Analysis: Analyze the segmented masks to obtain the total cell count and area distribution; 
+#Analysis Saving: Save the cell counting analysis results; 
+#Resource Release: Release model resources and clean up the environment.
+generated code:
+say("[ACTION] Initializing Cellpose model for cell counting with GPU acceleration")
+cellpose_initialize(gpu=True, model_type="cpsam")
+
+say("[ACTION] Reading extended depth of field DAPI image")
+image_path = 'extended_depth_DAPI_2mm.ome.tif'
+image = cellpose_read(image_path)
+say("[INFO] Image loaded with shape: {}".format(image.shape))
+
+say("[ACTION] Preprocessing extended depth DAPI image to 2D format")
+if len(image.shape) == 5:
+    image_2d = image[0, 0, 0, :, :]
+elif len(image.shape) == 3:
+    image_2d = image[0, :, :]
+else:
+    image_2d = image
+say("[INFO] 2D image prepared with shape: {}".format(image_2d.shape))
+
+say("[ACTION] Running cell segmentation on extended depth DAPI image")
+masks = segment(
+    image=image_2d,
+    channels=[0, 0],
+    diameter=None,
+    flow_threshold=0.4,
+    cellprob_threshold=0.0,
+    min_size=15,
+    denoise=True
+)
+total_cells = np.max(masks)
+say("[INFO] Segmentation completed. Total cell count: {}".format(total_cells))
+
+say("[ACTION] Saving cell segmentation masks")
+mask_filename = "cell_counting_1.tif"
+save_masks(
+    masks=masks,
+    filename=mask_filename,
+    description="Cell segmentation masks from extended depth DAPI image for cell counting"
+)
+say("[INFO] Masks saved as: {}".format(mask_filename))
+
+say("[ACTION] Analyzing cell area distribution and counting")
+px_size = 0.65
+analysis_df = analyze_masks(
+    masks=masks,
+    px_size=px_size,
+    unit="μm2",
+    bins=20,
+    plot=False
+)
+
+say("[INFO] Cell counting analysis - Total cells detected: {}".format(total_cells))
+say("[INFO] Average cell area: {:.2f} μm²".format(analysis_df['area'].mean()))
+
+say("[ACTION] Saving cell counting analysis results")
+analysis_filename = "cell_counting_analysis_1.csv"
+save_csv(df=analysis_df, filename=analysis_filename)
+say("[INFO] Analysis results saved as: {}".format(analysis_filename))
+
+say("[INFO] Cell counting workflow completed successfully")
 ```
-
-
-

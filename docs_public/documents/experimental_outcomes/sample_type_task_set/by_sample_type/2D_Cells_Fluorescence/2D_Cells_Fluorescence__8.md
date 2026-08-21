@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
+Imaging target: 2D cells; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
+Imaging target: 2D cells; perform blue fluorescence imaging of cells in the field of view, and use algorithms to generate clear images.
 ```
 
 ### Planning Output

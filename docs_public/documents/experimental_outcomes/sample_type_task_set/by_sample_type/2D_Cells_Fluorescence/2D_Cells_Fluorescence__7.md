@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
+Imaging target: 2D cells; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
+Imaging target: 2D cells; use a 4× objective to automatically count and locate DAPI-labeled cell nuclei on fluorescence in situ hybridization slices.
 ```
 
 ### Planning Output

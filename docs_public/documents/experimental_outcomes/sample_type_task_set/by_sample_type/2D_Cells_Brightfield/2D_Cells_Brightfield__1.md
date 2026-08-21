@@ -2,12 +2,12 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; obtain images in the current state and perform cell segmentation using Cellpose to generate segmentation masks
+Imaging target: 2D cells; obtain images in the current state and perform cell segmentation using Cellpose to generate segmentation masks
 ```
 
 ## 2. Biological Samples Used
 
-2D section
+2D cells
 
 ## 3. Expected Results
 
@@ -27,7 +27,7 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; obtain images in the current state and perform cell segmentation using Cellpose to generate segmentation masks
+Imaging target: 2D cells; obtain images in the current state and perform cell segmentation using Cellpose to generate segmentation masks
 ```
 
 ### Planning Output

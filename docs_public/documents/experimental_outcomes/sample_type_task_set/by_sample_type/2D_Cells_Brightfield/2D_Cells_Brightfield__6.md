@@ -2,13 +2,13 @@
 ## 1. User Input
 
 ```text
-[input 1] Observation target: 2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
+[input 1] Observation target: 2D cells. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
 [input 2] Use the 20× objective.
 ```
 
 ## 2. Biosample
 
-2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
+2D cells. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
 [input 2] Use the 20× objective.
 
 ## 3. Method
@@ -39,7 +39,7 @@ A1: Use the 20× objective.
 
 ```text
 ## task
-Observation target: 2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
+Observation target: 2D cells. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.
 
 ## planner
 candidate answer 1:

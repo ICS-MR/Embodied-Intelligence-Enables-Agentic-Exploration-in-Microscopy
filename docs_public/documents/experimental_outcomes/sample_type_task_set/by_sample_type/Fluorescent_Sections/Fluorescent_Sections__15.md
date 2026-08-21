@@ -2,7 +2,7 @@
 ## 1. User Input
 
 ```text
-Imaging target: 2D section; capture images of the green fluorescent channel, apply super-resolution algorithms to resolve subcellular structures, and save the clear images.
+Imaging target: 2D section; detect weak blue fluorescent signals of low-expression targets.
 ```
 
 ## 2. Biological Samples Used
@@ -11,11 +11,11 @@ Imaging target: 2D section; capture images of the green fluorescent channel, app
 
 ## 3. Expected Results
 
-It is expected that green fluorescence channel imaging of two-dimensional slice samples will be completed, and Richardson-Lucy deconvolution, denoising, or equivalent super-resolution/clarity enhancement algorithms will be applied to the acquired images to improve the resolution of subcellular structures. Finally, the processed clear green fluorescence image should be saved as the task output.
+Blue fluorescence channel imaging of two-dimensional slice samples should be completed. On the basis of reasonable focusing, exposure or acquisition parameters suitable for weak signals should be adopted so that the faint blue fluorescence signals of low‑expression targets can be clearly recorded and used for subsequent interpretation. When necessary, post‑acquisition contrast enhancement or denoising may be applied to improve visibility, but this does not replace the effective acquisition of the original weak blue fluorescence signals.
 
 ## 4. Execution Result
 
-Execution result: The green fluorescence/FITC channel imaging of the current field of view was actually completed, and Richardson-Lucy deconvolution super-resolution enhancement was performed on the captured images, after which clear images were saved.
+Execution result: The process switched to the DAPI blue fluorescence channel, set a 200 ms exposure and auto-focused under fluorescence conditions, acquired the current 2D slice field-of-view image, then performed contrast enhancement, denoising, saved the processed image, and attempted to quantify the weak blue fluorescence signal.
 Failure analysis: None.
 
 Overall assessment: Successful
@@ -27,13 +27,13 @@ Overall assessment: Successful
 ### Task Decomposition Input
 
 ```text
-Imaging target: 2D section; capture images of the green fluorescent channel, apply super-resolution algorithms to resolve subcellular structures, and save the clear images.
+Imaging target: 2D section; detect weak blue fluorescent signals of low-expression targets.
 ```
 
 ### Planning Output
 
 ```text
-[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the green fluorescent channel image'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired green fluorescent channel image; \n#Image Processing: Apply super-resolution deconvolution algorithms to the imported green fluorescent image to enhance resolution and resolve subcellular structures'}]
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to DAPI fluorescence mode; \n#Parameter Setting: Set the camera exposure time to a high value suitable for detecting weak fluorescent signals; Set the light source brightness to 0; \n#Auxiliary Operation: Perform automatic focusing on the current field of view; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current high exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture weak blue fluorescent signals'}, {'subtask_index': 2, 'module': 'Image Analysis Platform', 'command': 'Image Import: Import the acquired DAPI fluorescence image containing weak blue fluorescent signals; \n#Image Processing: Apply contrast enhancement and denoising operations to improve the visibility of weak fluorescent signals; \n#Fluorescence Analysis: Perform fluorescence signal analysis on the processed image to detect and quantify weak blue fluorescent signals of low-expression targets'}]
 ```
 
 ### Module: Microscope Operation Platform
@@ -47,48 +47,50 @@ Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, ob
 #### Execution Instructions
 
 ```text
-Parameter Setting: Set the filter set to FITC fluorescence mode;
-Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view;
-Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence channel and set the corresponding exposure parameter to the current camera exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
-Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the green fluorescent channel image.
+Parameter Setting: Set the filter set to DAPI fluorescence mode;
+Parameter Setting: Set the camera exposure time to a high value suitable for detecting weak fluorescent signals; Set the light source brightness to 0;
+Auxiliary Operation: Perform automatic focusing on the current field of view;
+Image Automatic Acquisition Parameter Setting: Configure the filter set for DAPI fluorescence channel and set the corresponding exposure parameter to the current high exposure time; configure the XY position parameter to the current position, with size requirement matching the current field of view; do not configure Z-axis stack parameters; do not configure time parameters;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture weak blue fluorescent signals.
 ```
 
 #### Execute Code
 
 ```python
-say("[INFO] Starting parameter setup for FITC fluorescence imaging")
-target_channel_fitc = '3-U-FBNA'
+say("[INFO] Starting parameter setup for DAPI fluorescence imaging")
+target_channel_dapi = '2-U-FUNA'
 current_channel = get_channel()
-if current_channel != target_channel_fitc:
-    set_channel(target_channel_fitc)
-    say(f"[INFO] Filter set to FITC fluorescence mode (channel: {target_channel_fitc})")
+if current_channel != target_channel_dapi:
+    set_channel(target_channel_dapi)
+    say(f"[INFO] Filter set to DAPI fluorescence mode (channel: {target_channel_dapi})")
 else:
-    say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel_fitc}), no change needed")
+    say(f"[INFO] Filter is already in DAPI fluorescence mode (channel: {target_channel_dapi}), no change needed")
 
-say("[INFO] Performing auxiliary operations for optimal FITC imaging")
-target_exposure_fitc = 100.0
-set_exposure(target_exposure_fitc)
-say(f"[INFO] Camera exposure time automatically configured to {target_exposure_fitc} ms for FITC fluorescence")
+say("[INFO] Configuring camera exposure time for weak fluorescent signal detection")
+target_exposure_dapi = 200.0
+set_exposure(target_exposure_dapi)
+say(f"[INFO] Camera exposure time set to {target_exposure_dapi} ms for DAPI fluorescence")
 
+say("[INFO] Setting light source brightness to 0 for fluorescence imaging")
 set_brightness(0)
-say("[INFO] Light source brightness set to 0 for fluorescence imaging")
+say("[INFO] Light source brightness set to 0")
 
 say("[INFO] Performing autofocus on current field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
 
-say("[INFO] Configuring FITC fluorescence acquisition parameters")
+say("[INFO] Configuring DAPI fluorescence acquisition parameters")
 current_x, current_y = get_x_y_position()
 say(f"[INFO] Current XY position: ({current_x}, {current_y}) μm")
-add_acquisition_position(name="fitc_fluorescence", x=current_x, y=current_y, width=None, height=None)
-current_exposure = get_exposure()
-add_channels(channel=target_channel_fitc, exposure=current_exposure)
-say(f"[INFO] FITC acquisition parameters configured: channel {target_channel_fitc}, exposure {current_exposure} ms")
+add_acquisition_position(name="dapi_fluorescence", x=current_x, y=current_y, width=None, height=None)
+current_exposure_dapi = get_exposure()
+add_channels(channel=target_channel_dapi, exposure=current_exposure_dapi)
+say(f"[INFO] DAPI acquisition parameters configured: channel {target_channel_dapi}, exposure {current_exposure_dapi} ms")
 
-say("[INFO] Starting FITC fluorescence image acquisition")
+say("[INFO] Starting DAPI fluorescence image acquisition")
 run_acquisition()
-say("[INFO] FITC fluorescence image acquisition completed")
+say("[INFO] DAPI fluorescence image acquisition completed successfully")
 ```
 
 ### Module: Image Analysis Platform
@@ -96,23 +98,28 @@ say("[INFO] FITC fluorescence image acquisition completed")
 #### Execution Instructions
 
 ```text
-Image Import: Import the acquired green fluorescent channel image;
-Image Processing: Apply super-resolution deconvolution algorithms to the imported green fluorescent image to enhance resolution and resolve subcellular structures.
+Image Import: Import the acquired DAPI fluorescence image containing weak blue fluorescent signals;
+Image Processing: Apply contrast enhancement and denoising operations to improve the visibility of weak fluorescent signals;
+Fluorescence Analysis: Perform fluorescence signal analysis on the processed image to detect and quantify weak blue fluorescent signals of low-expression targets.
 ```
 
 #### Execute Code
 
 ```python
 fiji_initialize()
-input_file = "fitc_fluorescence.ome.tif"
-say("[ACTION] Loading green fluorescent channel image: " + input_file)
+input_file = "dapi_fluorescence.ome.tif"
+say("[ACTION] Loading DAPI fluorescence image with weak blue fluorescent signals: " + input_file)
 image = load_image(input_file)
-magnification = 20
-say("[ACTION] Performing Richardson-Lucy deconvolution for super-resolution enhancement with " + str(10) + " iterations")
-deconvolved_image = richardson_lucy(image, magnification, iterations=10, out_filename="super_resolution_fitc", out_dir=".")
-output_file = "super_resolution_fitc_fluorescence.ome.tif"
-say("[ACTION] Saving super-resolution enhanced image to: " + output_file)
-save_image(deconvolved_image, output_file, "Super-resolution enhanced green fluorescent image using Richardson-Lucy deconvolution")
+say("[ACTION] Applying contrast enhancement to improve visibility of weak fluorescent signals")
+enhanced_image = adjust_contrast(image, saturated=2)
+say("[ACTION] Performing denoising with Gaussian filtering to reduce noise")
+processed_image = denoise(enhanced_image, method="Gaussian", radius=1.0)
+output_file = "processed_dapi_fluorescence.ome.tif"
+say("[ACTION] Saving processed image to: " + output_file)
+save_image(processed_image, output_file, "DAPI fluorescence image processed with contrast enhancement and Gaussian denoising")
+say("[ACTION] Performing fluorescence signal analysis to detect and quantify weak blue fluorescent signals")
+fluorescence_intensity = quantify_fluorescence(processed_image)
+say("[INFO] Quantified fluorescence intensity of weak blue signals: " + str(fluorescence_intensity))
 fiji_shutdown()
 ```
 
