@@ -1,6 +1,6 @@
 ﻿# FRAP Tool Notes
 
-This file records FRAP settings that are specific to the current cellSens workstation. These values are intentionally not treated as universal defaults.
+This file records FRAP settings that are specific to the current cellSens workstation. These values are not treated as universal defaults. For the new environment, an additional calibration process is required.
 
 ## Workstation-Specific UI Profile
 
