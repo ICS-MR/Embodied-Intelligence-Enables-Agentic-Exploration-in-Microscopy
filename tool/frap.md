@@ -83,11 +83,3 @@ Current validation scope:
 
 - Small bright artifacts are filtered out.
 - The expected target cells are retained.
-
-Known limitation:
-
-- `3000.0` is an empirical threshold for the current 60x FRAP image scale and current cellSens image-region setup.
-- If magnification, display scaling, source image size, or cell morphology changes, this value may need to be revalidated.
-- A value that is too high can remove real small cells; a value that is too low can keep bright artifacts.
-
-For the current stage, this is an accepted fixed parameter rather than an adaptive threshold.
