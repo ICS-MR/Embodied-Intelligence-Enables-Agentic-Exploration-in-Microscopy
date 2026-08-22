@@ -40,7 +40,7 @@ This folder contains organized dataset and experimental outcome files.
 
 5. `conformal_prediction_dataset/`
 
-   Content: calibration dataset only.
+   Content: calibration dataset.
 
 6. `conformal_prediction/`
 
@@ -50,7 +50,7 @@ This folder contains organized dataset and experimental outcome files.
 
    Content: external human teleoperation dataset link and clone instructions.
 
-   Note: `Mircomanipulation_tool` is code, not the dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/VLA/ACT_for_microscopy/`.
+   Note: `Mircomanipulation_tool` is model inference code, not the dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/VLA/ACT_for_microscopy/`.
 
 ## Experimental Outcomes
 
@@ -60,7 +60,7 @@ This folder contains organized dataset and experimental outcome files.
 
 2. `long_horizon_task_evaluation/`
 
-   Fig. 3a evidence: 12 model-comparison experiment records with per-task `Elapsed time (s)`.
+   Fig. 3a: 12 model-comparison experiment records with per-task `Elapsed time (s)`.
 
 3. `function_call_usage_comparison/`
 
@@ -68,7 +68,7 @@ This folder contains organized dataset and experimental outcome files.
 
 4. `planning_module_importance/`
 
-   Fig. 3b: high-level planning module vs baseline.
+   Fig. 3b: high-level planning module vs baseline in Function-Calling comparison.
 
 5. `ambiguity_task_comparison/`
 
@@ -96,9 +96,9 @@ This folder contains organized dataset and experimental outcome files.
 
 11. `frap_and_micromanipulation/`
 
-    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`) and MP-285 interaction records (`mp285/`).
+    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`) and micromanipulation interaction records (`mp285/`).
 
-    Note: the FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) lives at `docs_public/frap/` and is not duplicated here. VLA code and assets live under `docs_public/VLA/`.
+    Note: the FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) lives at `docs_public/frap/` and is not duplicated here.
 
 12. `different_disturbance_detection/`
 
