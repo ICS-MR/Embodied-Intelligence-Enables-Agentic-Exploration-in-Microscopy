@@ -102,13 +102,6 @@ Task steps:
 ## User Input
 
 ```text
-debug_plan
-```
-
-
-## User Input
-
-```text
 confirm
 ```
 
