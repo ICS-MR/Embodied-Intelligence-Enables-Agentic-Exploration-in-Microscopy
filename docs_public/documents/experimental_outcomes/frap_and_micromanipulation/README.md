@@ -9,5 +9,5 @@ FRAP + micromanipulation driving tasks and tools.
 
 - `mp285/` - processed MP-285 tool interaction records
   (movement, circle drawing, pump aspiration/dispensing, ball transfer tasks), plus
-  `eims_mp285.md`, a 9-round end-to-end EIMS spheroid-transfer workflow execution record.
+  `eims_mp285.md`, a end-to-end EIMS spheroid-transfer workflow execution record.
 
