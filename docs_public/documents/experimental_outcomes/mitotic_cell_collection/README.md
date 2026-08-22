@@ -1,6 +1,6 @@
 # Mitotic cell collection
 
-Fig. 8a evidence: mitosis monitoring/tracking skill materials (skill before/after comparison dialogues).
+Fig. 8a: mitosis monitoring/tracking skill materials (skill before/after comparison dialogues).
 
 ## Contents
 
