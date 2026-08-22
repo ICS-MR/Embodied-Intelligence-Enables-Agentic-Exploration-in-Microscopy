@@ -66,20 +66,3 @@ Instantiating `Frap` opens or focuses cellSens and prepares the FRAP panel.
 Releasing the `Frap` instance closes cellSens through `Frap.close()` / `Frap.__del__()`. This is intentional for the current workflow so that a later `Frap` load starts from a clean cellSens process instead of inheriting stale UI state.
 
 `laser_off()` does not close cellSens. It clicks the configured `frap_stop_button` and only stops the FRAP operation.
-
-## Cell Detection Area Filter
-
-`cellpose_min_area_px` is the minimum refined Cellpose mask area required for a detected object to be treated as a valid cell.
-
-Current value:
-
-```json
-"cellpose_min_area_px": 3000.0
-```
-
-This threshold is used to remove small bright artifacts that Cellpose may segment as cells. It is applied after the fluorescence-intensity refinement step, so it filters the refined cell body area rather than only the raw Cellpose mask area.
-
-Current validation scope:
-
-- Small bright artifacts are filtered out.
-- The expected target cells are retained.
