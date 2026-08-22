@@ -110,5 +110,5 @@ This folder contains organized dataset and experimental outcome files.
 
 14. `mitotic_cell_collection/`
 
-    Fig. 8a: skill before/after comparison dialogues.
+    Fig. 8a: mitotic cell collection tasks dialogues with and without the use of a Skill.
 
