@@ -5,7 +5,7 @@ This directory holds the documented calibration view for the C3 (Cross-Sample Co
 ## Files
 - calibration_overview.json : the single self-contained view used for display and review.
 - README.md : this note.
-- compute_conformal_threshold.py : reproduces the threshold from this overview. Default path recomputes every non-conformity score with bge-m3 (matching `agent/clarifier.py::Clarify._compare_commands`); `--no-recompute` reads the stored `nonconformity_score` values directly. Running `uv run python docs_public/c3_calibration/compute_conformal_threshold.py --no-recompute` prints `threshold (round) = 0.029`, the value linked from `bootstrap/config.py` `task_similarity_threshold`.
+- compute_conformal_threshold.py : reproduces the threshold from this overview. Default path recomputes every non-conformity score with bge-m3 (matching `agent/clarifier.py::Clarify._compare_commands`); `--no-recompute` reads the stored `nonconformity_score` values directly. Running `uv run python docs_public/c3_calibration/compute_conformal_threshold.py --no-recompute` can get the corresponding threshold, the value linked from `bootstrap/config.py` `task_similarity_threshold`.
 
 ## calibration_overview.json
 A self-contained JSON document with header-level parameters plus a per-command record list.
