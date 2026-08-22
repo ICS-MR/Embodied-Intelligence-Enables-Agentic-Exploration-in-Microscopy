@@ -1,6 +1,6 @@
 # Organized Dataset Release
 
-This folder contains organized dataset and experimental outcome files for public review.
+This folder contains organized dataset and experimental outcome files.
 
 ## Top-Level Structure
 
