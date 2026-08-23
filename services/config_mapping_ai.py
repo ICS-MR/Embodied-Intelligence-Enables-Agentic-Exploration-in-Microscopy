@@ -34,6 +34,17 @@ _FORM_OBJECTIVE_KEYS = ("4x", "10x", "20x", "30x", "40x", "60x", "100x")
 _FORM_CHANNEL_KEYS = ("brightfield", "dapi", "fitc", "tritc")
 _INTENSITY_TOKENS = ("brightness", "intensity", "power", "level", "percent")
 _CONFIDENCE_VALUES = {"high", "medium", "low", "unknown"}
+_DRAFT_FIELD_KEYS = {
+    "value",
+    "candidates",
+    "source",
+    "confidence",
+    "reason",
+    "needs_review",
+    "rule_value",
+    "ai_value",
+    "current_value",
+}
 
 
 def _parse_json_response(content: str) -> dict[str, Any]:
@@ -122,14 +133,38 @@ def _current_value(current_system: Any, name: str) -> str:
     return str(getattr(current_system, name, "") or "")
 
 
-def _current_nested_label(current_system: Any, group: str, key: str) -> str:
+def _current_nested_entry(current_system: Any, group: str, key: str) -> dict[str, Any]:
     container = {}
     if isinstance(current_system, Mapping):
         container = current_system.get(group) or {}
     elif current_system is not None:
         container = getattr(current_system, group, {}) or {}
-    entry = dict(container.get(key) or {}) if isinstance(container, Mapping) else {}
+    return dict(container.get(key) or {}) if isinstance(container, Mapping) else {}
+
+
+def _current_nested_label(current_system: Any, group: str, key: str) -> str:
+    entry = _current_nested_entry(current_system, group, key)
     return str(entry.get("label") or "")
+
+
+def _positive_float(value: Any) -> float | None:
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric_value <= 0:
+        return None
+    return numeric_value
+
+
+def _objective_pixel_size_extra(rule_entry: Mapping[str, Any], current_entry: Mapping[str, Any]) -> dict[str, float]:
+    rule_pixel_size = _positive_float(rule_entry.get("pixel_size_um"))
+    if rule_pixel_size is not None:
+        return {"pixel_size_um": rule_pixel_size}
+    current_pixel_size = _positive_float(current_entry.get("pixel_size_um"))
+    if current_pixel_size is not None:
+        return {"pixel_size_um": current_pixel_size}
+    return {}
 
 
 def _current_transmitted_light(current_system: Any, key: str) -> str:
@@ -308,19 +343,31 @@ def _draft_field(
     rule_value: str = "",
     ai_value: str = "",
     current_value: str = "",
+    extra: Mapping[str, Any] | None = None,
 ) -> ConfigMappingDraftField:
     confidence_value = confidence if confidence in _CONFIDENCE_VALUES else "unknown"
-    return ConfigMappingDraftField(
-        value=str(value or ""),
-        candidates=_unique([str(candidate) for candidate in candidates]),
-        source=source,  # type: ignore[arg-type]
-        confidence=confidence_value,  # type: ignore[arg-type]
-        reason=reason,
-        needs_review=needs_review,
-        rule_value=str(rule_value or ""),
-        ai_value=str(ai_value or ""),
-        current_value=str(current_value or ""),
-    )
+    payload: dict[str, Any] = {
+        "value": str(value or ""),
+        "candidates": _unique([str(candidate) for candidate in candidates]),
+        "source": source,
+        "confidence": confidence_value,
+        "reason": reason,
+        "needs_review": needs_review,
+        "rule_value": str(rule_value or ""),
+        "ai_value": str(ai_value or ""),
+        "current_value": str(current_value or ""),
+    }
+    if extra:
+        payload.update(dict(extra))
+    return ConfigMappingDraftField(**payload)  # type: ignore[arg-type]
+
+
+def _field_extra(field: ConfigMappingDraftField) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in _model_dump(field).items()
+        if key not in _DRAFT_FIELD_KEYS
+    }
 
 
 def _suggestion_value(inventory: Mapping[str, Any], field: str) -> str:
@@ -396,10 +443,13 @@ def _build_objective_drafts(
     rule_objectives = _rule_mapping(inventory, "objectives") if objective_device == rule_objective_device else {}
     drafts: dict[str, ConfigMappingDraftField] = {}
     for key in _FORM_OBJECTIVE_KEYS:
-        rule_label = str(dict(rule_objectives.get(key) or {}).get("label") or "")
-        current = _current_nested_label(current_system, "objectives", key)
+        rule_entry = dict(rule_objectives.get(key) or {})
+        rule_label = str(rule_entry.get("label") or "")
+        current_entry = _current_nested_entry(current_system, "objectives", key)
+        current = str(current_entry.get("label") or "")
         if current not in set(labels):
             current = ""
+        extra = _objective_pixel_size_extra(rule_entry, current_entry)
         if rule_label and rule_label in labels:
             drafts[key] = _draft_field(
                 value=rule_label,
@@ -410,6 +460,7 @@ def _build_objective_drafts(
                 needs_review=False,
                 rule_value=rule_label,
                 current_value=current,
+                extra=extra,
             )
         else:
             value = current if current in labels else ""
@@ -421,6 +472,7 @@ def _build_objective_drafts(
                 reason=f"No clear cfg label maps to EIMS objective key '{key}'.",
                 needs_review=True,
                 current_value=current,
+                extra=extra,
             )
     return drafts
 
@@ -563,10 +615,11 @@ def _build_rule_analysis(inventory: Mapping[str, Any], current_system: Any) -> C
     objectives = _build_objective_drafts(inventory, current_system, fields["objective_device"].value)
     channels = _build_channel_drafts(inventory, current_system, fields["Dichroic"].value)
     transmitted_light = _build_transmitted_light_draft(inventory, current_system)
-    warnings = [
+    warnings = [str(warning) for warning in inventory.get("warnings") or []]
+    warnings.extend([
         f"The cfg does not identify a {field}; select it manually."
         for field in inventory.get("unresolved_fields") or []
-    ]
+    ])
     return ConfigMappingAnalysis(
         ai_status="not_configured",
         fields=fields,
@@ -602,6 +655,7 @@ def _replace_with_ai(
         rule_value=field.rule_value,
         ai_value=ai_field.value,
         current_value=field.current_value,
+        extra=_field_extra(field),
     )
 
 
@@ -636,6 +690,7 @@ def _merge_valid_ai_value(
                     rule_value=field.rule_value,
                     ai_value=ai_value,
                     current_value=field.current_value,
+                    extra=_field_extra(field),
                 ),
                 "",
             )
@@ -818,6 +873,7 @@ Core role bindings from Micro-Manager are facts. For non-Core fields, you may re
 even if it is not a parser candidate, when that corrects a likely parser mistake.
 For device properties, use runtime metadata when present. Prefer writable, non-PreInit numeric controls and reject modes,
 status fields, read-only properties, and non-numeric values for intensity control.
+Objective pixel_size_um values are calibration facts supplied by official Micro-Manager cfg/API data or current EIMS config; do not infer or invent them.
 Return JSON only with fields, objectives, channels, transmitted_light, and warnings.
 Each recommended item must include value, confidence, and reason. Use confidence high, medium, low, or unknown.
 Generic labels may still be recommended when useful, but explain that the user must verify them.

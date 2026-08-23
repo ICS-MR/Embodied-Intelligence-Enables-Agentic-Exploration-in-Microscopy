@@ -8,10 +8,11 @@ import sys
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.request import urlopen
 
 from bootstrap.config import (
+    DEFAULT_OBJECTIVE_LABELS,
     ROOT_DIR,
     RUNTIME_CONFIG_PATH,
     is_demo_mode_settings,
@@ -36,6 +37,9 @@ class MMConfigData:
     parents: Dict[str, str] = field(default_factory=dict)
     focus_directions: Dict[str, str] = field(default_factory=dict)
     labels: Dict[str, List[str]] = field(default_factory=dict)
+    pixel_size_config_props: Dict[str, List[Tuple[str, str, str]]] = field(default_factory=dict)
+    pixel_size_um_by_id: Dict[str, float] = field(default_factory=dict)
+    warnings: List[str] = field(default_factory=list)
 
 
 DEFAULT_GRAY = (128, 128, 128)
@@ -137,7 +141,63 @@ def parse_mm_config(cfg_path: Path) -> MMConfigData:
             data.focus_directions[parts[1]] = parts[2]
         elif keyword == "label" and len(parts) >= 4:
             data.labels.setdefault(parts[1], []).append(parts[3])
+        elif keyword == "configpixelsize" and len(parts) >= 5:
+            resolution_id = parts[1]
+            device = parts[2]
+            prop_name = parts[3]
+            prop_value = ",".join(parts[4:]).strip()
+            if resolution_id and device and prop_name:
+                data.pixel_size_config_props.setdefault(resolution_id, []).append(
+                    (device, prop_name, prop_value)
+                )
+        elif keyword == "pixelsize_um" and len(parts) >= 3:
+            pixel_size_um = _positive_float(
+                parts[2],
+                warnings=data.warnings,
+                context=f"PixelSize_um for resolution '{parts[1]}'",
+            )
+            if pixel_size_um is not None:
+                data.pixel_size_um_by_id[parts[1]] = pixel_size_um
+            else:
+                data.warnings.append(
+                    f"Ignoring invalid PixelSize_um for resolution '{parts[1]}': {parts[2]!r}."
+                )
     return data
+
+
+def _positive_float(
+    value: Any,
+    *,
+    warnings: Optional[List[str]] = None,
+    context: str = "value",
+) -> Optional[float]:
+    try:
+        number_value = float(value)
+    except (TypeError, ValueError):
+        if warnings is not None:
+            warnings.append(f"{context} must be numeric, got {value!r}.")
+        return None
+    if number_value <= 0:
+        if warnings is not None:
+            warnings.append(f"{context} must be positive, got {number_value!r}.")
+        return None
+    return number_value
+
+
+def build_objective_pixel_sizes(data: MMConfigData, objective_device: Optional[str]) -> Dict[str, float]:
+    if not objective_device:
+        return {}
+    pixel_sizes: Dict[str, float] = {}
+    for resolution_id, settings in data.pixel_size_config_props.items():
+        pixel_size_um = data.pixel_size_um_by_id.get(resolution_id)
+        if pixel_size_um is None:
+            continue
+        for device, prop_name, prop_value in settings:
+            if device == objective_device and prop_name.lower() == "label":
+                label = str(prop_value or "").strip()
+                if label:
+                    pixel_sizes[label] = pixel_size_um
+    return pixel_sizes
 
 
 def numeric_suffix(label: str) -> int:
@@ -255,9 +315,11 @@ def _build_objective_labels(data: MMConfigData, objective_device: Optional[str],
     if not objective_device:
         return {}
     labels = data.labels.get(objective_device, [])
+    known_labels = dict(DEFAULT_OBJECTIVE_LABELS)
+    known_labels.update(existing_map or {})
     objective_labels: Dict[str, int] = {}
     for label in labels:
-        magnification = parse_objective_magnification(label, existing_map)
+        magnification = parse_objective_magnification(label, known_labels)
         if magnification is not None:
             objective_labels[label] = magnification
     return objective_labels
@@ -279,14 +341,18 @@ def infer_filter_color(label: str, existing_map: Dict[str, Tuple[int, int, int]]
 
 def build_objectives(data: MMConfigData, objective_device: Optional[str], existing_map: Dict[str, int]) -> Dict[str, Dict[str, Any]]:
     objective_labels = _build_objective_labels(data, objective_device, existing_map)
+    objective_pixel_sizes = build_objective_pixel_sizes(data, objective_device)
     objectives: Dict[str, Dict[str, Any]] = {}
     for label, magnification in sorted(objective_labels.items(), key=lambda item: item[1]):
         semantic_key = f"{int(magnification)}x"
-        objectives[semantic_key] = {
+        entry: Dict[str, Any] = {
             "label": label,
             "magnification": int(magnification),
             "display_name": f"{int(magnification)}x objective",
         }
+        if label in objective_pixel_sizes:
+            entry["pixel_size_um"] = objective_pixel_sizes[label]
+        objectives[semantic_key] = entry
     return objectives
 
 
@@ -440,6 +506,7 @@ def build_cfg_inventory(cfg_path: Path) -> Dict[str, Any]:
         "unresolved_fields": [
             name for name, suggestion in suggestions.items() if not suggestion.get("value")
         ],
+        "warnings": list(data.warnings),
     }
 
 
@@ -454,14 +521,28 @@ def format_python_dict(mapping: Dict[str, Any]) -> str:
 
 
 def apply_updates(system_config_path: Path, updates: Dict[str, str]) -> List[str]:
-    del system_config_path
-    save_runtime_settings(system_updates=updates)
+    save_runtime_settings(system_updates=updates, config_path=system_config_path)
     return [field for field, value in updates.items() if value]
 
 
 def apply_dict_update(system_config_path: Path, field_name: str, mapping: Dict[str, Any]) -> bool:
-    del system_config_path
-    save_runtime_settings(system_updates={field_name: mapping})
+    final_mapping = mapping
+    if field_name in {"objectives", "channels"}:
+        settings = load_runtime_settings(system_config_path, apply_demo_overlay=False)
+        current = getattr(settings.system, field_name, {}) or {}
+        merged: Dict[str, Any] = {
+            str(key): dict(value)
+            for key, value in current.items()
+            if isinstance(value, Mapping)
+        }
+        for key, value in mapping.items():
+            if not isinstance(value, Mapping):
+                continue
+            base = dict(merged.get(str(key), {}))
+            base.update(dict(value))
+            merged[str(key)] = base
+        final_mapping = merged
+    save_runtime_settings(system_updates={field_name: final_mapping}, config_path=system_config_path)
     return True
 
 
@@ -1374,6 +1455,9 @@ def print_field(name: str, item: Dict[str, Any]) -> None:
     ai_value = str(item.get("ai_value") or "")
     if ai_value and ai_value != value:
         print(f"    ai: {ai_value}")
+    pixel_size_um = item.get("pixel_size_um")
+    if pixel_size_um not in (None, ""):
+        print(f"    pixel_size_um: {pixel_size_um}")
     reason = str(item.get("reason") or "")
     if reason:
         print(f"    reason: {reason}")
@@ -1401,6 +1485,15 @@ def build_system_updates(data: Dict[str, Any], settings: Any, cfg_path: Path) ->
         if match:
             base["magnification"] = int(match.group(1))
         base["display_name"] = str(base.get("display_name") or f"{key} objective")
+        pixel_size_value = (item or {}).get("pixel_size_um")
+        if pixel_size_value not in (None, ""):
+            try:
+                pixel_size_um = float(pixel_size_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid pixel_size_um for objective {key}: {pixel_size_value!r}") from exc
+            if pixel_size_um <= 0:
+                raise ValueError(f"Invalid pixel_size_um for objective {key}: {pixel_size_um!r}")
+            base["pixel_size_um"] = pixel_size_um
         objectives[key] = base
     if objectives:
         updates["objectives"] = objectives

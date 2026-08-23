@@ -8,6 +8,9 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+import cv2 as cv
+import numpy as np
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -97,6 +100,7 @@ def _build_var_map(env: Any) -> dict[str, Any]:
 
 def _run_code(code: str, env: Any) -> None:
     gvars = _build_var_map(env)
+    gvars.update({"np": np, "cv": cv, "cv2": cv})
     gvars["say"] = _say
 
     allowed_call_names = {name for name, value in gvars.items() if callable(value)} | SAFE_BUILTIN_CALLS

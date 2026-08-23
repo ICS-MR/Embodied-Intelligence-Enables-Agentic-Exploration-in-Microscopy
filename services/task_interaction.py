@@ -28,6 +28,13 @@ def _string_list(value: Any) -> list[str]:
     return [_clean_text(item) for item in value if _clean_text(item)]
 
 
+def _has_planner_debug_payload(plan: TaskPlan) -> bool:
+    return any(
+        _clean_text(getattr(plan, attr, ""))
+        for attr in ("planner_raw_response", "skill_routing_raw_response")
+    ) or bool(getattr(plan, "active_templates", []) or [])
+
+
 def _format_clarification_display(plan: TaskPlan, fallback_text: str) -> str:
     details = getattr(plan, "clarification_details", {}) or {}
     if not isinstance(details, dict):
@@ -125,8 +132,8 @@ class TaskInteractionSession:
                     plan,
                     pick_text(
                         prefers_zh,
-                        "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'debug_plan' to inspect the raw planner output, or type a revision:",
-                        "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'debug_plan' to inspect the raw planner output, or type a revision:",
+                        "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'view plan' to view the planner output, or type a revision:",
+                        "Reply with 'confirm' or 'continue' to execute, 'cancel' to stop, type 'view plan' to view the planner output, or type a revision:",
                     ),
                     prompt_record_text="plan_ready_confirmation",
                     command_snapshot=current_command,
@@ -186,8 +193,8 @@ class TaskInteractionSession:
                     plan,
                     pick_text(
                         prefers_zh,
-                        "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
-                        "Answer the question, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
+                        "Answer the question, type 'view plan' to view the planner output, or type 'cancel':",
+                        "Answer the question, type 'view plan' to view the planner output, or type 'cancel':",
                     ),
                     prompt_record_text=visible_prompt_text,
                     command_snapshot=current_command,
@@ -255,6 +262,11 @@ class TaskInteractionSession:
                 await _maybe_await(self.ports.send_robot_message(detail))
                 return InteractionOutcome(status="unsupported", plan=plan, summary=detail)
 
+            if getattr(plan, "status", "") == "error" and not _has_planner_debug_payload(plan):
+                detail = _clean_text(getattr(plan, "error", "")) or "Planner failed before returning an output."
+                await _maybe_await(self.ports.send_robot_message(detail))
+                return InteractionOutcome(status="failed", plan=plan, summary=detail)
+
             await _maybe_await(
                 self.ports.send_robot_message(
                     pick_text(
@@ -268,8 +280,8 @@ class TaskInteractionSession:
                 plan,
                 pick_text(
                     prefers_zh,
-                    "Please add a revision, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
-                    "Please add a revision, type 'debug_plan' to inspect the raw planner output, or type 'cancel':",
+                    "Please add a revision, type 'view plan' to view the planner output, or type 'cancel':",
+                    "Please add a revision, type 'view plan' to view the planner output, or type 'cancel':",
                 ),
                 prompt_record_text="plan_revision_request",
                 command_snapshot=current_command,

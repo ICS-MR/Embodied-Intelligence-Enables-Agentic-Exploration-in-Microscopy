@@ -31,6 +31,20 @@ DEBUG_PLAN_KEYWORDS = (
     "show_raw_plan",
     "plannerraw",
     "planner_raw",
+    "viewplan",
+    "view_plan",
+    "showplan",
+    "show_plan",
+    "planneroutput",
+    "planner_output",
+    "viewplanneroutput",
+    "view_planner_output",
+    "showplanneroutput",
+    "show_planner_output",
+    "查看计划",
+    "查看原始计划",
+    "查看规划",
+    "查看规划输出",
 )
 
 

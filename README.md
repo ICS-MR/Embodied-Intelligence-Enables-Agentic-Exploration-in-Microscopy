@@ -68,7 +68,9 @@ The main runtime path is managed by `services/runtime_manager.py` and
 | Connect a physical microscope | Complete Quick Start, then follow [Real Microscope Setup](#real-microscope-setup) |
 | Work directly from a terminal | Start with `uv run python main.py` after configuration |
 | Inspect the conceptual hardware-free example | Open `Hardware-Free-Demo.ipynb` |
-| Add planning guidance or tools | See [Extending EIMS](#extending-eims) |
+| Add planner skills or tool integrations | See [Extending EIMS](#extending-eims) |
+
+<a id="quick-start"></a>
 
 ## 🚀 Quick Start
 
@@ -89,6 +91,11 @@ cd Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy
 - Micro-Manager 2.0 for microscope `demo` and `real` modes
 - Fiji/ImageJ for image-analysis `real` mode
 - An NVIDIA GPU with CUDA is recommended for Cellpose and MMDetection
+
+The default Quick Start profile is `demo / mock / mock`, so real Fiji/ImageJ,
+detector weights, Cellpose, and a CUDA GPU are not required for the first demo
+run. Install those mode-dependent assets only when enabling real image-analysis,
+segmentation, or workflows that need them; see [Mode-dependent Components](#mode-dependent-components).
 
 ### 3. Install Python Dependencies
 
@@ -174,6 +181,8 @@ The Web runtime and CLI runtime are alternatives; they do not both need to be st
 uv run python main.py
 ```
 
+<a id="runtime-modes"></a>
+
 ## ⚙️ Runtime Modes
 
 EIMS selects the runtime mode of each subsystem independently:
@@ -234,6 +243,8 @@ The cfg directories have distinct roles:
 | --- | --- |
 | `demo_cfg/` | Managed built-in configuration used by `microscope_mode=demo` |
 | `uploaded_cfg/` | Runtime landing area for user-uploaded Micro-Manager `.cfg` files |
+
+<a id="real-microscope-setup"></a>
 
 ## 🔌 Real Microscope Setup
 
@@ -417,8 +428,10 @@ directly; multiple candidates are ranked by AI and remain editable.
 
 The inspection draft is available before the first save. Startup revalidates the saved
 selection with `hasProperty()` and repeats runtime discovery when the property remains
-empty, so inspection failure does not create a second persistence path. Leave the device
-empty to disable EIMS transmitted-light brightness control entirely.
+empty, so inspection failure does not create a second persistence path. For real
+microscopes with transmitted illumination, configure this mapping before fluorescence
+workflows; EIMS turns transmitted light off when switching away from brightfield and
+will fail fast if no writable control is available.
 
 ```json
 {
@@ -455,6 +468,8 @@ Before each real microscope execution:
 - Stop and inspect the current and target positions manually if behavior is wrong or a
   travel-limit or collision risk is suspected.
 - Keep the laboratory's emergency-stop procedure available.
+
+<a id="mode-dependent-components"></a>
 
 ## 🧩 Mode-dependent Components
 
@@ -524,6 +539,10 @@ C:\Users\<YourUserName>\AppData\Local\EIMS\Fiji
 
 ### Local Semantic Similarity Model
 
+This model is only needed when Clarifier / C3 semantic-consistency planning is
+enabled, for example with `clarify_enabled=true`. It is not required for the
+default Quick Start profile.
+
 Download the local semantic similarity model:
 
 ```bash
@@ -563,6 +582,8 @@ docs_public/VLA/ACT_for_microscopy
 `Hardware-Free-Demo.ipynb` is a hardware-free conceptual demonstration. For the current
 configuration and runtime procedure, use this document together with `.env.example`,
 `config/runtime_config.example.json`, and `system_config_wizard.py`.
+
+<a id="configuration-reference"></a>
 
 ## ⚙️ Configuration Reference
 
@@ -701,6 +722,8 @@ history/
 The session records generated plans, executor code, execution results, image-checker
 feedback, plan-trace and code-repair diagnostics, registered output files, and cache
 metadata.
+
+<a id="extending-eims"></a>
 
 ## 🧰 Extending EIMS
 

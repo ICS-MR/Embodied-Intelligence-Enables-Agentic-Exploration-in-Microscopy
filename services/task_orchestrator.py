@@ -243,6 +243,22 @@ class TaskOrchestrator:
             return self._plan(request)
         except OpenAIError as exc:
             logger.warning("LLM request failed during planning; returning retryable error plan: %s", exc)
+            error_message = (
+                f"LLM request failed: {type(exc).__name__}: {exc}. "
+                "Please check the LLM endpoint/model/account and retry."
+            )
+            history_manager = getattr(self.runtime_context, "history_manager", None)
+            if history_manager is not None:
+                history_manager.record_interaction(
+                    agent_name="Task_manager",
+                    event_type="planning_llm_failed",
+                    message="Planner LLM request failed before a planner response was available.",
+                    payload={
+                        "query": request.user_command,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
             return TaskPlan(
                 task_id=str(uuid.uuid4()),
                 session_id=request.session_id,
@@ -258,7 +274,7 @@ class TaskOrchestrator:
                 display_text="",
                 ready=False,
                 tokens=None,
-                error=f"LLM request failed: {type(exc).__name__}: {exc}. Please check the LLM endpoint/model/account and retry.",
+                error=error_message,
                 clarification_details={},
             )
 

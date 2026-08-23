@@ -1477,6 +1477,13 @@
                                 <div class="field"><label for="objective40x">40x Objective Label</label><input id="objective40x" type="text"></div>
                                 <div class="field"><label for="objective60x">60x Objective Label</label><input id="objective60x" type="text"></div>
                                 <div class="field"><label for="objective100x">100x Objective Label</label><input id="objective100x" type="text"></div>
+                                <div class="field"><label for="objective4xPixelSize">4x Pixel Size (µm/px)</label><input id="objective4xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective10xPixelSize">10x Pixel Size (µm/px)</label><input id="objective10xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective20xPixelSize">20x Pixel Size (µm/px)</label><input id="objective20xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective30xPixelSize">30x Pixel Size (µm/px)</label><input id="objective30xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective40xPixelSize">40x Pixel Size (µm/px)</label><input id="objective40xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective60xPixelSize">60x Pixel Size (µm/px)</label><input id="objective60xPixelSize" type="number" min="0" step="any"></div>
+                                <div class="field"><label for="objective100xPixelSize">100x Pixel Size (µm/px)</label><input id="objective100xPixelSize" type="number" min="0" step="any"></div>
                                 <div class="field"><label for="channelBrightfield">Brightfield Channel Label</label><input id="channelBrightfield" type="text"></div>
                                 <div class="field"><label for="channelDapi">DAPI Channel Label</label><input id="channelDapi" type="text"></div>
                                 <div class="field"><label for="channelFitc">FITC Channel Label</label><input id="channelFitc" type="text"></div>
@@ -1523,14 +1530,10 @@
                                 <div class="field"><label for="startupZPosition">Startup Z Position (µm)</label><input id="startupZPosition" type="number" step="any"></div>
                                 <div class="field"><label for="startupBrightness">Startup Brightness (0–250)</label><input id="startupBrightness" type="number" step="1"></div>
                                 <div class="field"><label for="startupExposure">Startup Exposure (ms)</label><input id="startupExposure" type="number" step="any"></div>
-                                <div class="field"><label for="startupStartPreview">Startup Preview</label><select id="startupStartPreview">
-                                        <option value="true">Start preview after initialization</option>
-                                        <option value="false">Do not start preview automatically</option>
-                                    </select></div>
                             </div>
                         </div>
 
-                        <div class="settings-group">
+                        <div id="demoVirtualEnvironmentGroup" class="settings-group">
                             <h4>Demo Virtual Environment</h4>
                             <p class="group-description">Only applies in demo mode. Defines the virtual sample and camera model; applied when the environment starts.</p>
                             <div class="field-grid">
@@ -1647,6 +1650,7 @@
             isCfgImporting: false,
             configured: false,
             realHardwareConfigDraft: null,
+            realStartupDraft: null,
             transmittedLightConfigDraft: {},
             demoManagedSystem: null,
             demoManagedStartup: null,
@@ -1806,6 +1810,7 @@
             clearConfigMappingDraftUi();
             const system = data.system || {};
             const realSystemDraft = data.real_system_draft || {};
+            const realStartupDraft = data.real_startup_draft || {};
             uiState.demoManagedSystem = cloneJson(data.demo_system || {});
             uiState.demoManagedStartup = cloneJson(data.demo_startup || {});
             const agent = data.agent || {};
@@ -1814,6 +1819,11 @@
                 uiState.realHardwareConfigDraft = JSON.parse(JSON.stringify(realSystemDraft));
             } else if ((agent.microscope_mode ?? "demo") !== "demo") {
                 uiState.realHardwareConfigDraft = JSON.parse(JSON.stringify(system));
+            }
+            if (Object.keys(realStartupDraft).length > 0) {
+                uiState.realStartupDraft = cloneJson(realStartupDraft);
+            } else if ((agent.microscope_mode ?? "demo") !== "demo") {
+                uiState.realStartupDraft = cloneJson(startup);
             }
             $("mmDir").value = system.MM_DIR || "";
             $("configPath").value = system.CONFIG_PATH || "";
@@ -1862,6 +1872,18 @@
                 objectives: mapping.objectives,
                 channels: mapping.channels,
                 transmitted_light: mapping.transmitted_light,
+            };
+        }
+
+        function buildCurrentStartupDraft() {
+            return {
+                objective: $("startupObjective").value,
+                channel: $("startupChannel").value,
+                exposure: readNumberValue("startupExposure"),
+                brightness: readNumberValue("startupBrightness"),
+                x_position: readNumberValue("startupXPosition"),
+                y_position: readNumberValue("startupYPosition"),
+                z_position: readNumberValue("startupZPosition"),
             };
         }
 
@@ -2001,13 +2023,13 @@
             setNumberValue("startupZPosition", cfg.z_position);
             setNumberValue("startupBrightness", cfg.brightness);
             setNumberValue("startupExposure", cfg.exposure);
-            $("startupStartPreview").value = String(cfg.start_preview ?? true);
         }
 
         function handleMicroscopeModeChange() {
             const demoModeEnabled = $("microscopeMode").value === "demo";
             if (demoModeEnabled) {
                 uiState.realHardwareConfigDraft = buildCurrentSystemDraft();
+                uiState.realStartupDraft = buildCurrentStartupDraft();
                 applyManagedSystemDraft(cloneJson(uiState.demoManagedSystem || {}));
                 applyManagedStartupDraft(cloneJson(uiState.demoManagedStartup || {}));
                 syncMicroscopeModeUi();
@@ -2017,8 +2039,11 @@
 
             if (uiState.realHardwareConfigDraft) {
                 applyManagedSystemDraft(cloneJson(uiState.realHardwareConfigDraft));
+                if (uiState.realStartupDraft) {
+                    applyManagedStartupDraft(cloneJson(uiState.realStartupDraft));
+                }
                 syncMicroscopeModeUi();
-                showFeedback("Restored the last known real hardware configuration draft.", false);
+                showFeedback("Restored the last known real hardware configuration and startup draft.", false);
                 return;
             }
 
@@ -2123,6 +2148,10 @@
 
         function syncMicroscopeModeUi() {
             const demoModeEnabled = $("microscopeMode").value === "demo";
+            const demoVirtualEnvironmentGroup = $("demoVirtualEnvironmentGroup");
+            if (demoVirtualEnvironmentGroup) {
+                demoVirtualEnvironmentGroup.hidden = !demoModeEnabled;
+            }
             setElementsDisabled(
                 [
                     "cfgFile",
@@ -2151,7 +2180,6 @@
                     "startupZPosition",
                     "startupBrightness",
                     "startupExposure",
-                    "startupStartPreview",
                     "objective4x",
                     "objective10x",
                     "objective20x",
@@ -2159,6 +2187,13 @@
                     "objective40x",
                     "objective60x",
                     "objective100x",
+                    "objective4xPixelSize",
+                    "objective10xPixelSize",
+                    "objective20xPixelSize",
+                    "objective30xPixelSize",
+                    "objective40xPixelSize",
+                    "objective60xPixelSize",
+                    "objective100xPixelSize",
                     "channelBrightfield",
                     "channelDapi",
                     "channelFitc",
@@ -2209,6 +2244,36 @@
                 channels: system?.channels || {},
                 transmitted_light: system?.transmitted_light || {},
             };
+        }
+
+        function objectiveMappingDefinitions() {
+            return [
+                ["4x", "objective4x", "objective4xPixelSize"],
+                ["10x", "objective10x", "objective10xPixelSize"],
+                ["20x", "objective20x", "objective20xPixelSize"],
+                ["30x", "objective30x", "objective30xPixelSize"],
+                ["40x", "objective40x", "objective40xPixelSize"],
+                ["60x", "objective60x", "objective60xPixelSize"],
+                ["100x", "objective100x", "objective100xPixelSize"],
+            ];
+        }
+
+        function positivePixelSizeValue(value) {
+            if (value === undefined || value === null || value === "") return null;
+            const numberValue = Number(value);
+            return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
+        }
+
+        function applyObjectivePixelSizeDraft(key, draft, options = {}) {
+            const definition = objectiveMappingDefinitions().find(([objectiveKey]) => objectiveKey === key);
+            if (!definition) return;
+            const pixelInputId = definition[2];
+            const pixelInput = $(pixelInputId);
+            if (!pixelInput) return;
+            if (options.preserveValue && pixelInput.value.trim()) return;
+            const pixelSize = positivePixelSizeValue(draft?.pixel_size_um);
+            if (pixelSize === null) return;
+            setNumberValue(pixelInputId, pixelSize);
         }
 
         function mappingDraftInputIds() {
@@ -2379,6 +2444,7 @@
             }
             for (const [key, entry] of Object.entries(draft.objectives || {})) {
                 applyDraftInput(fieldIds[`objective:${key}`], entry, { preserveValue: true });
+                applyObjectivePixelSizeDraft(key, entry, { preserveValue: true });
             }
             for (const [key, entry] of Object.entries(draft.channels || {})) {
                 applyDraftInput(fieldIds[`channel:${key}`], entry, { preserveValue: true });
@@ -2397,6 +2463,7 @@
 
             for (const [key, draft] of Object.entries(mapping?.objectives || {})) {
                 applyDraftInput(fieldIds[`objective:${key}`], draft);
+                applyObjectivePixelSizeDraft(key, draft);
             }
             for (const [key, draft] of Object.entries(mapping?.channels || {})) {
                 applyDraftInput(fieldIds[`channel:${key}`], draft);
@@ -2456,13 +2523,10 @@
             const transmittedLight = mapping.transmitted_light || {};
             uiState.transmittedLightConfigDraft = cloneJson(transmittedLight);
 
-            $("objective4x").value = objectives["4x"]?.label || "";
-            $("objective10x").value = objectives["10x"]?.label || "";
-            $("objective20x").value = objectives["20x"]?.label || "";
-            $("objective30x").value = objectives["30x"]?.label || "";
-            $("objective40x").value = objectives["40x"]?.label || "";
-            $("objective60x").value = objectives["60x"]?.label || "";
-            $("objective100x").value = objectives["100x"]?.label || "";
+            for (const [key, labelInputId, pixelInputId] of objectiveMappingDefinitions()) {
+                $(labelInputId).value = objectives[key]?.label || "";
+                setNumberValue(pixelInputId, objectives[key]?.pixel_size_um);
+            }
 
             $("channelBrightfield").value = channels["brightfield"]?.label || "";
             $("channelDapi").value = channels["dapi"]?.label || "";
@@ -2475,23 +2539,27 @@
 
         function collectSemanticMappingPayload() {
             const objectives = {};
-            const objectiveFields = [
-                ["4x", "objective4x"],
-                ["10x", "objective10x"],
-                ["20x", "objective20x"],
-                ["30x", "objective30x"],
-                ["40x", "objective40x"],
-                ["60x", "objective60x"],
-                ["100x", "objective100x"],
-            ];
-            for (const [key, elementId] of objectiveFields) {
-                const label = $(elementId).value.trim();
-                if (!label) continue;
-                objectives[key] = {
+            for (const [key, labelInputId, pixelInputId] of objectiveMappingDefinitions()) {
+                const label = $(labelInputId).value.trim();
+                const pixelSize = readNumberValue(pixelInputId);
+                if (!label) {
+                    if (pixelSize !== null) {
+                        throw new Error(`${key} pixel size requires an objective label.`);
+                    }
+                    continue;
+                }
+                if (pixelSize !== null && (!Number.isFinite(pixelSize) || pixelSize <= 0)) {
+                    throw new Error(`${key} pixel size must be a positive number in µm/px.`);
+                }
+                const objective = {
                     label,
                     magnification: Number.parseInt(key, 10),
                     display_name: `${key} objective`,
                 };
+                if (pixelSize !== null) {
+                    objective.pixel_size_um = pixelSize;
+                }
+                objectives[key] = objective;
             }
 
             const channelDefinitions = [
@@ -3038,6 +3106,7 @@
         function collectConfigPayload() {
             const semanticMapping = collectSemanticMappingPayload();
             const limitPayload = collectLimitPayload();
+            const microscopeMode = $("microscopeMode").value;
             return {
                 mm_dir: $("mmDir").value.trim(),
                 config_path: $("configPath").value.trim(),
@@ -3056,13 +3125,13 @@
                 vlm_model_name: $("vlmModelName").value.trim(),
                 clarify_enabled: $("clarifyEnabled").value === "true",
                 checker_enabled: $("checkerEnabled").value === "true",
-                microscope_mode: $("microscopeMode").value,
+                microscope_mode: microscopeMode,
                 image_analysis_mode: $("imageAnalysisMode").value,
                 segmentation_mode: $("segmentationMode").value,
                 objectives: semanticMapping.objectives,
                 channels: semanticMapping.channels,
                 transmitted_light: semanticMapping.transmitted_light,
-                demo_environment: collectDemoEnvironmentPayload(),
+                demo_environment: microscopeMode === "demo" ? collectDemoEnvironmentPayload() : {},
                 startup_objective: $("startupObjective").value,
                 startup_channel: $("startupChannel").value,
                 startup_exposure: readNumberValue("startupExposure"),
@@ -3070,7 +3139,6 @@
                 startup_x_position: readNumberValue("startupXPosition"),
                 startup_y_position: readNumberValue("startupYPosition"),
                 startup_z_position: readNumberValue("startupZPosition"),
-                startup_start_preview: $("startupStartPreview").value === "true",
             };
         }
 
@@ -3352,13 +3420,14 @@
                 $("decisionBarText").textContent = "Choose an action, or type a revision below. Press Enter with an empty input to confirm.";
                 addButton("Confirm", "confirm", "primary");
                 addButton("Edit", "edit");
-                addButton("Debug", "debug_plan");
+                addButton("View Planner Output", "debug_plan");
                 addButton("Cancel", "cancel", "danger");
             } else if (mode === "clarification") {
                 $("decisionBarText").textContent = "The planner needs one more detail. Answer in the input below, or cancel.";
                 addButton("Cancel", "cancel", "danger");
             } else if (mode === "revision") {
-                $("decisionBarText").textContent = "The planner could not build a plan yet. Type your revision below, or cancel.";
+                $("decisionBarText").textContent = "The planner could not build a plan yet. Type your revision below, view the planner output, or cancel.";
+                addButton("View Planner Output", "debug_plan");
                 addButton("Cancel", "cancel", "danger");
             } else {
                 if (mode !== "general") {

@@ -112,7 +112,6 @@ class ConfigSaveRequest(BaseModel):
     startup_z_position: float | None = None
     startup_x_position: float | None = None
     startup_y_position: float | None = None
-    startup_start_preview: bool | None = None
 
 
 class LLMConnectionTestRequest(BaseModel):
@@ -160,7 +159,6 @@ class StartupConfigView(BaseModel):
     z_position: float = 0.0
     x_position: float = 0.0
     y_position: float = 0.0
-    start_preview: bool = True
 
 
 class ConfigStatusResponse(BaseModel):
@@ -174,6 +172,7 @@ class ConfigStatusResponse(BaseModel):
     failure_step: str = ""
     system: Dict[str, Any]
     real_system_draft: Dict[str, Any] = Field(default_factory=dict)
+    real_startup_draft: Dict[str, Any] = Field(default_factory=dict)
     demo_system: Dict[str, Any] = Field(default_factory=dict)
     demo_startup: Dict[str, Any] = Field(default_factory=dict)
     transmitted_light_runtime: Dict[str, Any] = Field(default_factory=dict)

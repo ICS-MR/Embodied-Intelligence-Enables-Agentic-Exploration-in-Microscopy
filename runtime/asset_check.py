@@ -106,7 +106,7 @@ def check_snapshot_assets(snapshot: Mapping[str, Any]) -> AssetCheckResult:
     blocking: list[AssetIssue] = []
     warnings: list[AssetIssue] = []
     _check_agent_fields(agent, blocking)
-    _check_microscope_assets(system, microscope_mode, blocking)
+    _check_microscope_assets(system, microscope_mode, blocking, warnings)
     _check_image_analysis_assets(system, image_analysis_mode, detection_targets, blocking, warnings)
     _check_segmentation_assets(segmentation_mode, blocking)
     return AssetCheckResult(mode_summary=mode_summary, blocking=blocking, warnings=warnings)
@@ -139,6 +139,16 @@ def _mode(value: Any, *, default: str, allowed: set[str]) -> str:
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _positive_float(value: Any) -> float | None:
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric_value <= 0:
+        return None
+    return numeric_value
 
 
 def _add_missing(
@@ -185,7 +195,12 @@ def _check_agent_fields(agent: Mapping[str, Any], issues: list[AssetIssue]) -> N
             _require_text(agent, field_name, issues, category="agent_config", mode="checker")
 
 
-def _check_microscope_assets(system: Mapping[str, Any], mode: str, issues: list[AssetIssue]) -> None:
+def _check_microscope_assets(
+    system: Mapping[str, Any],
+    mode: str,
+    issues: list[AssetIssue],
+    warnings: list[AssetIssue],
+) -> None:
     if mode == "mock":
         return
     _require_text(system, "MM_DIR", issues, category="microscope_config", mode=f"microscope:{mode}")
@@ -252,8 +267,42 @@ def _check_microscope_assets(system: Mapping[str, Any], mode: str, issues: list[
         _require_text(system, field_name, issues, category="microscope_config", mode="microscope:real")
     if not _mapping(system.get("objectives")):
         _add_missing(issues, category="microscope_mapping", name="objectives", mode="microscope:real")
+    else:
+        _check_objective_pixel_sizes(system, mode="microscope:real", issues=warnings, blocking=False)
     if not _mapping(system.get("channels")):
         _add_missing(issues, category="microscope_mapping", name="channels", mode="microscope:real")
+
+
+def _check_objective_pixel_sizes(
+    system: Mapping[str, Any],
+    *,
+    mode: str,
+    issues: list[AssetIssue],
+    blocking: bool = True,
+) -> None:
+    objectives = _mapping(system.get("objectives"))
+    for key, raw_entry in objectives.items():
+        entry = _mapping(raw_entry)
+        label = _text(entry.get("label"))
+        if not label:
+            continue
+        if _positive_float(entry.get("pixel_size_um")) is None:
+            issues.append(
+                AssetIssue(
+                    category="microscope_mapping",
+                    name=f"objectives.{key}.pixel_size_um",
+                    message=(
+                        (
+                            f"{mode} requires a positive pixel_size_um calibration for "
+                            if blocking
+                            else f"{mode} has no manual pixel_size_um fallback for "
+                        )
+                        + f"objective '{key}' ({label}). Configure Micro-Manager Pixel Size Calibration "
+                        "or enter it manually."
+                    ),
+                    mode=mode,
+                )
+            )
 
 
 def _check_image_analysis_assets(

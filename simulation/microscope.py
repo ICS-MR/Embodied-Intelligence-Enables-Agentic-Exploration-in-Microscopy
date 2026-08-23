@@ -1,14 +1,19 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from bootstrap.microscope_semantics import objective_pixel_size_um
 from tool.base import BaseTool, tool_func
-from .common import ImagingData, _coerce_detection_image_to_2d
+from .common import ImagingData, PhysicalPixelSizes, _coerce_detection_image_to_2d
+
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -89,7 +94,7 @@ class MicroscopeController(BaseTool):
         self.current_brightness = 0
         self.current_exposure_time = 0.0
         self._user_brightness = 0
-        self._pixel_size = 0.1625
+        self._pixel_size: Optional[float] = None
 
         # Acquisition parameters
         self.acquisition_positions: List[Dict[str, Any]] = []
@@ -222,9 +227,7 @@ class MicroscopeController(BaseTool):
             )
         with self._lock:
             self.current_objective = target_label
-            magnification = self.objective_labels.get(target_label)
-            if magnification:
-                self._pixel_size = 1.6234 * 4.0 / float(magnification)
+            self._pixel_size = objective_pixel_size_um(target_label, self)
 
     @tool_func
     def get_objective(self) -> str:
@@ -363,13 +366,14 @@ class MicroscopeController(BaseTool):
                 width=256,
                 seed=pos_index,
             )
+            pixel_size = self._current_pixel_size_um()
             filename = f"{position['name']}.ome.tif"
             save_path = os.path.join(self.output_directory, filename)
-            self._save_image(data, save_path)
+            self._save_image(data, save_path, pixel_size)
             channel_names = [ch["channel"] for ch in channels]
             desc = (
                 f'"channel_names": {channel_names}, '
-                f'pixel_size: {self._pixel_size}, '
+                f'pixel_size: {pixel_size}, '
                 f'"objective_label": {self.current_objective}, '
                 f'center_x: {float(position["x"] or 0.0)}, '
                 f'center_y: {float(position["y"] or 0.0)}'
@@ -381,11 +385,22 @@ class MicroscopeController(BaseTool):
                 center_y=float(position["y"] or 0.0),
                 center_z=float(self.current_Z_position),
                 objective_magnification=self.current_objective,
-                pixel_size=self._pixel_size,
+                pixel_size=pixel_size,
             )
             imaging_data.position_name = position["name"]
             results.append(imaging_data)
         return results
+
+    def _current_pixel_size_um(self) -> float:
+        if self._pixel_size is None:
+            raise RuntimeError(
+                "Current objective is missing pixel_size_um calibration. "
+                "Call set_objective() with a configured objective before acquisition."
+            )
+        pixel_size = float(self._pixel_size)
+        if pixel_size <= 0:
+            raise RuntimeError(f"Current objective pixel_size_um must be positive, got {pixel_size!r}.")
+        return pixel_size
 
     def _synthesize_image(
         self,
@@ -413,12 +428,13 @@ class MicroscopeController(BaseTool):
                     data[t, c, z] = base + rng.normal(0.0, 2.0, size=(height, width)).astype(np.float32)
         return data
 
-    def _save_image(self, data: np.ndarray, save_path: str) -> None:
+    def _save_image(self, data: np.ndarray, save_path: str, pixel_size_um: float) -> None:
         """Save a TCZYX array as an OME-TIFF (fallback to plain TIFF)."""
         try:
             from aicsimageio.writers import OmeTiffWriter
 
-            OmeTiffWriter.save(data, save_path, dim_order="TCZYX")
+            pixel_sizes = PhysicalPixelSizes(Z=None, Y=float(pixel_size_um), X=float(pixel_size_um))
+            OmeTiffWriter.save(data, save_path, dim_order="TCZYX", physical_pixel_sizes=[pixel_sizes])
             return
         except Exception as exc:  # pragma: no cover - fallback path
             import logging
@@ -727,4 +743,4 @@ class MicroscopeController(BaseTool):
             try:
                 listener(dict(payload))
             except Exception:
-                pass
+                logger.warning("Simulation task progress listener failed", exc_info=True)

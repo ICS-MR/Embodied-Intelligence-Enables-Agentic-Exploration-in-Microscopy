@@ -100,8 +100,7 @@
     "brightness": 100,
     "z_position": 50.0,
     "x_position": 50.0,
-    "y_position": 50.0,
-    "start_preview": true
+    "y_position": 50.0
   },
   "detection_targets": {
     "2Dcell": {

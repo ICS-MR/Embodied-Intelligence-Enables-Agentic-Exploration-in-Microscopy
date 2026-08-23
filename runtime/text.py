@@ -44,12 +44,16 @@ def format_raw_planner_debug(plan: Any, *, prefers_zh: bool) -> str:
     planner_raw = str(getattr(plan, "planner_raw_response", "") or "").strip()
     skill_raw = str(getattr(plan, "skill_routing_raw_response", "") or "").strip()
     active_templates = list(getattr(plan, "active_templates", []) or [])
+    planner_error = str(getattr(plan, "error", "") or "").strip()
 
-    if not planner_raw and not skill_raw and not active_templates:
+    if not planner_raw and not skill_raw and not active_templates and not planner_error:
         return "There is no raw planner output available yet."
 
     lines: List[str] = []
     lines.append("Here is the raw planning output for this round:")
+    if planner_error:
+        lines.append("[Planner error]")
+        lines.append(planner_error)
     if active_templates:
         lines.append("[Active planning templates]")
         for item in active_templates:
@@ -78,11 +82,14 @@ def format_planner_failure_message(plan: Any, *, prefers_zh: bool) -> str:
     del prefers_zh
     planner_raw = str(getattr(plan, "planner_raw_response", "") or "").strip()
     skill_raw = str(getattr(plan, "skill_routing_raw_response", "") or "").strip()
+    planner_error = str(getattr(plan, "error", "") or "").strip()
 
     if planner_raw:
         return planner_raw
     if skill_raw:
         return skill_raw
+    if planner_error:
+        return planner_error
     return "There is no raw planner output available yet."
 
 

@@ -33,7 +33,7 @@ from tooling.manifest import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_HELPERS = {"np", "cv", "math", "datetime", "time", "csv", "json", "plt", "say"}
+DEFAULT_HELPERS = {"np", "cv", "cv2", "math", "datetime", "time", "csv", "json", "plt", "say"}
 TOOL_DOCS_DIR = DEFAULT_USER_TOOL_DOCS_DIR
 
 
@@ -109,9 +109,11 @@ def build_fixed_vars(required_helpers: Any = None, say_callable: Any = None) -> 
             time,
             max_sleep_seconds=float(os.environ.get("EIMS_MAX_GENERATED_SLEEP_SECONDS", "0") or 0),
         )
+    cv2_module = _load_optional_runtime_module("cv2")
     values = {
         "np": np,
-        "cv": _load_optional_runtime_module("cv2"),
+        "cv": cv2_module,
+        "cv2": cv2_module,
         "math": math,
         "datetime": datetime,
         "time": generated_time_helper,

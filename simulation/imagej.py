@@ -1,14 +1,45 @@
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass
+import shutil
+
+import tifffile
+
+from core_tool.spatial_metadata import load_ome_spatial_metadata
 
 from .common import *
 
 
-def _extract_desc_number(desc: str, key: str):
-    """Extract a numeric value like 'key: 123.45' or 'key=123.45' from a description string."""
-    match = re.search(rf"{re.escape(key)}\s*[:=]\s*([0-9.eE+-]+)", desc or "")
-    return float(match.group(1)) if match else None
+@dataclass(frozen=True)
+class MockImageDataset:
+    source_path: str
+    label: str
+
+    def __str__(self) -> str:
+        return self.label
+
+
+def _extract_first_2d_plane(image: np.ndarray) -> np.ndarray:
+    image_array = np.asarray(image)
+    if image_array.ndim == 2:
+        return image_array
+
+    squeezed = np.squeeze(image_array)
+    if squeezed.ndim == 2:
+        return squeezed
+
+    if squeezed.ndim == 3 and squeezed.shape[-1] in (3, 4):
+        rgb = np.asarray(squeezed[..., :3], dtype=np.float32)
+        return np.mean(rgb, axis=2).astype(squeezed.dtype, copy=False)
+
+    if squeezed.ndim > 2:
+        selection = (0,) * (squeezed.ndim - 2) + (slice(None), slice(None))
+        first_plane = np.asarray(squeezed[selection])
+        if first_plane.ndim == 2:
+            return first_plane
+
+    raise ValueError(f"Mock ImageJ expected a 2D image plane, got shape={image_array.shape}")
+
 
 class ImageJProcessor(BaseTool):
     REAL_ONLY_METHODS = {
@@ -65,33 +96,22 @@ class ImageJProcessor(BaseTool):
     def load_image(self, file_name) -> ImageWithMetadata:
         print("Running function: load_image")
         resolved_path = self._resolve_input_path(file_name)
-        meta = self._read_registered_meta(resolved_path.name)
-        desc = str((meta or {}).get("description") or "") if isinstance(meta, dict) else ""
-        center_x = _extract_desc_number(desc, "center_x") or 0.0
-        center_y = _extract_desc_number(desc, "center_y") or 0.0
-        pixel_size = _extract_desc_number(desc, "pixel_size") or 1.0
-        return ImageWithMetadata(
-            dataset=f"mock_dataset_{resolved_path.name}",
-            center_x_um=float(center_x),
-            center_y_um=float(center_y),
-            center_z_um=0.0,
-            pixel_size_x_um=float(pixel_size),
-            pixel_size_y_um=float(pixel_size),
+        spatial_meta = load_ome_spatial_metadata(
+            resolved_path,
+            require_stage_positions=True,
+            require_pixel_sizes=True,
         )
-
-    def _read_registered_meta(self, filename: str):
-        if self._storagemanger is None or not hasattr(self._storagemanger, "read_log"):
-            return None
-        try:
-            log = self._storagemanger.read_log(include_temp=True)
-        except Exception:
-            return None
-        if not isinstance(log, dict):
-            return None
-        for key, value in log.items():
-            if isinstance(value, dict) and str(value.get("filename") or "") == filename:
-                return value
-        return log.get(filename)
+        return ImageWithMetadata(
+            dataset=MockImageDataset(
+                source_path=str(resolved_path),
+                label=f"mock_dataset_{resolved_path.name}",
+            ),
+            center_x_um=float(spatial_meta["center_x_um"]),
+            center_y_um=float(spatial_meta["center_y_um"]),
+            center_z_um=float(spatial_meta["center_z_um"]),
+            pixel_size_x_um=float(spatial_meta["pixel_size_x_um"]),
+            pixel_size_y_um=float(spatial_meta["pixel_size_y_um"]),
+        )
 
     def _load_image_IMP(self, file_path):
         return f"mock_imp_{os.path.basename(file_path)}"
@@ -104,10 +124,13 @@ class ImageJProcessor(BaseTool):
     @tool_func
     def save_image(self, image_meta, filename, description):
         print("Running function: save_image")
-        del image_meta
+        source = image_meta if isinstance(image_meta, ImageWithMetadata) else self._coerce_image_meta(image_meta)
+        source_path = self._source_path_from_dataset(source.dataset)
+        if source_path is None:
+            raise ValueError("Mock ImageJ save_image requires an image loaded from a real source file")
         output_path = Path(self.output_directory, filename).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.touch(exist_ok=True)
+        shutil.copyfile(source_path, output_path)
         self._storagemanger.register_file(filename, description, 'analysis_platform', 'ome-tiff')
         return str(output_path)
 
@@ -341,6 +364,60 @@ class ImageJProcessor(BaseTool):
             regions = [(12, 12, 16, 16)]
         return self._save_target_positions(image_meta, regions, description, filename, emit_preview=False)
 
+    def _reserved_detection_output_filenames(self) -> set[str]:
+        reserved_filenames: set[str] = set()
+        for target_name, spec in self.detection_targets.items():
+            output_filename = ""
+            if isinstance(spec, dict):
+                output_filename = str(spec.get("output_filename") or "")
+            if not output_filename:
+                output_filename = f"{target_name}_locations_list.json"
+            normalized_filename = output_filename.replace("\\", "/").strip().lower()
+            if normalized_filename:
+                reserved_filenames.add(normalized_filename)
+        return reserved_filenames
+
+    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+        normalized_filename = str(output_filename or "").replace("\\", "/").strip()
+        if not normalized_filename:
+            raise ValueError("Custom detection output_filename must be a non-empty relative JSON filename")
+        output_path = Path(normalized_filename)
+        if output_path.is_absolute() or ".." in output_path.parts:
+            raise ValueError("Custom detection output_filename must stay under the analysis output directory")
+        if output_path.suffix.lower() != ".json":
+            raise ValueError("Custom detection output_filename must end with .json")
+        if normalized_filename.lower() in self._reserved_detection_output_filenames():
+            raise ValueError(
+                "Custom detection output_filename is reserved by configured model detection targets; "
+                "choose a distinct filename such as demo_dot_locations.json"
+            )
+        return normalized_filename
+
+    @tool_func
+    def analysis_platform_save_custom_detection_regions(
+        self,
+        image_meta,
+        regions_px: Sequence[Sequence[float]],
+        output_filename: str,
+        description: str,
+    ) -> List[Tuple[float, float, float, float]]:
+        """
+        Save agent-generated detection regions without running model detection.
+
+        `regions_px` must contain pixel-space regions in
+        (center_x_px, center_y_px, width_px, height_px) format. The function
+        converts them to physical microscope coordinates, saves a JSON file,
+        registers the artifact, and returns the normalized pixel regions.
+        """
+        final_output_filename = self._validate_custom_detection_output_filename(output_filename)
+        return self._save_target_positions(
+            image_meta,
+            regions_px,
+            description,
+            final_output_filename,
+            emit_preview=False,
+        )
+
     def _save_target_positions(
         self,
         image_meta,
@@ -419,31 +496,52 @@ class ImageJProcessor(BaseTool):
     @tool_func
     def convert_to_numpy(self, image_meta) -> np.ndarray:
         print("Running function: convert_to_numpy")
-        del image_meta
-        return np.full((256, 256), fill_value=7, dtype=np.uint8)
+        source = image_meta if isinstance(image_meta, ImageWithMetadata) else self._coerce_image_meta(image_meta)
+        source_path = self._source_path_from_dataset(source.dataset)
+        if source_path is None:
+            raise ValueError("Mock ImageJ cannot convert an image without a real source file")
+        try:
+            image = tifffile.imread(str(source_path))
+        except Exception as exc:
+            raise RuntimeError(f"Mock ImageJ failed to read image pixels from {source_path}: {exc}") from exc
+        return _extract_first_2d_plane(image)
+
+    def _source_path_from_dataset(self, dataset: Any) -> Optional[Path]:
+        if isinstance(dataset, MockImageDataset):
+            path = Path(dataset.source_path).expanduser().resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"Mock ImageJ source image does not exist: {path}")
+            return path
+        if isinstance(dataset, (str, Path)):
+            candidate = Path(dataset).expanduser()
+            if candidate.exists():
+                return candidate.resolve()
+        return None
 
     def _coerce_image_meta(self, value: Any) -> ImageWithMetadata:
         if isinstance(value, ImageWithMetadata):
             return value
-        return ImageWithMetadata(
-            dataset=value,
-            center_x_um=0.0,
-            center_y_um=0.0,
-            center_z_um=0.0,
-            pixel_size_x_um=1.0,
-            pixel_size_y_um=1.0,
-        )
+        if isinstance(value, (str, Path)):
+            return self.load_image(value)
+        raise TypeError(f"Expected ImageWithMetadata or image filename, got {type(value).__name__}")
 
     def _coerce_first_image_meta(self, image_metas: Any) -> ImageWithMetadata:
         if isinstance(image_metas, ImageWithMetadata):
             return image_metas
-        if isinstance(image_metas, Sequence) and image_metas:
+        if isinstance(image_metas, Sequence) and not isinstance(image_metas, (str, bytes, bytearray)) and image_metas:
             return self._coerce_image_meta(image_metas[0])
-        return self._coerce_image_meta("mock_empty_dataset")
+        raise ValueError("Input image list is empty")
+
+    def _clone_dataset_with_source(self, source_dataset: Any, label: Any) -> Any:
+        if isinstance(label, MockImageDataset):
+            return label
+        if isinstance(source_dataset, MockImageDataset):
+            return MockImageDataset(source_path=source_dataset.source_path, label=str(label))
+        return label
 
     def _clone_image_meta(self, image_meta: ImageWithMetadata, *, dataset: Any) -> ImageWithMetadata:
         return ImageWithMetadata(
-            dataset=dataset,
+            dataset=self._clone_dataset_with_source(image_meta.dataset, dataset),
             center_x_um=image_meta.center_x_um,
             center_y_um=image_meta.center_y_um,
             center_z_um=image_meta.center_z_um,

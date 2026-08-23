@@ -103,6 +103,7 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         failure_step=runtime_manager.system_status.failure_step,
         system=snapshot["system"],
         real_system_draft=persisted_snapshot["system"],
+        real_startup_draft=persisted_snapshot["startup"],
         demo_system=build_demo_system_overrides(),
         demo_startup=build_demo_startup_overrides(),
         transmitted_light_runtime=runtime_manager.get_transmitted_light_runtime_info(),
@@ -292,7 +293,7 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         system_updates["channels"] = req.channels
     if req.transmitted_light and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
         system_updates["transmitted_light"] = req.transmitted_light
-    if req.demo_environment:
+    if req.demo_environment and microscope_mode == "demo":
         system_updates["demo_environment"] = req.demo_environment
     model_updates = {
         "microscope_mode": microscope_mode,
@@ -305,43 +306,34 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         "clarify_enabled": req.clarify_enabled,
         "checker_enabled": req.checker_enabled,
     }
-    effective_system = (
-        build_demo_system_overrides()
-        if microscope_mode == "demo"
-        else {**system_current, **system_updates}
-    )
-    startup_objective = coalesce_text(req.startup_objective, startup_current["objective"])
-    startup_channel = coalesce_text(req.startup_channel, startup_current["channel"])
-    if microscope_mode == "demo":
-        demo_startup = build_demo_startup_overrides()
-        startup_objective = str(demo_startup["objective"])
-        startup_channel = str(demo_startup["channel"])
-    objectives = effective_system.get("objectives", {})
-    channels = effective_system.get("channels", {})
-    objective_entry = objectives.get(startup_objective, {}) if isinstance(objectives, dict) else {}
-    channel_entry = channels.get(startup_channel, {}) if isinstance(channels, dict) else {}
-    if not isinstance(objective_entry, dict) or not str(objective_entry.get("label") or "").strip():
-        raise HTTPException(
-            status_code=422,
-            detail=f"Startup objective '{startup_objective}' is not present in the current objective mapping.",
-        )
-    if not isinstance(channel_entry, dict) or not str(channel_entry.get("label") or "").strip():
-        raise HTTPException(
-            status_code=422,
-            detail=f"Startup channel '{startup_channel}' is not present in the current channel mapping.",
-        )
-    startup_updates = {
-        "objective": startup_objective,
-        "channel": startup_channel,
-        "exposure": coalesce_number(req.startup_exposure, startup_current["exposure"]),
-        "brightness": coalesce_number(req.startup_brightness, startup_current["brightness"]),
-        "z_position": coalesce_number(req.startup_z_position, startup_current["z_position"]),
-        "x_position": coalesce_number(req.startup_x_position, startup_current["x_position"]),
-        "y_position": coalesce_number(req.startup_y_position, startup_current["y_position"]),
-        "start_preview": coalesce_number(req.startup_start_preview, startup_current["start_preview"]),
-    }
-    if microscope_mode == "demo":
-        startup_updates.update(build_demo_startup_overrides())
+    startup_updates = None
+    if microscope_mode == "real":
+        effective_system = {**system_current, **system_updates}
+        startup_objective = coalesce_text(req.startup_objective, startup_current["objective"])
+        startup_channel = coalesce_text(req.startup_channel, startup_current["channel"])
+        objectives = effective_system.get("objectives", {})
+        channels = effective_system.get("channels", {})
+        objective_entry = objectives.get(startup_objective, {}) if isinstance(objectives, dict) else {}
+        channel_entry = channels.get(startup_channel, {}) if isinstance(channels, dict) else {}
+        if not isinstance(objective_entry, dict) or not str(objective_entry.get("label") or "").strip():
+            raise HTTPException(
+                status_code=422,
+                detail=f"Startup objective '{startup_objective}' is not present in the current objective mapping.",
+            )
+        if not isinstance(channel_entry, dict) or not str(channel_entry.get("label") or "").strip():
+            raise HTTPException(
+                status_code=422,
+                detail=f"Startup channel '{startup_channel}' is not present in the current channel mapping.",
+            )
+        startup_updates = {
+            "objective": startup_objective,
+            "channel": startup_channel,
+            "exposure": coalesce_number(req.startup_exposure, startup_current["exposure"]),
+            "brightness": coalesce_number(req.startup_brightness, startup_current["brightness"]),
+            "z_position": coalesce_number(req.startup_z_position, startup_current["z_position"]),
+            "x_position": coalesce_number(req.startup_x_position, startup_current["x_position"]),
+            "y_position": coalesce_number(req.startup_y_position, startup_current["y_position"]),
+        }
     runtime_manager.update_settings(
         system_updates=system_updates,
         model_updates=model_updates,

@@ -33,9 +33,9 @@ try:
 except Exception:
     torch = None
 
-from bootstrap.config import is_demo_mapping_payload, load_runtime_settings, normalize_demo_environment
+from bootstrap.config import is_demo_mapping_payload, load_runtime_settings, normalize_demo_environment, save_runtime_settings
 from core_tool.demo_environment import apply_demo_defects, apply_demo_exposure_gain, build_demo_defect_mask
-from bootstrap.microscope_semantics import channel_semantic_for_label
+from bootstrap.microscope_semantics import channel_semantic_for_label, objective_pixel_size_um
 logger = logging.getLogger(__name__)
 
 AUTOFOCUS_TIMEOUT_SEC = 60.0
@@ -472,6 +472,7 @@ class MicroscopeController(BaseTool):
             40: 0.36,
             60: 0.28,
         }
+        self._stage_image_measured_pixel_sizes: Dict[str, float] = {}
         self._demo_defect_mask: Optional[Dict[str, np.ndarray]] = None
         self._demo_defect_mask_shape: Optional[Tuple[int, int]] = None
 
@@ -1114,7 +1115,7 @@ class MicroscopeController(BaseTool):
         self.current_objective = self.get_objective()
         if self.current_objective not in self.objective_labels:
             raise RuntimeError(f"Objective not configured: {self.current_objective}")
-        self.pixel_size = 1.6234 * 4 / self.objective_labels[self.current_objective]
+        self.pixel_size = self._current_pixel_size_um(self.current_objective)
 
         self.current_X_position, self.current_Y_position = self.get_x_y_position()
         self.current_Z_position = self.get_z_position()
@@ -1384,11 +1385,25 @@ class MicroscopeController(BaseTool):
             float(brightness) / self.brightness_surrogate_scale,
         )
 
-    def _clamp_brightness_property_value(self, property_value: int | float) -> int | float:
+    def _clamp_brightness_property_value(
+        self,
+        property_value: int | float,
+        *,
+        allow_zero_off: bool = False,
+    ) -> int | float:
         property_limits = getattr(self, "_brightness_property_limits", None)
         if property_limits is None:
             return property_value
         lower, upper = property_limits
+        if allow_zero_off and float(property_value) == 0.0:
+            if float(lower) <= 0.0 <= float(upper):
+                return 0
+            raise RuntimeError(
+                f"Cannot turn off transmitted light by writing 0 to "
+                f"{self.brightness_device}.{self.brightness_property}: "
+                f"MMCore property_limits=[{lower:.3f}, {upper:.3f}]. "
+                "Configure a true lamp on/off or intensity property that accepts 0."
+            )
         clamped = max(float(lower), min(float(property_value), float(upper)))
         if self._uses_demo_brightness_surrogate():
             return clamped
@@ -1425,18 +1440,25 @@ class MicroscopeController(BaseTool):
             self.current_brightness = bright
         return bright
 
-    def _write_transmitted_brightness(self, brightness: int) -> int:
+    def _write_transmitted_brightness(self, brightness: int, *, require_supported: bool = False) -> int:
         if not self._supports_transmitted_brightness():
+            if require_supported:
+                raise RuntimeError(self._brightness_unavailable_message())
             with self.device_lock:
                 self.current_brightness = 0
             return 0
-        brightness = self._clamp_brightness(brightness)
+        requested_brightness = int(brightness)
+        brightness = 0 if requested_brightness <= 0 else self._clamp_brightness(requested_brightness)
         property_value: int | float
         if self._uses_demo_brightness_surrogate():
             property_value = self._brightness_to_surrogate_property_value(brightness)
+            property_value = self._clamp_brightness_property_value(property_value)
         else:
             property_value = brightness
-        property_value = self._clamp_brightness_property_value(property_value)
+            property_value = self._clamp_brightness_property_value(
+                property_value,
+                allow_zero_off=brightness == 0,
+            )
         try:
             self.core.setProperty(self.brightness_device, self.brightness_property, property_value)
         except RuntimeError as exc:
@@ -1468,10 +1490,306 @@ class MicroscopeController(BaseTool):
             self._user_brightness = brightness
         else:
             brightness = 0
-        self._write_transmitted_brightness(brightness)
+        self._write_transmitted_brightness(brightness, require_supported=True)
     @tool_func
     def get_brightness(self) -> int:
         return self._read_transmitted_brightness()
+
+    def _validate_mmcore_pixel_size_affine(self) -> None:
+        method = getattr(self.core, "getPixelSizeAffine", None)
+        if not callable(method):
+            return
+        try:
+            affine = [float(value) for value in method()]
+        except Exception as exc:
+            logger.warning("MMCore getPixelSizeAffine() failed; using scalar getPixelSizeUm() only: %s", exc)
+            return
+        if len(affine) < 6:
+            raise RuntimeError(f"MMCore getPixelSizeAffine() returned {len(affine)} values; expected 6.")
+        a, b, _c, d, e, _f = affine[:6]
+        if a <= 0 or e <= 0:
+            raise RuntimeError(f"MMCore pixel size affine must have positive X/Y scale, got {affine[:6]!r}.")
+        if not math.isclose(a, e, rel_tol=1e-6, abs_tol=1e-9):
+            raise RuntimeError(
+                f"MMCore pixel size affine is not square-pixel compatible: X={a!r}, Y={e!r}. "
+                "EIMS currently requires scalar square-pixel calibration."
+            )
+        if abs(b) > 1e-9 or abs(d) > 1e-9:
+            raise RuntimeError(
+                f"MMCore pixel size affine contains rotation/shear terms: {affine[:6]!r}. "
+                "EIMS currently requires a scalar no-shear pixel calibration."
+            )
+
+    def _mmcore_current_pixel_size_um(self) -> float:
+        method = getattr(self.core, "getPixelSizeUm", None)
+        if not callable(method):
+            raise RuntimeError("MMCore getPixelSizeUm() API is unavailable.")
+        try:
+            pixel_size_um = float(method())
+        except Exception as exc:
+            raise RuntimeError("MMCore could not resolve the current pixel size calibration.") from exc
+        if not math.isfinite(pixel_size_um) or pixel_size_um <= 0:
+            current_config = ""
+            try:
+                current_config = str(self.core.getCurrentPixelSizeConfig() or "")
+            except Exception as exc:
+                logger.debug("Failed to read MMCore current pixel-size config after invalid pixel-size value: %s", exc)
+                current_config = ""
+            detail = f" Current pixel size config: {current_config!r}." if current_config else ""
+            raise RuntimeError(f"MMCore returned invalid current pixel size {pixel_size_um!r}.{detail}")
+        self._validate_mmcore_pixel_size_affine()
+        return pixel_size_um
+
+    def _normalized_registration_image(self, image: np.ndarray) -> np.ndarray:
+        image_array = _coerce_detection_image_to_2d(np.asarray(image)).astype(np.float32, copy=False)
+        if image_array.size == 0:
+            raise RuntimeError("Stage/image pixel-size calibration captured an empty image.")
+        finite = np.isfinite(image_array)
+        if not np.any(finite):
+            raise RuntimeError("Stage/image pixel-size calibration image has no finite pixels.")
+        fill_value = float(np.mean(image_array[finite]))
+        image_array = np.nan_to_num(image_array, nan=fill_value, posinf=fill_value, neginf=fill_value)
+        image_array = image_array - float(np.mean(image_array))
+        std = float(np.std(image_array))
+        if std <= 1e-6:
+            raise RuntimeError("Stage/image pixel-size calibration image has insufficient texture for registration.")
+        return image_array / std
+
+    def _phase_correlation_shift(self, reference: np.ndarray, moved: np.ndarray) -> Tuple[float, float, float]:
+        reference_image = self._normalized_registration_image(reference)
+        moved_image = self._normalized_registration_image(moved)
+        if reference_image.shape != moved_image.shape:
+            raise RuntimeError(
+                f"Stage/image pixel-size calibration images have different shapes: "
+                f"{reference_image.shape} vs {moved_image.shape}."
+            )
+        height, width = reference_image.shape
+        window = cv2.createHanningWindow((width, height), cv2.CV_32F)
+        (shift_x, shift_y), response = cv2.phaseCorrelate(reference_image, moved_image, window)
+        values = (float(shift_x), float(shift_y), float(response))
+        if not all(math.isfinite(value) for value in values):
+            raise RuntimeError(f"Stage/image pixel-size calibration returned non-finite registration values: {values!r}.")
+        return values
+
+    def _probe_axis_target(self, *, axis: str, start_x: float, start_y: float, delta_um: float) -> Optional[Tuple[float, float, float]]:
+        if axis == "x":
+            if start_x + delta_um <= float(self.Max_X_position):
+                return start_x + delta_um, start_y, delta_um
+            if start_x - delta_um >= float(self.Min_X_position):
+                return start_x - delta_um, start_y, -delta_um
+            return None
+        if axis == "y":
+            if start_y + delta_um <= float(self.Max_Y_position):
+                return start_x, start_y + delta_um, delta_um
+            if start_y - delta_um >= float(self.Min_Y_position):
+                return start_x, start_y - delta_um, -delta_um
+            return None
+        raise ValueError(f"Unsupported demo calibration axis: {axis!r}")
+
+    def _measure_stage_image_axis_pixel_size_um(
+        self,
+        *,
+        axis: str,
+        start_x: float,
+        start_y: float,
+        reference_image: np.ndarray,
+    ) -> Dict[str, float]:
+        min_shift_px = 3.0
+        max_shift_px = max(8.0, 0.45 * min(reference_image.shape[-2:]))
+        rejected: List[str] = []
+        for delta_um in (2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0):
+            target = self._probe_axis_target(axis=axis, start_x=start_x, start_y=start_y, delta_um=delta_um)
+            if target is None:
+                rejected.append(f"{delta_um:g} um is outside the configured stage range")
+                continue
+            target_x, target_y, signed_delta = target
+            try:
+                self.set_x_y_position(target_x, target_y)
+                moved_image = self._snap_raw_image()
+                shift_x, shift_y, response = self._phase_correlation_shift(reference_image, moved_image)
+            finally:
+                self.set_x_y_position(start_x, start_y)
+            shift_px = math.hypot(float(shift_x), float(shift_y))
+            if response <= 0.02:
+                rejected.append(f"{delta_um:g} um response too low ({response:.4f})")
+                continue
+            if shift_px < min_shift_px:
+                rejected.append(f"{delta_um:g} um shift too small ({shift_px:.3f} px)")
+                continue
+            if shift_px > max_shift_px:
+                rejected.append(f"{delta_um:g} um shift too large ({shift_px:.3f} px)")
+                continue
+            return {
+                "axis": axis,
+                "stage_delta_um": abs(float(signed_delta)),
+                "shift_x_px": float(shift_x),
+                "shift_y_px": float(shift_y),
+                "shift_px": float(shift_px),
+                "response": float(response),
+                "pixel_size_um": abs(float(signed_delta)) / float(shift_px),
+            }
+        raise RuntimeError(
+            f"Stage/image pixel-size calibration could not measure a valid {axis.upper()}-axis stage/image shift. "
+            f"Rejected probes: {'; '.join(rejected) if rejected else 'none'}"
+        )
+
+    def _measure_stage_image_pixel_size_um(self, objective_label: str) -> float:
+        objective_label = str(objective_label or "").strip()
+        cached = self._stage_image_measured_pixel_sizes.get(objective_label)
+        if cached is not None:
+            return cached
+        if self.microscope_mode == "mock":
+            raise RuntimeError("Stage/image pixel-size probing is not available in pure mock mode.")
+        if self.microscope_mode == "demo" and not self._uses_demo_image_postprocessing():
+            raise RuntimeError(
+                "Stage/image pixel-size probing requires the managed Micro-Manager DemoCamera mapping."
+            )
+
+        start_x, start_y = self.get_x_y_position()
+        reference_image = self._snap_raw_image()
+        measurements: List[Dict[str, float]] = []
+        errors: List[str] = []
+        try:
+            for axis in ("x", "y"):
+                try:
+                    measurements.append(
+                        self._measure_stage_image_axis_pixel_size_um(
+                            axis=axis,
+                            start_x=start_x,
+                            start_y=start_y,
+                            reference_image=reference_image,
+                        )
+                    )
+                except Exception as exc:
+                    errors.append(f"{axis.upper()} axis: {exc}")
+                    logger.warning("Stage/image pixel-size calibration %s-axis probe failed: %s", axis.upper(), exc)
+        finally:
+            self.set_x_y_position(start_x, start_y)
+
+        if not measurements:
+            raise RuntimeError(
+                "Stage/image pixel-size calibration failed; no valid stage/image displacement was measured. "
+                + " ".join(errors)
+            )
+        pixel_sizes = [float(item["pixel_size_um"]) for item in measurements]
+        if len(pixel_sizes) >= 2:
+            min_pixel_size = min(pixel_sizes)
+            max_pixel_size = max(pixel_sizes)
+            mean_pixel_size = sum(pixel_sizes) / len(pixel_sizes)
+            if (max_pixel_size - min_pixel_size) / mean_pixel_size > 0.20:
+                raise RuntimeError(
+                    "Stage/image pixel-size calibration produced inconsistent X/Y scale estimates: "
+                    + ", ".join(
+                        f"{item['axis'].upper()}={item['pixel_size_um']:.6g} um/px "
+                        f"({item['stage_delta_um']:.3g} um / {item['shift_px']:.3g} px, "
+                        f"response={item['response']:.3g})"
+                        for item in measurements
+                    )
+                )
+            pixel_size_um = mean_pixel_size
+        else:
+            pixel_size_um = pixel_sizes[0]
+            logger.warning(
+                "Stage/image pixel-size calibration used a single-axis estimate for objective '%s': %s",
+                objective_label,
+                "; ".join(errors) if errors else "only one axis measured",
+            )
+        if not math.isfinite(pixel_size_um) or pixel_size_um <= 0:
+            raise RuntimeError(f"Stage/image pixel-size calibration returned invalid pixel size: {pixel_size_um!r}.")
+        self._stage_image_measured_pixel_sizes[objective_label] = float(pixel_size_um)
+        logger.info(
+            "Measured stage/image pixel_size_um for objective '%s': %.9g from %s",
+            objective_label,
+            pixel_size_um,
+            "; ".join(
+                f"{item['axis'].upper()} {item['stage_delta_um']:.3g} um / {item['shift_px']:.3g} px "
+                f"(response={item['response']:.3g})"
+                for item in measurements
+            ),
+        )
+        return float(pixel_size_um)
+
+    def _objective_key_for_label(self, objective_label: str) -> str:
+        target_label = str(objective_label or "").strip()
+        for key, entry in self.objectives.items():
+            if isinstance(entry, dict) and str(entry.get("label") or "").strip() == target_label:
+                return str(key)
+        raise RuntimeError(
+            f"Cannot persist measured pixel_size_um because objective label '{target_label}' "
+            "is not present in the configured objectives."
+        )
+
+    def _update_objective_pixel_size_in_memory(self, objective_label: str, pixel_size_um: float) -> str:
+        objective_key = self._objective_key_for_label(objective_label)
+        updated_objectives = dict(self.objectives)
+        entry = dict(updated_objectives.get(objective_key) or {})
+        entry["pixel_size_um"] = float(pixel_size_um)
+        updated_objectives[objective_key] = entry
+        self.objectives = updated_objectives
+        if hasattr(self.system_config, "objectives"):
+            self.system_config.objectives = json.loads(json.dumps(updated_objectives))
+        return objective_key
+
+    def _persist_real_measured_pixel_size_um(self, objective_label: str, pixel_size_um: float) -> None:
+        objective_key = self._update_objective_pixel_size_in_memory(objective_label, pixel_size_um)
+        try:
+            settings = load_runtime_settings(apply_env=False, apply_demo_overlay=False)
+            objectives = json.loads(json.dumps(getattr(settings.system, "objectives", {}) or {}))
+            if objective_key not in objectives:
+                matching_key = None
+                for key, entry in objectives.items():
+                    if isinstance(entry, dict) and str(entry.get("label") or "").strip() == str(objective_label).strip():
+                        matching_key = str(key)
+                        break
+                if matching_key is not None:
+                    objective_key = matching_key
+            entry = dict(objectives.get(objective_key) or self.objectives.get(objective_key) or {})
+            if not entry.get("label"):
+                entry["label"] = str(objective_label).strip()
+            entry["pixel_size_um"] = float(pixel_size_um)
+            objectives[objective_key] = entry
+            save_runtime_settings(system_updates={"objectives": objectives})
+        except Exception as exc:
+            raise RuntimeError(
+                f"Measured pixel_size_um={float(pixel_size_um):.9g} for real objective '{objective_label}', "
+                "but failed to save it to runtime config."
+            ) from exc
+        logger.info(
+            "Saved measured real pixel_size_um for objective '%s' (%s): %.9g",
+            objective_label,
+            objective_key,
+            pixel_size_um,
+        )
+
+    def _current_pixel_size_um(self, objective_label: str) -> float:
+        try:
+            return self._mmcore_current_pixel_size_um()
+        except Exception as mmcore_exc:
+            try:
+                configured_pixel_size = objective_pixel_size_um(objective_label, self.system_config)
+            except ValueError as config_exc:
+                try:
+                    measured_pixel_size = self._measure_stage_image_pixel_size_um(objective_label)
+                except Exception as measurement_exc:
+                    raise RuntimeError(
+                        f"No valid pixel size calibration is available for objective '{objective_label}'. "
+                        "MMCore did not provide an official Pixel Size Calibration, no saved positive "
+                        "pixel_size_um fallback was available, and the stage/image measurement probe failed. "
+                        f"MMCore error: {mmcore_exc}; configured calibration error: {config_exc}; "
+                        f"measurement error: {measurement_exc}"
+                    ) from measurement_exc
+                if self.microscope_mode == "real":
+                    self._persist_real_measured_pixel_size_um(objective_label, measured_pixel_size)
+                else:
+                    self._update_objective_pixel_size_in_memory(objective_label, measured_pixel_size)
+                return measured_pixel_size
+            logger.warning(
+                "Falling back to configured pixel_size_um for objective '%s' because MMCore did not provide "
+                "a current pixel size: %s",
+                objective_label,
+                mmcore_exc,
+            )
+            return configured_pixel_size
 
     # ====== State-device control ======
     @tool_func
@@ -1498,7 +1816,7 @@ class MicroscopeController(BaseTool):
         self.core.waitForDevice(self.objective_device)
         with self.device_lock:
             self.current_objective = target_label
-            self.pixel_size = 1.6234 * 4 / self.objective_labels[self.current_objective]
+            self.pixel_size = self._current_pixel_size_um(self.current_objective)
     @tool_func
     def get_objective(self) -> str:
         with self.device_lock:
@@ -1520,8 +1838,6 @@ class MicroscopeController(BaseTool):
                 f"Configured labels: {sorted(configured_labels)}"
             )
         previous_channel = self.get_channel()
-        if target_label == previous_channel:
-            return
         if self._is_brightfield_channel(previous_channel) and self._supports_transmitted_brightness():
             self._user_brightness = self._clamp_brightness(self.get_brightness())
         supported_labels = set(self.core.getStateLabels(self.Dichroic))
@@ -1529,14 +1845,23 @@ class MicroscopeController(BaseTool):
             raise ValueError(
                 f"Unsupported channel label: {target_label}, Available options: {sorted(supported_labels)}"
             )
+        target_is_brightfield = self._is_brightfield_channel(target_label)
+        if not target_is_brightfield:
+            self._write_transmitted_brightness(0, require_supported=True)
+        if target_label == previous_channel:
+            with self.device_lock:
+                self.current_channel = target_label
+            if target_is_brightfield:
+                self._write_transmitted_brightness(self._user_brightness)
+            return
         self.core.setStateLabel(self.Dichroic, target_label)
         self.core.waitForDevice(self.Dichroic)
         with self.device_lock:
             self.current_channel = target_label
-        if self._is_brightfield_channel(target_label):
+        if target_is_brightfield:
             self._write_transmitted_brightness(self._user_brightness)
         else:
-            self._write_transmitted_brightness(0)
+            self._write_transmitted_brightness(0, require_supported=True)
     @tool_func
     def get_channel(self) -> str:
         with self.device_lock:
@@ -2460,7 +2785,7 @@ class MicroscopeController(BaseTool):
                 stage_key="move_z",
                 stage_label="Move focus",
                 progress_current=candidate_index,
-                progress_total=coarse_total,
+                progress_total=max(coarse_total, candidate_index),
             )
             try:
                 logger.info("Autofocus calling set_z_position for z=%.3f", z_position)
@@ -2494,7 +2819,7 @@ class MicroscopeController(BaseTool):
                 stage_key="snap_image",
                 stage_label="Capture frame",
                 progress_current=candidate_index,
-                progress_total=coarse_total,
+                progress_total=max(coarse_total, candidate_index),
             )
             image = self._snap_image_preserving_preview()
             logger.info("Autofocus snap completed for z=%.3f", z_position)
@@ -2519,7 +2844,7 @@ class MicroscopeController(BaseTool):
                 stage_key="score_candidate",
                 stage_label="Score sharpness",
                 progress_current=candidate_index,
-                progress_total=coarse_total,
+                progress_total=max(coarse_total, candidate_index),
             )
             scores[cache_key] = score
             return score
@@ -2660,6 +2985,7 @@ class MicroscopeController(BaseTool):
             return float(best_z)
         except TimeoutError as exc:
             logger.warning("Autofocus timed out: %s", exc)
+            failure_progress_total = max(len(scores), coarse_total)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="timeout",
@@ -2667,11 +2993,12 @@ class MicroscopeController(BaseTool):
                 detail=str(exc),
                 stage_key="timeout",
                 stage_label="Autofocus timed out",
-                progress_current=min(len(scores), coarse_total),
-                progress_total=coarse_total,
+                progress_current=min(len(scores), failure_progress_total),
+                progress_total=failure_progress_total,
             )
             raise
         except Exception as exc:
+            failure_progress_total = max(len(scores), coarse_total)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="failed",
@@ -2679,8 +3006,8 @@ class MicroscopeController(BaseTool):
                 detail=str(exc) or type(exc).__name__,
                 stage_key="failed",
                 stage_label="Autofocus failed",
-                progress_current=min(len(scores), coarse_total),
-                progress_total=coarse_total,
+                progress_current=min(len(scores), failure_progress_total),
+                progress_total=failure_progress_total,
             )
             raise
         finally:

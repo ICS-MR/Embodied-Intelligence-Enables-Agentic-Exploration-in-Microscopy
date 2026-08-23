@@ -107,6 +107,29 @@ def objective_display_name(label_or_semantic: str, system_config: Any) -> str:
     return f"{magnification}x objective" if magnification is not None else "Unknown"
 
 
+def objective_pixel_size_um(label_or_semantic: str, system_config: Any) -> float:
+    resolved_label, semantic_key, entry = resolve_objective_input(label_or_semantic, system_config)
+    if not entry:
+        raise ValueError(
+            f"Objective '{label_or_semantic}' is not present in the configured objective mapping."
+        )
+    raw_value = entry.get("pixel_size_um")
+    try:
+        pixel_size_um = float(raw_value)
+    except (TypeError, ValueError) as exc:
+        objective_name = semantic_key or resolved_label or str(label_or_semantic)
+        raise ValueError(
+            f"Objective '{objective_name}' is missing a numeric pixel_size_um calibration value. "
+            "Configure Micro-Manager Pixel Size Calibration or enter the calibrated value manually."
+        ) from exc
+    if pixel_size_um <= 0:
+        objective_name = semantic_key or resolved_label or str(label_or_semantic)
+        raise ValueError(
+            f"Objective '{objective_name}' pixel_size_um must be positive, got {pixel_size_um!r}."
+        )
+    return pixel_size_um
+
+
 def channel_display_name(label_or_semantic: str, system_config: Any) -> str:
     _resolved_label, semantic_key, entry = resolve_channel_input(label_or_semantic, system_config)
     if entry.get("display_name"):

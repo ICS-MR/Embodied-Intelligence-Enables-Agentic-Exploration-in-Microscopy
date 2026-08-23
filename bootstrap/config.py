@@ -1,4 +1,5 @@
 ﻿import json
+import csv
 import logging
 import os
 import tempfile
@@ -237,7 +238,6 @@ class StartupConfig:
     z_position: float = 4100.0
     x_position: float = 50000.0
     y_position: float = 50000.0
-    start_preview: bool = True
 
 
 @dataclass(frozen=True)
@@ -314,6 +314,92 @@ class RuntimeSettings:
     detection_targets: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_DETECTION_TARGETS)))
 
 
+def _positive_cfg_pixel_size_um(raw_value: Any, *, context: str) -> float:
+    try:
+        pixel_size_um = float(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{context} must be numeric, got {raw_value!r}.") from exc
+    if pixel_size_um <= 0:
+        raise ValueError(f"{context} must be positive, got {pixel_size_um!r}.")
+    return pixel_size_um
+
+
+def _cfg_pixel_sizes_by_label(cfg_path: Path, *, objective_device: str) -> Dict[str, float]:
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Micro-Manager cfg not found: {cfg_path}")
+
+    pixel_size_config_props: Dict[str, list[Tuple[str, str, str]]] = {}
+    pixel_size_um_by_id: Dict[str, float] = {}
+    with cfg_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        for line_number, raw_parts in enumerate(csv.reader(handle), start=1):
+            parts = [part.strip() for part in raw_parts]
+            if not parts or not parts[0] or parts[0].startswith("#"):
+                continue
+            keyword = parts[0].lower()
+            if keyword == "configpixelsize":
+                if len(parts) < 5:
+                    raise ValueError(f"Malformed ConfigPixelSize entry at {cfg_path}:{line_number}: {raw_parts!r}.")
+                resolution_id = parts[1]
+                device = parts[2]
+                prop_name = parts[3]
+                prop_value = ",".join(parts[4:]).strip()
+                if not resolution_id or not device or not prop_name:
+                    raise ValueError(f"Incomplete ConfigPixelSize entry at {cfg_path}:{line_number}: {raw_parts!r}.")
+                pixel_size_config_props.setdefault(resolution_id, []).append((device, prop_name, prop_value))
+            elif keyword == "pixelsize_um":
+                if len(parts) < 3 or not parts[1]:
+                    raise ValueError(f"Malformed PixelSize_um entry at {cfg_path}:{line_number}: {raw_parts!r}.")
+                pixel_size_um_by_id[parts[1]] = _positive_cfg_pixel_size_um(
+                    parts[2],
+                    context=f"PixelSize_um for resolution '{parts[1]}'",
+                )
+
+    pixel_sizes_by_label: Dict[str, float] = {}
+    for resolution_id, settings in pixel_size_config_props.items():
+        labels = [
+            str(prop_value or "").strip()
+            for device, prop_name, prop_value in settings
+            if device == objective_device and prop_name.lower() == "label"
+        ]
+        if not labels:
+            continue
+        pixel_size_um = pixel_size_um_by_id.get(resolution_id)
+        if pixel_size_um is None:
+            raise ValueError(
+                f"Pixel-size config '{resolution_id}' maps {objective_device}.Label but has no PixelSize_um entry."
+            )
+        for label in labels:
+            if not label:
+                raise ValueError(f"Pixel-size config '{resolution_id}' has an empty objective label.")
+            existing = pixel_sizes_by_label.get(label)
+            if existing is not None and abs(existing - pixel_size_um) > 1e-12:
+                raise ValueError(
+                    f"Conflicting PixelSize_um values for objective '{label}': {existing!r} and {pixel_size_um!r}."
+                )
+            pixel_sizes_by_label[label] = pixel_size_um
+    return pixel_sizes_by_label
+
+
+def _demo_objectives_from_cfg() -> Dict[str, Dict[str, Any]]:
+    objectives = json.loads(json.dumps(DEMO_OBJECTIVES))
+    pixel_sizes_by_label = _cfg_pixel_sizes_by_label(DEMO_CONFIG_PATH, objective_device="DObjective")
+    missing: list[str] = []
+    for key, entry in objectives.items():
+        label = str(entry.get("label") or "").strip()
+        pixel_size_um = pixel_sizes_by_label.get(label)
+        if pixel_size_um is None:
+            missing.append(f"{key} ({label or 'missing label'})")
+            continue
+        entry["pixel_size_um"] = pixel_size_um
+    if missing:
+        raise ValueError(
+            "Demo cfg is missing measured PixelSize_um binding for objective(s): "
+            + ", ".join(missing)
+            + ". Re-run stage/image calibration and update demo_cfg/MMConfig_demo.cfg."
+        )
+    return objectives
+
+
 def build_demo_system_overrides() -> Dict[str, Any]:
     return {
         "CONFIG_PATH": str(DEMO_CONFIG_PATH),
@@ -322,7 +408,7 @@ def build_demo_system_overrides() -> Dict[str, Any]:
         "objective_device": "DObjective",
         "focus_drive": "DStage",
         "Dichroic": "DStateDevice",
-        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "objectives": _demo_objectives_from_cfg(),
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
         "Min_X_position": 0.0,
@@ -347,7 +433,6 @@ def build_demo_startup_overrides() -> Dict[str, Any]:
         "z_position": 0.0,
         "x_position": 50000.0,
         "y_position": 50000.0,
-        "start_preview": True,
     }
 
 
@@ -359,7 +444,7 @@ def build_mock_system_overrides() -> Dict[str, Any]:
         "objective_device": "DObjective",
         "focus_drive": "DStage",
         "Dichroic": "DStateDevice",
-        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "objectives": _demo_objectives_from_cfg(),
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
         "Min_X_position": -500000.0,
@@ -384,7 +469,6 @@ def build_mock_startup_overrides() -> Dict[str, Any]:
         "z_position": 4323.0,
         "x_position": 50000.0,
         "y_position": 50000.0,
-        "start_preview": True,
     }
 
 
@@ -583,7 +667,13 @@ def _apply_file_overrides(settings: RuntimeSettings, payload: Mapping[str, Any])
         _apply_legacy_mode_migration(settings, model_payload)
         _update_dataclass(settings.model, model_payload)
     if isinstance(startup_payload, Mapping):
-        _update_dataclass(settings.startup, startup_payload)
+        startup_updates = dict(startup_payload)
+        if "start_preview" in startup_updates:
+            logger.info(
+                "Ignoring deprecated startup.start_preview from runtime config; preview is controlled by the preview API."
+            )
+            startup_updates.pop("start_preview", None)
+        _update_dataclass(settings.startup, startup_updates)
     if isinstance(detection_payload, Mapping):
         settings.detection_targets = _merge_detection_targets(settings.detection_targets, detection_payload)
 
@@ -647,7 +737,7 @@ def _normalized_demo_mapping_payload() -> Dict[str, Any]:
         "objective_device": "DObjective",
         "focus_drive": "DStage",
         "Dichroic": "DStateDevice",
-        "objectives": json.loads(json.dumps(DEMO_OBJECTIVES)),
+        "objectives": _demo_objectives_from_cfg(),
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
     }

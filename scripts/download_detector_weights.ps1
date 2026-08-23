@@ -55,8 +55,8 @@ function Invoke-AssetDownload {
         [string]$Destination
     )
 
-    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-    if ($curl) {
+  $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+  if ($curl) {
         $curlArguments = @(
             "--location",
             "--fail",
@@ -79,7 +79,7 @@ function Invoke-AssetDownload {
             throw "curl failed to download '$Uri' (exit code $LASTEXITCODE). Re-run the script to resume the partial download."
         }
         return
-    }
+  }
 
     Write-Warning "curl.exe is unavailable; falling back to a non-resumable PowerShell download."
     $maximumAttempts = 5

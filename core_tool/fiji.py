@@ -2643,6 +2643,60 @@ class ImageJProcessor(BaseTool):
         """Return the registered target names accepted by analysis_platform_find_target_positions()."""
         return _list_supported_target_types(self.detection_targets)
 
+    def _reserved_detection_output_filenames(self) -> set[str]:
+        reserved_filenames: set[str] = set()
+        for target_name, spec in self.detection_targets.items():
+            output_filename = ""
+            if isinstance(spec, Mapping):
+                output_filename = str(spec.get("output_filename") or "")
+            if not output_filename:
+                output_filename = f"{target_name}_locations_list.json"
+            normalized_filename = output_filename.replace("\\", "/").strip().lower()
+            if normalized_filename:
+                reserved_filenames.add(normalized_filename)
+        return reserved_filenames
+
+    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+        normalized_filename = str(output_filename or "").replace("\\", "/").strip()
+        if not normalized_filename:
+            raise ValueError("Custom detection output_filename must be a non-empty relative JSON filename")
+        output_path = Path(normalized_filename)
+        if output_path.is_absolute() or ".." in output_path.parts:
+            raise ValueError("Custom detection output_filename must stay under the analysis output directory")
+        if output_path.suffix.lower() != ".json":
+            raise ValueError("Custom detection output_filename must end with .json")
+        if normalized_filename.lower() in self._reserved_detection_output_filenames():
+            raise ValueError(
+                "Custom detection output_filename is reserved by configured model detection targets; "
+                "choose a distinct filename such as demo_dot_locations.json"
+            )
+        return normalized_filename
+
+    @tool_func
+    def analysis_platform_save_custom_detection_regions(
+        self,
+        image_meta: ImageWithMetadata,
+        regions_px: Sequence[Sequence[float]],
+        output_filename: str,
+        description: str,
+    ) -> List[Tuple[float, float, float, float]]:
+        """
+        Save agent-generated detection regions without running model detection.
+
+        `regions_px` must contain pixel-space regions in
+        (center_x_px, center_y_px, width_px, height_px) format. The function
+        converts them to physical microscope coordinates, saves a JSON file,
+        registers the artifact, and returns the normalized pixel regions.
+        """
+        final_output_filename = self._validate_custom_detection_output_filename(output_filename)
+        return self._save_target_positions(
+            image_meta=image_meta,
+            regions_px=regions_px,
+            description=description,
+            output_filename=final_output_filename,
+            emit_preview=True,
+        )
+
     def _save_target_positions(
         self,
         *,

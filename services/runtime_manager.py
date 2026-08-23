@@ -884,7 +884,7 @@ class RuntimeManager:
             outcome = await self._run_plan_interaction(original_command)
             plan = outcome.plan
             if not outcome.confirmed:
-                if outcome.status == "unsupported":
+                if outcome.status in {"unsupported", "failed", "error"}:
                     self._send_message("task_complete", "")
                     return self._make_task_response(
                         status="failed",

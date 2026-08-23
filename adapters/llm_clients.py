@@ -5,7 +5,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
 
-from openai import APIConnectionError, BadRequestError, OpenAI, OpenAIError, RateLimitError
+import httpx
+from openai import APIConnectionError, APIStatusError, APITimeoutError, BadRequestError, OpenAI, OpenAIError, RateLimitError
 
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,11 @@ QWEN_MAX_COMPLETION_TOKENS = int(os.getenv("EIMS_QWEN_MAX_COMPLETION_TOKENS", "8
 # generic 5120-token default. Override with EIMS_PLANNER_MAX_COMPLETION_TOKENS.
 PLANNER_MAX_COMPLETION_TOKENS = int(os.getenv("EIMS_PLANNER_MAX_COMPLETION_TOKENS", "12000"))
 # Exponential-backoff knobs for transient LLM connection/rate-limit retries.
+DEFAULT_RETRIES = int(os.getenv("EIMS_LLM_RETRIES", "3"))
+DEFAULT_RETRY_INTERVAL_SECONDS = float(os.getenv("EIMS_LLM_RETRY_INTERVAL_SECONDS", "3.0"))
 RETRY_MAX_INTERVAL_SECONDS = float(os.getenv("EIMS_RETRY_MAX_INTERVAL_SECONDS", "60.0"))
 RETRY_JITTER_FACTOR = float(os.getenv("EIMS_RETRY_JITTER_FACTOR", "0.3"))
+DEFAULT_REQUEST_TIMEOUT_SECONDS = float(os.getenv("EIMS_LLM_TIMEOUT_SECONDS", "0"))
 # Default output cap for calls that do not specify max_tokens. Without this, the
 # request goes out unbounded (up to the model max, e.g. 65536), which can trip
 # OpenRouter credit checks (402). Override with EIMS_DEFAULT_MAX_TOKENS.
@@ -80,6 +84,63 @@ def _exponential_retry_delay(base_interval: float, attempt: int) -> float:
     return max(0.0, delay)
 
 
+def _iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def _estimate_messages_chars(messages: list[dict[str, Any]]) -> int:
+    total = 0
+    for message in messages or []:
+        content = message.get("content") if isinstance(message, dict) else message
+        total += len(str(content))
+    return total
+
+
+def _is_retryable_model_request_error(exc: BaseException) -> bool:
+    if isinstance(exc, (RateLimitError, APIConnectionError, APITimeoutError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        status_code = int(getattr(exc, "status_code", 0) or 0)
+        return status_code in {408, 409, 429} or status_code >= 500
+    if isinstance(exc, (httpx.TransportError, httpx.TimeoutException)):
+        return True
+
+    retryable_class_names = {
+        "RemoteProtocolError",
+        "ReadError",
+        "WriteError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+        "PoolTimeout",
+        "NetworkError",
+        "ServiceUnavailableError",
+    }
+    retryable_message_markers = (
+        "server disconnected without sending a response",
+        "connection reset",
+        "connection aborted",
+        "connection closed",
+        "remote protocol error",
+        "temporarily unavailable",
+        "timed out",
+        "timeout",
+    )
+    for chained in _iter_exception_chain(exc):
+        if chained.__class__.__name__ in retryable_class_names:
+            return True
+        message = str(chained).lower()
+        if any(marker in message for marker in retryable_message_markers):
+            return True
+    return False
+
+
 def create_chat_completion(
     client: OpenAI,
     *,
@@ -91,8 +152,8 @@ def create_chat_completion(
     stream: bool = False,
     max_tokens: Optional[int] = None,
     provider_max_tokens: Optional[int] = None,
-    retries: int = 3,
-    retry_interval: float = 3.0,
+    retries: int = DEFAULT_RETRIES,
+    retry_interval: float = DEFAULT_RETRY_INTERVAL_SECONDS,
     **extra_kwargs: Any,
 ) -> Any:
     normalized_max_tokens = _normalize_max_tokens(
@@ -128,6 +189,8 @@ def create_chat_completion(
                 request_kwargs["stop"] = stop
             if normalized_seed is not None:
                 request_kwargs["seed"] = normalized_seed
+            if DEFAULT_REQUEST_TIMEOUT_SECONDS > 0 and "timeout" not in request_kwargs:
+                request_kwargs["timeout"] = DEFAULT_REQUEST_TIMEOUT_SECONDS
             response = client.chat.completions.create(**request_kwargs)
             if not stream and not _response_final_content(response):
                 # Reasoning-capable models sometimes emit only a thinking trace and
@@ -184,7 +247,9 @@ def create_chat_completion(
                 _remove_disable_thinking_controls(extra_kwargs)
                 continue
             raise
-        except (RateLimitError, APIConnectionError) as exc:
+        except Exception as exc:
+            if not _is_retryable_model_request_error(exc):
+                raise
             if _is_invalid_parameter_error(exc):
                 logger.error(
                     "Model request rejected due to invalid parameters: model=%s max_tokens=%s error=%s",
@@ -195,7 +260,17 @@ def create_chat_completion(
                 raise
             if attempt >= retries:
                 raise
-            logger.warning("Model request failed (%s/%s): %s", attempt, retries, exc)
+            logger.warning(
+                "Model request failed with a retryable error (%s/%s): model=%s stream=%s max_tokens=%s "
+                "prompt_chars=%s error=%s",
+                attempt,
+                retries,
+                model,
+                stream,
+                normalized_max_tokens,
+                _estimate_messages_chars(messages),
+                exc,
+            )
             time.sleep(_exponential_retry_delay(retry_interval, attempt))
 
 
@@ -354,26 +429,47 @@ def stream_chat_completion_text(
     temperature: float = 0.0,
     stop: Optional[list[str]] = None,
     max_tokens: Optional[int] = None,
-    retries: int = 3,
-    retry_interval: float = 3.0,
+    retries: int = DEFAULT_RETRIES,
+    retry_interval: float = DEFAULT_RETRY_INTERVAL_SECONDS,
     **extra_kwargs: Any,
 ) -> Iterator[str]:
-    stream = create_chat_completion(
-        client,
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        stop=stop,
-        stream=True,
-        max_tokens=max_tokens,
-        retries=retries,
-        retry_interval=retry_interval,
-        **extra_kwargs,
-    )
-    for chunk in stream:
-        if not getattr(chunk, "choices", None):
-            continue
-        delta = getattr(chunk.choices[0], "delta", None)
-        content = getattr(delta, "content", None)
-        if isinstance(content, str) and content:
-            yield content
+    attempt = 0
+    while True:
+        attempt += 1
+        emitted_any = False
+        try:
+            stream = create_chat_completion(
+                client,
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                stop=stop,
+                stream=True,
+                max_tokens=max_tokens,
+                retries=1,
+                retry_interval=retry_interval,
+                **extra_kwargs,
+            )
+            for chunk in stream:
+                if not getattr(chunk, "choices", None):
+                    continue
+                delta = getattr(chunk.choices[0], "delta", None)
+                content = getattr(delta, "content", None)
+                if isinstance(content, str) and content:
+                    emitted_any = True
+                    yield content
+            return
+        except Exception as exc:
+            if emitted_any or not _is_retryable_model_request_error(exc) or attempt >= retries:
+                raise
+            logger.warning(
+                "Streaming model request failed before content; retrying (%s/%s): model=%s max_tokens=%s "
+                "prompt_chars=%s error=%s",
+                attempt,
+                retries,
+                model,
+                _normalize_max_tokens(max_tokens, model=model),
+                _estimate_messages_chars(messages),
+                exc,
+            )
+            time.sleep(_exponential_retry_delay(retry_interval, attempt))
