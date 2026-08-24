@@ -50,7 +50,7 @@ This folder contains organized dataset and experimental outcome files.
 
    Content: external human teleoperation dataset link and clone instructions.
 
-   Note: `Mircomanipulation_tool` is model inference code, not the dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/VLA/ACT_for_microscopy/`.
+   Note: `Mircomanipulation_tool` is model inference code, not the dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/different_low_level_policy/ACT_VLA/ACT_for_microscopy/`.
 
 ## Experimental Outcomes
 
@@ -96,7 +96,7 @@ This folder contains organized dataset and experimental outcome files.
 
 11. `frap_and_micromanipulation/`
 
-    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`) and micromanipulation interaction records (`mp285/`).
+    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`) and micromanipulation-system interaction records (`micromanipulation_system/`).
 
     Note: the FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) lives at `docs_public/frap/` and is not duplicated here.
 

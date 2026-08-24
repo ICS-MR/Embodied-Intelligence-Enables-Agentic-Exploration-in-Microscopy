@@ -1,0 +1,119 @@
+# Experiment Record
+
+## 1. User Task History
+
+```text
+[Round 1] Imaging target: Organoids; capture images of organoids in 96-well plates every 1 hour under a 20× objective for 24 hours continuously
+```
+
+## 2. Biosample
+
+- **Sample type:** Organoids
+- **Imaging mode:** fluorescence
+
+## 3. Expected Result
+
+- **Expected workflow:** Continuously image organoids in a 96-well plate every hour for 24 hours under a 20× objective.
+- **Expected outputs:** A 24-hour plate-level time-series image dataset for the 96-well organoid plate.
+
+## 4. Execution Result
+
+- The run configured automated 20× FITC fluorescence plate imaging with Z-stack and hourly time-series acquisition for 24 frames across all wells, then ran acquisition.
+- **Overall assessment:** Successful
+
+## 5. Clarification / Preview Revision History
+
+None recorded.
+
+## 6. Cleaned Raw Execution Record
+
+### Round 1
+
+#### Task
+
+````text
+Imaging target: Organoids; capture images of organoids in 96-well plates every 1 hour under a 20× objective for 24 hours continuously
+````
+
+#### Planner-Generated Plan
+
+````text
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Parameter Setting: Set the filter set to FITC fluorescence mode; \n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view.; \n#Auxiliary Operation: Obtain the position information of the 96-well plate; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine the appropriate Z-stack range for 3D imaging; \n#Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence and set the corresponding exposure parameters; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for organoid imaging; configure the time parameters for a total duration of 24 hours with an acquisition interval of 1 hour; \n#Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture organoid images in all wells of the 96-well plate every 1 hour for 24 hours continuously'}]
+````
+
+#### Executor-Generated Code
+
+##### Module: Microscope Operation Platform
+
+###### Current Environment
+
+```text
+Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
+```
+
+###### Execution Instructions
+
+```text
+Parameter Setting: Set the filter set to FITC fluorescence mode;
+Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view.;
+Auxiliary Operation: Obtain the position information of the 96-well plate;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to determine the appropriate Z-stack range for 3D imaging;
+Image Automatic Acquisition Parameter Setting: Configure the filter set for FITC fluorescence and set the corresponding exposure parameters; configure the XY position parameters to cover all wells in the 96-well plate with size requirements matching each well; configure the Z-axis stack parameters to the recommended range for organoid imaging; configure the time parameters for a total duration of 24 hours with an acquisition interval of 1 hour;
+Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture organoid images in all wells of the 96-well plate every 1 hour for 24 hours continuously.
+```
+
+###### Execute Code
+
+```python
+say("[INFO] Starting FITC fluorescence mode configuration")
+target_channel = '3-U-FBNA'
+current_channel = get_channel()
+if current_channel != target_channel:
+    set_channel(target_channel)
+    say(f"[INFO] Filter set to FITC fluorescence mode (channel: {target_channel})")
+else:
+    say(f"[INFO] Filter is already in FITC fluorescence mode (channel: {target_channel}), no change needed")
+
+say("[INFO] Performing auxiliary operations for optimal FITC imaging")
+target_exposure = 100.0
+set_exposure(target_exposure)
+say(f"[INFO] Camera exposure time automatically configured to {target_exposure} ms for FITC fluorescence")
+
+set_brightness(0)
+say("[INFO] Light source brightness set to 0 for fluorescence imaging")
+
+say("[INFO] Performing autofocus on current field of view")
+optimal_z = perform_autofocus()
+set_z_position(optimal_z)
+say(f"[INFO] Autofocus completed, optimal Z position: {optimal_z} μm")
+
+say("[INFO] Obtaining 96-well plate position information")
+wells_positions = create_96_wells_positions()
+say(f"[INFO] Successfully generated {len(wells_positions)} positions for 96-well plate")
+
+say("[INFO] Analyzing current field of view to determine Z-stack range for organoid imaging")
+z_max, z_min = z_stack_range()
+z_step = 1.5
+say(f"[INFO] Recommended Z-stack range: {z_min} μm to {z_max} μm with step {z_step} μm for 20x objective")
+
+say("[INFO] Configuring FITC fluorescence acquisition parameters for all 96 wells")
+well_size = 6500
+for i, (well_x, well_y) in enumerate(wells_positions):
+    well_name = f"well_{i+1:02d}"
+    add_acquisition_position(name=well_name, x=well_x, y=well_y, width=well_size, height=well_size)
+
+add_channels(channel=target_channel, exposure=target_exposure)
+say(f"[INFO] FITC channel configured with exposure {target_exposure} ms")
+
+set_z_stack(z_start=z_min, z_end=z_max, z_step=z_step)
+say(f"[INFO] Z-stack parameters configured: range {z_min} to {z_max} μm with step {z_step} μm")
+
+num_frames = 24
+interval_sec = 3600
+set_time_series(num_frames=num_frames, interval_sec=interval_sec)
+say(f"[INFO] Time series configured: {num_frames} frames over 24 hours with 1-hour intervals")
+
+say("[INFO] Starting automated 24-hour time-lapse FITC fluorescence Z-stack acquisition for all 96 wells")
+acquisition_results = run_acquisition()
+say(f"[INFO] Automated acquisition completed successfully. Total images acquired: {len(acquisition_results)}")
+```

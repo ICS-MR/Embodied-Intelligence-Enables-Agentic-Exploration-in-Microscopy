@@ -23,7 +23,7 @@ The workflow supports three actions:
 Install the dependencies from the repository root:
 
 ```powershell
-uv pip install --python .venv\Scripts\python.exe -r docs_public\vlm_location_comparison\requirements.txt
+uv pip install --python .venv\Scripts\python.exe -r docs_public\different_low_level_policy\VLM\vlm_location_comparison\requirements.txt
 ```
 
 The local-model mode also requires the CUDA/PyTorch-compatible MMCV build documented

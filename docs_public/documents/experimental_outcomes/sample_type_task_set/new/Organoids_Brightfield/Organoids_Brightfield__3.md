@@ -1,0 +1,89 @@
+# Experiment Record
+
+## 1. User Task History
+
+```text
+[Round 1] Imaging target: Organoids; adjust the brightness, perform focusing, obtain the recommended Z-stack range, and move the Z-axis to the midpoint of that range.
+```
+
+## 2. Biosample
+
+- **Sample type:** Organoids
+- **Imaging mode:** brightfield
+
+## 3. Expected Result
+
+- **Expected workflow:** Adjust brightness, autofocus on the organoid field, obtain the recommended Z-stack range, calculate its midpoint, and move the Z-axis to that midpoint.
+- **Expected outputs:** An adjusted/focused organoid field and the Z-axis positioned at the midpoint of the recommended Z-stack range.
+
+## 4. Execution Result
+
+- The run performed automatic brightness adjustment, autofocus, obtained the recommended Z-stack range, calculated its midpoint, and moved the Z-axis to that midpoint.
+- **Overall assessment:** Successful
+
+## 5. Clarification / Preview Revision History
+
+None recorded.
+
+## 6. Cleaned Raw Execution Record
+
+### Round 1
+
+#### Task
+
+````text
+Imaging target: Organoids; adjust the brightness, perform focusing, obtain the recommended Z-stack range, and move the Z-axis to the midpoint of that range.
+````
+
+#### Planner-Generated Plan
+
+````text
+[{'subtask_index': 1, 'module': 'Microscope Operation Platform', 'command': 'Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level for the current field of view; \n#Auxiliary operation: Perform autofocus on the current field of view containing organoids; \n#Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the recommended Z-axis stack range; \n#Position Control: Move the Z-axis to the midpoint of the recommended Z-stack range'}]
+````
+
+#### Executor-Generated Code
+
+##### Module: Microscope Operation Platform
+
+###### Current Environment
+
+```text
+Current xy_position:(35123.8, 12353.6), z_position:4150.0, exposure_time:100, objective:3-LUCPLFLN20XRC (20x objective), dichroic:1-NONE (Brightfield), brightness:80
+```
+
+###### Execution Instructions
+
+```text
+Auxiliary operation: Automatically adjust the halogen lamp brightness to an appropriate level for the current field of view;
+Auxiliary operation: Perform autofocus on the current field of view containing organoids;
+Z-axis Stack Parameter Recommendation: Analyze the current field of view containing organoids to obtain the recommended Z-axis stack range;
+Position Control: Move the Z-axis to the midpoint of the recommended Z-stack range.
+```
+
+###### Execute Code
+
+```python
+say("[INFO] Starting auxiliary operations for organoid imaging optimization")
+
+say("[ACTION] Performing automatic brightness adjustment for current field of view")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Halogen lamp brightness automatically adjusted to optimal level: {optimal_brightness}")
+
+say("[ACTION] Performing autofocus on current organoid field of view")
+optimal_z = perform_autofocus()
+set_z_position(optimal_z)
+say(f"[INFO] Autofocus completed, Z position set to optimal value: {optimal_z} μm")
+
+say("[ACTION] Analyzing current organoid field of view to determine Z-stack range")
+z_max, z_min = z_stack_range()
+say(f"[INFO] Recommended Z-stack range determined: {z_min} μm to {z_max} μm")
+
+say("[ACTION] Calculating midpoint of recommended Z-stack range")
+z_midpoint = (z_max + z_min) / 2.0
+say(f"[INFO] Z-stack midpoint calculated: {z_midpoint} μm")
+
+say("[ACTION] Moving Z-axis to midpoint of recommended range")
+set_z_position(z_midpoint)
+say(f"[INFO] Z-axis positioned at midpoint: {z_midpoint} μm")
+```

@@ -18,7 +18,7 @@ hardware, and keeps every run in an isolated history directory for inspection.
 > EIMS is experimental research software. Validate new workflows in Demo mode before
 > using real hardware, and always confirm generated plans before execution.
 
-[Quick Start](#quick-start) · [Runtime Modes](#runtime-modes) ·
+[Quick Start](#quick-start) · [Capabilities](#what-eims-can-do) · [Runtime Modes](#runtime-modes) ·
 [Real Microscope Setup](#real-microscope-setup) · [Configuration](#configuration-reference) ·
 [Extending EIMS](#extending-eims)
 
@@ -33,6 +33,21 @@ hardware, and keeps every run in an isolated history directory for inspection.
 | Interfaces | Web configuration, initialization, preview, live execution updates, summaries, and a CLI for research and debugging |
 | Reproducibility | Session-isolated plans, code, results, artifacts, diagnostics, and cache metadata |
 | Extensibility | Planner skills under `user_skills/planning/` and registered `BaseTool` extensions under `tool/` |
+
+<a id="what-eims-can-do"></a>
+
+## What EIMS Can Do
+
+EIMS supports end-to-end microscopy workflows, from natural-language experiment requests
+to confirmed execution, image analysis, result checking, and traceable records. Depending
+on the configured runtime modes and available hardware, it can configure objectives and
+channels, adjust exposure and illumination, autofocus, move XY/Z stages, acquire single
+images, stitched regions, Z-stacks, time series, and plate-style scans, then hand images
+to Fiji/ImageJ, Cellpose, or MMDetection for processing, segmentation, and target
+detection. It can also revisit detected targets, run closed-loop quality checks, trigger
+replanning or code repair after failures, and coordinate optional user tools such as
+FRAP control or MP-285A micromanipulation while preserving plans, generated code,
+artifacts, diagnostics, and metadata for later inspection.
 
 ## 🔬 How EIMS Works
 
@@ -151,6 +166,9 @@ cleans and reinstalls them by default. To reuse the latest compatible local inst
 ```bash
 uv run python system_config_wizard.py --install-mmcore --reuse-existing
 ```
+
+For a step-by-step walkthrough of Micro-Manager installation and real-hardware
+configuration, refer to Supplementary Video 7.
 
 ### 6. Start the Web Runtime
 
@@ -567,16 +585,6 @@ local download directory, not a repository asset bundle. The helper downloads on
 files used by the current semantic similarity path and skips optional ONNX/OpenVINO
 artifacts to reduce download size and timeout risk.
 
-### Optional VLA ACT Assets
-
-The `docs_public/VLA/ACT_for_microscopy/` asset bundle is distributed through the Hugging Face
-repository [`404lzh/ACT_for_microscopy`](https://huggingface.co/404lzh/ACT_for_microscopy).
-Download or clone that repository separately and place its contents under:
-
-```text
-docs_public/VLA/ACT_for_microscopy
-```
-
 ## 📓 Hardware-Free Notebook
 
 `Hardware-Free-Demo.ipynb` is a hardware-free conceptual demonstration. For the current
@@ -682,7 +690,6 @@ through GitHub Releases and must be downloaded to the referenced local path.
 ```text
 .
 |-- app.py                         # FastAPI Web runtime
-|-- app_mock.py                    # internal mock Web runtime helper for development
 |-- main.py                        # CLI runtime
 |-- api/                           # API routes and response models
 |-- services/                      # runtime manager and task orchestration

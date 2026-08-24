@@ -7,7 +7,7 @@ FRAP + micromanipulation driving tasks and tools.
 - `frap/frap_test/` - processed FRAP test session display MDs
   (cell bleaching, letter drawing, geometric patterns, spiral drawing, 36-point circle installed/uninstalled).
 
-- `mp285/` - processed MP-285 tool interaction records
+- `micromanipulation_system/` - processed micromanipulation-system interaction records
   (movement, circle drawing, pump aspiration/dispensing, ball transfer tasks), plus
   `eims_mp285.md`, a end-to-end EIMS spheroid-transfer workflow execution record.
 

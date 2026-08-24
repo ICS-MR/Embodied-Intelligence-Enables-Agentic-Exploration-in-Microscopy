@@ -11,10 +11,8 @@ This directory contains only polished/published content.
 | `c3_knowledge_base/` | KnowledgeBase reviewed cases (`knowledge_base_reviewed.json`), used by the Clarifier via local bge-m3 retrieval. |
 | `documents/` | Organized dataset and experimental-outcome release: 7 task datasets + 14 experimental outcome collections (detailed below). |
 | `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
-| `vlm_location_comparison/` | VLM location comparison evaluation: toolkit, tests, README, requirements. |
-| `vlm_focus_and_brightness/` | VLM focus & brightness evaluation scripts (traditional and VLM benchmarks). |
+| `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation assets. |
 | `mitosis_detector_evaluation/` | Mitosis detection evaluation: `infer.py` + `testset/` (annotations + 10 test images). |
-| `VLA/` | VLA micromanipulation research tool code: `Mircomanipulation_tool/` (data recording -> processing -> DETR training -> inference). `ACT_for_microscopy/` links to the external VLA weight bundle. |
 
 ## documents/ (Dataset & Outcomes)
 
@@ -46,7 +44,7 @@ Primary index: [documents/README.md](documents/README.md).
 | `prompt_component_ablation/` | Fig. 4b | Prompt component constraint ablation. |
 | `model_size_comparison/` | Fig. 4b | Model-size performance comparison. |
 | `model_comparison/` | Fig. 4b, 4c | Foundation-model performance comparison. |
-| `frap_and_micromanipulation/` | Fig. 5c, 5d, S2 | FRAP test display MDs (`frap/frap_test/`) and MP-285 interaction records (`mp285/`). VLA code and assets live under `docs_public/VLA/`. |
+| `frap_and_micromanipulation/` | Fig. 5c, 5d, S2 | FRAP test display MDs (`frap/frap_test/`) and micromanipulation-system interaction records (`micromanipulation_system/`). VLA/ACT baseline code and assets live under `docs_public/different_low_level_policy/ACT_VLA/`. |
 | `different_disturbance_detection/` | Fig. 7c | Environmental/imaging perturbation detection outcomes. |
 | `sparse_organoid_scanning/` | Fig. 7f | Organoid collection workflow dialogue (display). |
 | `mitotic_cell_collection/` | Fig. 8a | Mitosis skill before/after comparison dialogues (display). |

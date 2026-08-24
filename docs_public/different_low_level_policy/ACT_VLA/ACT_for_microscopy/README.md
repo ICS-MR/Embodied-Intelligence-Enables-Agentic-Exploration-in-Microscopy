@@ -7,5 +7,5 @@ Download or clone that repository separately, then place its contents under this
 directory so the local layout becomes:
 
 ```text
-docs_public/VLA/ACT_for_microscopy
+docs_public/different_low_level_policy/ACT_VLA/ACT_for_microscopy
 ```
