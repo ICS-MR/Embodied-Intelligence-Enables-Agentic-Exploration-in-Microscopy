@@ -1,4 +1,4 @@
-﻿{
+{
   "system": {
     "MM_DIR": "C:/Path/To/Micro-Manager",
     "CONFIG_PATH": "demo_cfg/MMConfig_demo.cfg",
@@ -39,25 +39,41 @@
       "brightfield": {
         "label": "1-NONE",
         "display_name": "Brightfield",
-        "color": [128, 128, 128],
+        "color": [
+          128,
+          128,
+          128
+        ],
         "illumination": "transmitted"
       },
       "dapi": {
         "label": "2-U-FUNA",
         "display_name": "DAPI / 405 nm",
-        "color": [0, 0, 255],
+        "color": [
+          0,
+          0,
+          255
+        ],
         "illumination": "fluorescence"
       },
       "fitc": {
         "label": "3-U-FBNA",
         "display_name": "FITC / 488 nm",
-        "color": [0, 255, 0],
+        "color": [
+          0,
+          255,
+          0
+        ],
         "illumination": "fluorescence"
       },
       "tritc": {
         "label": "4-U-FGNA",
         "display_name": "TRITC / 640 nm",
-        "color": [255, 0, 0],
+        "color": [
+          255,
+          0,
+          0
+        ],
         "illumination": "fluorescence"
       }
     },

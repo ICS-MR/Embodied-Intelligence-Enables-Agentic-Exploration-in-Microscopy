@@ -130,7 +130,7 @@ DEMO_TRANSMITTED_LIGHT: Dict[str, Any] = {
     "intensity_property": "BeadBrightness",
     "min": 0,
     "max": 250,
-    "control_kind": "demo_camera_bead_brightness",
+    "control_kind": "scaled_property",
     "surrogate_min_property_value": 0.5,
     "surrogate_scale": 100.0,
 }
@@ -265,9 +265,9 @@ class SystemConfig:
     channels: Dict[str, Dict[str, Any]] = field(default_factory=lambda: json.loads(json.dumps(DEFAULT_CHANNELS)))
     transmitted_light: Dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_TRANSMITTED_LIGHT))
     demo_environment: Dict[str, Any] = field(default_factory=lambda: dict(DEFAULT_DEMO_ENVIRONMENT))
-    Max_X_position: float = 100000.0
+    Max_X_position: float = 1000000.0
     Min_X_position: float = 0.0
-    Max_Y_position: float = 70000.0
+    Max_Y_position: float = 1000000.0
     Min_Y_position: float = 0.0
     Max_Z_position: float = 10000.0
     Min_Z_position: float = 0.0
@@ -412,9 +412,9 @@ def build_demo_system_overrides() -> Dict[str, Any]:
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
         "Min_X_position": 0.0,
-        "Max_X_position": 100000.0,
+        "Max_X_position": 1000000.0,
         "Min_Y_position": 0.0,
-        "Max_Y_position": 70000.0,
+        "Max_Y_position": 1000000.0,
         "Min_Z_position": -300.0,
         "Max_Z_position": 300.0,
         "Min_brightness": 0,
@@ -447,10 +447,10 @@ def build_mock_system_overrides() -> Dict[str, Any]:
         "objectives": _demo_objectives_from_cfg(),
         "channels": json.loads(json.dumps(DEMO_CHANNELS)),
         "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
-        "Min_X_position": -500000.0,
-        "Max_X_position": 500000.0,
-        "Min_Y_position": -500000.0,
-        "Max_Y_position": 500000.0,
+        "Min_X_position": -5000000.0,
+        "Max_X_position": 5000000.0,
+        "Min_Y_position": -5000000.0,
+        "Max_Y_position": 5000000.0,
         "Min_Z_position": 0.0,
         "Max_Z_position": 10000.0,
         "Min_brightness": 0,
@@ -835,9 +835,6 @@ def load_runtime_settings(
     if apply_demo_overlay and is_demo_mode_settings(settings):
         _apply_demo_system_overrides(settings.system)
         _apply_demo_startup_overrides(settings.startup)
-    elif apply_demo_overlay and is_mock_mode_settings(settings):
-        _apply_mock_system_overrides(settings.system)
-        _apply_mock_startup_overrides(settings.startup)
     return settings
 
 

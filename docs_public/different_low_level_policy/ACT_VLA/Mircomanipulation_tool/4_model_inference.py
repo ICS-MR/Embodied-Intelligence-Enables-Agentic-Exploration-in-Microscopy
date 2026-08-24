@@ -2,13 +2,13 @@ import time
 from einops import rearrange
 import torch
 import numpy as np
-from docs_public.VLA.Mircomanipulation_tool.model.utils import set_seed
-from docs_public.VLA.Mircomanipulation_tool.model.constants import TASK_CONFIGS
+from model.utils import set_seed
+from model.constants import TASK_CONFIGS
 import argparse
 import os
 import pickle
-from docs_public.VLA.Mircomanipulation_tool.utils.task_interfaces import create_task_agent
-from docs_public.VLA.Mircomanipulation_tool.model.policy import ACTPolicy
+from utils.task_interfaces import create_task_agent
+from model.policy import ACTPolicy
 import cv2
 import logging
 
@@ -153,7 +153,7 @@ def eval_bc(config, ckpt_name, agent):
         print(f"Video saved to: {video_filename}")
 
 def start_log(task_name):
-    log_dir = f'./output/{task_name}/{task_name}_{record_epoch}'
+    log_dir = f'/home/nova/videos/{task_name}/{task_name}_{record_epoch}'
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"record.log")
 
@@ -193,9 +193,9 @@ if __name__ == '__main__':
     task_name = args['task_name']
     record_epoch = args['record_epoch']
     if args['video_filename'] is None:
-        args['video_filename'] = f'./output/{task_name}/{task_name}_{record_epoch}/video.avi'
+        args['video_filename'] = f'/home/nova/videos/{task_name}/{task_name}_{record_epoch}/video.avi'
     if args['ckpt_dir'] is None:
-        args['ckpt_dir'] = f'./data/result/{task_name}/cs30_1e-04'
+        args['ckpt_dir'] = f'/home/nova/mir/result/{task_name}/cs30_1e-04'
 
     agent = create_task_agent(
         task_name,

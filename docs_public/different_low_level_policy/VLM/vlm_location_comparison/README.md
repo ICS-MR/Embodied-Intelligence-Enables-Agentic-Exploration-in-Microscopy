@@ -11,12 +11,14 @@ The workflow supports three actions:
 
 ## Contents
 
+- `localization_toolkit/__init__.py`: public API re-exports.
 - `localization_toolkit/cli.py`: command-line entry point.
 - `localization_toolkit/pipeline.py`: public Python API.
 - `localization_toolkit/model_inference.py`: tiled MMDetection inference, global NMS, COCO result export, and visualization.
 - `localization_toolkit/vlm_inference.py`: Qwen-VL localization, coordinate conversion, raw JSON export, and visualization.
 - `localization_toolkit/evaluation.py`: COCO-style prediction comparison and error plots.
-- `requirements.txt`: minimal runtime dependencies outside MMDetection.
+- `tests/test_localization_toolkit.py`: unit tests for API configuration, response parsing, COCO conversion, and comparison metrics.
+- `requirements.txt`: runtime dependencies, including `mmdet` and `mmengine`. The CUDA/PyTorch-compatible `mmcv` build must be installed separately (see below).
 
 ## Command Line Usage
 

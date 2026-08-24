@@ -14,6 +14,7 @@ from bootstrap.microscope_semantics import (
     objective_semantic_for_label,
 )
 from runtime.config import _has_transmitted_light_brightness_control
+from runtime.hardware_handoff import HardwareOwnerHandoffManager, HardwareOwnerHandoffSession
 from services.skill_resolver import SkillResolutionRequest, SkillResolver
 from runtime.config import build_skill_resolver_config
 from runtime.text import StepSummaryResult, format_planner_failure_message
@@ -139,6 +140,7 @@ class TaskOrchestrator:
         stream_task_execution_summary: Callable[[Any, str, str, List[Dict[str, Any]], Callable[[str], None]], str],
     ) -> None:
         self.runtime_context = runtime_context
+        self._hardware_handoff = HardwareOwnerHandoffManager(runtime_context)
         self._current_turn = 0
         self._summarize_spoken_messages = summarize_spoken_messages
         self._summarize_my_spoken_messages = summarize_my_spoken_messages
@@ -765,8 +767,7 @@ class TaskOrchestrator:
 
         storage_manager.clear_cache()
         ordered_steps = sorted(lmp_steps, key=lambda item: item["subtask_index"])
-        frap_phase_active = False
-        frap_handoff_state: Optional[Dict[str, Any]] = None
+        hardware_handoff_session: Optional[HardwareOwnerHandoffSession] = None
 
         try:
             for step in ordered_steps:
@@ -776,12 +777,12 @@ class TaskOrchestrator:
                 module_name = step["module"]
                 command = step["command"]
 
-                is_frap_step = self._is_frap_module(module_name)
-                if is_frap_step:
-                    module_name = "frap"
-                if is_frap_step and not frap_phase_active:
+                external_hardware_tool = self._hardware_handoff.external_tool_for_module(module_name)
+                if external_hardware_tool:
+                    module_name = external_hardware_tool
+                if external_hardware_tool and hardware_handoff_session is None:
                     try:
-                        frap_handoff_state = self._begin_frap_handoff()
+                        hardware_handoff_session = self._hardware_handoff.begin(external_hardware_tool)
                     except Exception as exc:
                         raise StepExecutionError(
                             step=step.copy(),
@@ -789,10 +790,20 @@ class TaskOrchestrator:
                             executor=None,
                             saved_documents=meta_file,
                         ) from exc
-                    frap_phase_active = True
-                elif not is_frap_step and frap_phase_active:
+                elif external_hardware_tool and hardware_handoff_session.tool_id != external_hardware_tool:
                     try:
-                        self._end_frap_handoff(frap_handoff_state)
+                        self._hardware_handoff.end(hardware_handoff_session)
+                        hardware_handoff_session = self._hardware_handoff.begin(external_hardware_tool)
+                    except Exception as exc:
+                        raise StepExecutionError(
+                            step=step.copy(),
+                            original_exception=exc,
+                            executor=None,
+                            saved_documents=meta_file,
+                        ) from exc
+                elif not external_hardware_tool and hardware_handoff_session is not None:
+                    try:
+                        self._hardware_handoff.end(hardware_handoff_session)
                     except Exception as exc:
                         raise StepExecutionError(
                             step=step.copy(),
@@ -801,8 +812,7 @@ class TaskOrchestrator:
                             saved_documents=meta_file,
                         ) from exc
                     finally:
-                        frap_phase_active = False
-                        frap_handoff_state = None
+                        hardware_handoff_session = None
 
                 if module_name == "Microscope Operation Platform":
                     current_objective = env_olympus.get_objective()
@@ -873,12 +883,12 @@ class TaskOrchestrator:
                     )
                 )
         except Exception as exc:
-            if frap_phase_active:
+            if hardware_handoff_session is not None:
                 try:
-                    self._end_frap_handoff(frap_handoff_state)
+                    self._hardware_handoff.end(hardware_handoff_session)
                 except Exception as cleanup_exc:
                     detail = RuntimeError(
-                        f"{type(exc).__name__}: {exc}; additionally failed to release FRAP/restore Micro-Manager: {cleanup_exc}"
+                        f"{type(exc).__name__}: {exc}; additionally failed to restore hardware ownership: {cleanup_exc}"
                     )
                     if isinstance(exc, StepExecutionError):
                         raise StepExecutionError(
@@ -890,10 +900,10 @@ class TaskOrchestrator:
                     raise detail from exc
             raise
         else:
-            if frap_phase_active:
+            if hardware_handoff_session is not None:
                 last_step = ordered_steps[-1] if ordered_steps else {}
                 try:
-                    self._end_frap_handoff(frap_handoff_state)
+                    self._hardware_handoff.end(hardware_handoff_session)
                 except Exception as exc:
                     raise StepExecutionError(
                         step=last_step.copy(),
@@ -903,48 +913,6 @@ class TaskOrchestrator:
                     ) from exc
 
         return step_reports
-
-    @staticmethod
-    def _is_frap_module(module_name: Any) -> bool:
-        return str(module_name or "").strip().lower() == "frap"
-
-    def _begin_frap_handoff(self) -> Optional[Dict[str, Any]]:
-        env_olympus = getattr(self.runtime_context, "env_olympus", None)
-        if env_olympus is None:
-            return None
-
-        capture_state = getattr(env_olympus, "capture_handoff_state", None)
-        release = getattr(env_olympus, "release_for_handoff", None)
-        if not callable(capture_state) or not callable(release):
-            raise RuntimeError("Microscope controller does not support FRAP handoff.")
-        state = capture_state()
-        release()
-        return state
-
-    def _end_frap_handoff(self, handoff_state: Optional[Dict[str, Any]]) -> None:
-        errors: List[str] = []
-        frap_binding = self.runtime_context.tool_registry.get_tool("frap")
-        frap_env = getattr(frap_binding, "env", None) if frap_binding is not None else None
-        release_session = getattr(frap_env, "release_session", None)
-        if callable(release_session):
-            try:
-                release_session()
-            except Exception as exc:
-                errors.append(f"FRAP release: {exc}")
-
-        env_olympus = getattr(self.runtime_context, "env_olympus", None)
-        restore = getattr(env_olympus, "restore_after_handoff", None)
-        if handoff_state is not None:
-            if not callable(restore):
-                errors.append("Micro-Manager restore: microscope controller does not support handoff restore")
-            else:
-                try:
-                    restore(handoff_state)
-                except Exception as exc:
-                    errors.append(f"Micro-Manager restore: {exc}")
-
-        if errors:
-            raise RuntimeError("; ".join(errors))
 
     def _build_execution_trace(
         self,

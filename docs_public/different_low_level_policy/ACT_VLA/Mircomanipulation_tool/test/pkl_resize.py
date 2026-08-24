@@ -1,10 +1,10 @@
 import os
 import pickle
 
-# Recording root; adjust as needed.
-root_dir = './data'
+# Root directory; update as needed.
+root_dir = '/home/nova/mir'
 
-# Process epoch_0 through epoch_49.
+# Iterate from epoch_0 through epoch_49.
 for i in range(50):
     epoch_dir = os.path.join(root_dir, f'task_003/epoch_{i}', 'Action')
     
@@ -12,7 +12,7 @@ for i in range(50):
         print(f"Directory does not exist: {epoch_dir}")
         continue
 
-    # Process every pickle in this directory.
+    # Iterate over all PKL files in the directory.
     for fname in os.listdir(epoch_dir):
         if not fname.endswith('.pkl'):
             continue
@@ -20,16 +20,16 @@ for i in range(50):
         fpath = os.path.join(epoch_dir, fname)
         index = int(fname.replace('.pkl', ''))
 
-        # Read one pickle.
+        # Read the PKL file.
         with open(fpath, 'rb') as f:
             data = pickle.load(f)
 
-        # Validate its structure.
+        # Check the data format.
         if not isinstance(data, dict) or 'position' not in data:
-            print(f"Unexpected file format: {fpath}")
+            print(f"Invalid file format: {fpath}")
             continue
 
-        # Adjust positions by index range.
+        # Modification logic.
         if 0 <= index <= 9:
             data['position'] += 200
         elif 10 <= index <= 19:
@@ -48,4 +48,4 @@ for i in range(50):
 
         print(f"Processed: {fpath}")
 
-print("Finished processing all data.")
+print("✅ All data has been processed.")

@@ -92,3 +92,7 @@ captures/
 
 # Hardware SDK drops should be installed outside the repo.
 gxipy/
+
+# Shared configuration examples must remain trackable.
+!configs/
+!configs/*.example.yaml

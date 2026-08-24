@@ -72,7 +72,7 @@ def create_task_agent(
 ):
     profile = resolve_task_profile(task_name, backend=backend, control_mode=control_mode)
     if profile.backend == "robot":
-        from docs_public.VLA.Mircomanipulation_tool.utils.agent import Agent as RobotAgent
+        from utils.agent import Agent as RobotAgent
 
         return RobotTaskAdapter(RobotAgent(port_id, baudrate, timeout), profile)
     return MicroscopeTaskAdapter(profile)
@@ -146,7 +146,7 @@ class MicroscopeTaskAdapter:
         self.xy_origin = None
 
     def open(self):
-        from docs_public.VLA.Mircomanipulation_tool.utils.olympus import Olympus_api
+        from utils.olympus import Olympus_api
 
         self.microscope = Olympus_api()
         self.microscope.initialize()

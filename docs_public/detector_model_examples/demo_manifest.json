@@ -1,0 +1,26 @@
+{
+  "purpose": "Qualitative reviewer-facing examples for the currently registered preset detector models. These images are not a held-out benchmark.",
+  "targets": {
+    "2Dcell": {
+      "display_name": "2D cell detector",
+      "source_modality": "2D fluorescence",
+      "notes": "Small COCO-format 2D fluorescence qualitative subset used only to show the existing 2Dcell preset behavior.",
+      "images_dir": "docs_public/detector_model_examples/testset/2Dcell/images",
+      "annotations": "docs_public/detector_model_examples/testset/2Dcell/annotations.json"
+    },
+    "organoid": {
+      "display_name": "Organoid detector",
+      "source_modality": "organoid brightfield",
+      "notes": "Small COCO-format organoid brightfield qualitative subset used only to show the existing organoid preset behavior.",
+      "images_dir": "docs_public/detector_model_examples/testset/organoid/images",
+      "annotations": "docs_public/detector_model_examples/testset/organoid/annotations.json"
+    },
+    "mitosis": {
+      "display_name": "Mitosis detector",
+      "source_modality": "mitosis microscopy subset",
+      "notes": "Small annotated mitosis image subset retained from the original qualitative detector evaluation folder.",
+      "images_dir": "docs_public/detector_model_examples/testset/mitosis/images",
+      "annotations": "docs_public/detector_model_examples/testset/mitosis/annotations.json"
+    }
+  }
+}

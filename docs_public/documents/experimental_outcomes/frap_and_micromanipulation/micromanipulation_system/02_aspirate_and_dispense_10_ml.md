@@ -1,0 +1,52 @@
+# EIMS Workflow Showcase: Quickly Aspirate and Dispense 10 ml (Execution Record)
+
+## Round 1
+
+### User Input (Natural Language)
+
+```text
+Known conditions: The first position of the array is at A(0, 0); the array is 5x5, with 1 mm spacing between adjacent positions along X and 1 mm spacing between rows. The green ball reservoir is at B(500 mm, 500 mm) and the red ball reservoir is at C(-500 mm, -500 mm).
+
+Control the pump in the micromanipulation system to quickly aspirate/dispense 10 ml of liquid at a pump velocity of 100 uL/s.
+```
+
+### Planner-Generated Plan
+
+- **1. [mp285_controller]** Connect to both the MP-285 micromanipulator and the pump using default serial settings.
+- **2. [mp285_controller]** Pump set velocity: Set the pump fluid handling speed to 100 uL/s.
+- **3. [mp285_controller]** Pump in: Aspirate 10 ml of liquid at the configured pump velocity of 100 uL/s.
+- **4. [mp285_controller]** Pump out: Dispense 10 ml of liquid at the configured pump velocity of 100 uL/s.
+
+### Executor-Generated Restricted Python Code (Complete)
+
+**Module: mp285_controller**
+
+> Step instruction: Connect to both the MP-285 micromanipulator and the pump using default serial settings; set the pump fluid handling speed to 100 uL/s; aspirate 10 ml of liquid; then dispense 10 ml of liquid at the configured velocity.
+
+```python
+volume_ml = 10.0
+volume_ul = volume_ml * 1000.0
+velocity_ul_per_s = 100.0
+
+if velocity_ul_per_s <= 0:
+    say("[ERROR] Pump velocity must be positive.")
+    raise RuntimeError("Invalid pump velocity.")
+
+if volume_ul <= 0:
+    say("[ERROR] Pump volume must be positive.")
+    raise RuntimeError("Invalid pump volume.")
+
+say("[ACTION] Connecting to MP-285 micromanipulator and pump using default serial settings.")
+connect()
+
+say("[ACTION] Setting pump velocity to 100 uL/s.")
+pump_set_velocity(velocity_ul_per_s)
+
+say("[ACTION] Aspirating 10 ml (10000 uL) of liquid.")
+pump_in(volume_ul)
+
+say("[ACTION] Dispensing 10 ml (10000 uL) of liquid.")
+pump_out(volume_ul)
+
+say("[INFO] Pump aspiration and dispensing sequence completed.")
+```

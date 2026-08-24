@@ -1,0 +1,135 @@
+{
+  "info": {
+    "description": "Converted from YOLO format",
+    "url": "",
+    "version": "1.0",
+    "year": 2025,
+    "contributor": "User",
+    "date_created": "2025-10-24"
+  },
+  "licenses": [
+    {
+      "id": 1,
+      "name": "Unknown",
+      "url": ""
+    }
+  ],
+  "images": [
+    {
+      "id": 1,
+      "file_name": "Image_11910.jpg",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "id": 2,
+      "file_name": "Image_12191.jpg",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "id": 3,
+      "file_name": "Image_12193.jpg",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "id": 4,
+      "file_name": "Image_12197.jpg",
+      "width": 2048,
+      "height": 2048
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [
+        15.000064000000002,
+        55.000064,
+        119.000064,
+        103.000064
+      ],
+      "area": 12257.014208004095,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 2,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [
+        333.999872,
+        343.99974399999996,
+        112.999936,
+        118.000128
+      ],
+      "area": 13334.00691199181,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 3,
+      "image_id": 2,
+      "category_id": 1,
+      "bbox": [
+        1386.001408,
+        367.000576,
+        452.999168,
+        388.999168
+      ],
+      "area": 176216.2994566922,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 4,
+      "image_id": 3,
+      "category_id": 1,
+      "bbox": [
+        268.998656,
+        286.000128,
+        489.00096,
+        458.999808
+      ],
+      "area": 224451.34675181567,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 5,
+      "image_id": 3,
+      "category_id": 1,
+      "bbox": [
+        1546.999808,
+        998.9990399999999,
+        348.000256,
+        344.000512
+      ],
+      "area": 119712.26624013107,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 6,
+      "image_id": 4,
+      "category_id": 1,
+      "bbox": [
+        1610.000384,
+        1548.998656,
+        411.000832,
+        489.00096
+      ],
+      "area": 200979.80140879872,
+      "iscrowd": 0,
+      "segmentation": []
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Organoids"
+    }
+  ]
+}

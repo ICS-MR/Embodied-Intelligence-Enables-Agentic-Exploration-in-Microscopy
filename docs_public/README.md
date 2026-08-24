@@ -8,11 +8,39 @@ This directory contains only polished/published content.
 | Path | Content |
 | --- | --- |
 | `c3_calibration/` | Conformal prediction calibration: `calibration_overview.json` (calibration dataset) and `compute_conformal_threshold.py` (non-conformity / conformal threshold calculation). |
-| `c3_knowledge_base/` | KnowledgeBase reviewed cases (`knowledge_base_reviewed.json`), used by the Clarifier via local bge-m3 retrieval. |
+| `c3_knowledge_base/` | C3 Domain Prior: reviewed exemplar set (`knowledge_base_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
 | `documents/` | Organized dataset and experimental-outcome release: 7 task datasets + 14 experimental outcome collections (detailed below). |
 | `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
-| `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation assets. |
-| `mitosis_detector_evaluation/` | Mitosis detection evaluation: `infer.py` + `testset/` (annotations + 10 test images). |
+| `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
+| `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, and mitosis. |
+
+## Detector Model Examples
+
+Primary index: [detector_model_examples/README.md](detector_model_examples/README.md).
+
+`detector_model_examples/` is a qualitative visualization aid, not a formal benchmark. The uploadable image subsets are self-contained under `detector_model_examples/testset/<target>/`:
+
+| Target | Public sample data | Model source |
+| --- | --- | --- |
+| `2Dcell` | 2D fluorescence COCO-format examples | Existing system checkpoint: `detector_models/cell2d/weights.pth` |
+| `organoid` | Organoid brightfield COCO-format examples | Existing system checkpoint: `detector_models/organoid/weights.pth` |
+| `mitosis` | Original annotated mitosis qualitative subset | Existing system checkpoint: `detector_models/mitosis/weights.pth` |
+
+No detector weights are copied into `docs_public/`; inference uses the system-registered detector presets.
+
+## Low-Level Policy Baselines
+
+Primary index: [different_low_level_policy/README.md](different_low_level_policy/README.md).
+
+`different_low_level_policy/` contains standalone baseline materials for low-level execution-policy comparisons. These baselines are separate from the default EIMS runtime:
+
+| Path | Content / Release status |
+| --- | --- |
+| `different_low_level_policy/VLM/` | VLM localization, focus, and brightness comparison workflows. |
+| `different_low_level_policy/ACT_VLA/Mircomanipulation_tool/` | Public source package for ACT-style micromanipulation data collection, dataset conversion, training, and inference. |
+| `different_low_level_policy/ACT_VLA/ACT_for_microscopy/` | Placeholder/layout notes for the external ACT/VLA weight bundle. |
+
+Large ACT/VLA datasets, checkpoints, hardware SDKs, and generated outputs are intentionally not bundled in `docs_public/`; the micromanipulation README points to the external Hugging Face resources and required local hardware configuration.
 
 ## documents/ (Dataset & Outcomes)
 
@@ -26,8 +54,6 @@ Primary index: [documents/README.md](documents/README.md).
 | `generalization_dataset/` | Table S2 | Extracted task set. |
 | `ambiguous_task_dataset/` | Table S3 | Extracted user-input task set. |
 | `imaging_perturbation_dataset/` | - | Perturbation sample images + state_metadata.json. |
-| `conformal_prediction_dataset/` | - | Calibration dataset (calibration_overview.json). |
-| `conformal_prediction/` | - | Non-conformity / conformal threshold calculation script. |
 | `teleoperation_dataset/` | - | Download link (external Hugging Face asset, too large to bundle). |
 
 ### Experimental Outcomes (`documents/experimental_outcomes/`)

@@ -70,16 +70,16 @@ class MicroscopeController(BaseTool):
         self.dichroic_colors = dict(getattr(system_config, "dichroic_colors", {}))
 
         # Axis and parameter ranges (mock overlay widens Z so calibration values fit).
-        self.Max_X_position = float(getattr(system_config, "Max_X_position", 100000.0))
-        self.Min_X_position = float(getattr(system_config, "Min_X_position", 0.0))
-        self.Max_Y_position = float(getattr(system_config, "Max_Y_position", 70000.0))
-        self.Min_Y_position = float(getattr(system_config, "Min_Y_position", 0.0))
-        self.Max_Z_position = float(getattr(system_config, "Max_Z_position", 10000.0))
-        self.Min_Z_position = float(getattr(system_config, "Min_Z_position", 0.0))
-        self.Max_brightness = int(getattr(system_config, "Max_brightness", 250))
-        self.Min_brightness = int(getattr(system_config, "Min_brightness", 0))
-        self.Max_exposure = float(getattr(system_config, "Max_exposure", 1000))
-        self.Min_exposure = float(getattr(system_config, "Min_exposure", 0))
+        self.Max_X_position = float(getattr(system_config, "Max_X_position"))
+        self.Min_X_position = float(getattr(system_config, "Min_X_position"))
+        self.Max_Y_position = float(getattr(system_config, "Max_Y_position"))
+        self.Min_Y_position = float(getattr(system_config, "Min_Y_position"))
+        self.Max_Z_position = float(getattr(system_config, "Max_Z_position"))
+        self.Min_Z_position = float(getattr(system_config, "Min_Z_position"))
+        self.Max_brightness = int(getattr(system_config, "Max_brightness"))
+        self.Min_brightness = int(getattr(system_config, "Min_brightness"))
+        self.Max_exposure = float(getattr(system_config, "Max_exposure"))
+        self.Min_exposure = float(getattr(system_config, "Min_exposure"))
 
         transmitted_light = dict(getattr(system_config, "transmitted_light", {}) or {})
         self.brightness_device = str(transmitted_light.get("device") or "").strip()
@@ -687,10 +687,10 @@ class MicroscopeController(BaseTool):
         return bool(self.brightness_device)
 
     # ------------------------------------------------------------------
-    # FRAP hardware-owner handoff
+    # External hardware-owner handoff
     # ------------------------------------------------------------------
-    def capture_handoff_state(self) -> Dict[str, Any]:
-        """Capture current microscope state before handing hardware to another tool."""
+    def capture_hardware_owner_state(self) -> Dict[str, Any]:
+        """Capture current microscope state before releasing hardware ownership."""
         with self._lock:
             return {
                 "x": float(self.current_X_position),
@@ -703,16 +703,16 @@ class MicroscopeController(BaseTool):
                 "preview_running": bool(self.preview_running),
             }
 
-    def release_for_handoff(self) -> None:
-        """Release the simulated microscope for another hardware owner (no-op)."""
+    def release_hardware_owner(self) -> None:
+        """Release the simulated microscope for another hardware owner."""
         with self._lock:
             self.preview_running = False
 
-    def restore_after_handoff(self, state: Dict[str, Any]) -> None:
+    def restore_hardware_owner(self, state: Dict[str, Any]) -> None:
         """Restore microscope state after another hardware owner releases it."""
         with self._lock:
             if not isinstance(state, dict):
-                raise ValueError("handoff state must be a dict")
+                raise ValueError("hardware owner state must be a dict")
             self.current_X_position = float(state.get("x", self.current_X_position))
             self.current_Y_position = float(state.get("y", self.current_Y_position))
             self.current_Z_position = float(state.get("z", self.current_Z_position))

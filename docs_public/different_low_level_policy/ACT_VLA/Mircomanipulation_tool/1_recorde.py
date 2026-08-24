@@ -6,7 +6,7 @@ import shutil
 import numpy as np
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from docs_public.VLA.Mircomanipulation_tool.utils.task_interfaces import create_task_agent
+from utils.task_interfaces import create_task_agent
 
 
 def create_folder(path):
@@ -38,7 +38,7 @@ def save_step(img, qpos, stage_num, save_count, action_folder, image_folder, qpo
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--task_name', type=str, default='task_Splicing_3', help='task name')
-    parser.add_argument('--root_folder', type=str, default='./data/task', help='dataset root')
+    parser.add_argument('--root_folder', type=str, default='/home/nova/mir/task', help='dataset root')
     parser.add_argument('--backend', type=str, default='auto', choices=['auto', 'robot', 'microscope'], help='hardware backend')
     parser.add_argument('--control_mode', type=str, default='auto', choices=['auto', 'xy', 'z', 'brightness', 'exposure'], help='controlled state')
     parser.add_argument('--port', type=str, default='/dev/ttyUSB0', help='robot serial port')

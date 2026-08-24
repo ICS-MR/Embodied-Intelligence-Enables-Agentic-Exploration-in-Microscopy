@@ -2,10 +2,10 @@ import os
 import pickle
 import numpy as np
 
-# Recording root.
-base_path = "./data/task/task_Splicing_3"
+# Base path
+base_path = "/home/nova/mir/task/task_Splicing_3"
 
-# Inspect every epoch directory.
+# Iterate over each epoch folder.
 for epoch_dir in sorted(os.listdir(base_path)):
     if not epoch_dir.startswith("epoch_"):
         continue
@@ -15,30 +15,30 @@ for epoch_dir in sorted(os.listdir(base_path)):
         print(f"Warning: {epoch_path} does not exist; skipping")
         continue
     
-    # Collect per-file means.
+    # Collect the mean from each PKL file.
     epoch_means = []
     
-    # Read every pickle in the Action directory.
+    # Iterate over all PKL files in the Action directory.
     for pkl_file in sorted(os.listdir(epoch_path)):
         if not pkl_file.endswith(".pkl"):
             continue
         
         file_path = os.path.join(epoch_path, pkl_file)
         
-        # Load one action.
+        # Load the PKL file.
         with open(file_path, 'rb') as f:
             data = pickle.load(f)
         
-        # Require an [x, y, z] vector.
+        # Ensure that the data uses the [x, y, z] format.
         if not isinstance(data, (list, np.ndarray)) or len(data) != 3:
-            print(f"Warning: {file_path} is not an [x, y, z] vector; skipping")
+            print(f"Warning: {file_path} does not use the [x, y, z] format; skipping")
             continue
         
-        # Compute the file mean.
+        # Calculate the mean.
         mean_values = np.mean(data, axis=0) if isinstance(data, np.ndarray) else np.mean(data)
         epoch_means.append(mean_values)
     
-    # Compute the epoch mean.
+    # Calculate the mean for the entire epoch.
     if epoch_means:
         overall_mean = np.mean(epoch_means, axis=0)
         # if overall_mean > 10000 or overall_mean < -10000:

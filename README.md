@@ -512,6 +512,15 @@ detector_models/organoid/weights.pth
 detector_models/mitosis/weights.pth
 ```
 
+The modality-specific transfer-package detectors use the same local asset convention:
+
+```text
+detector_models/cell2d_brightfield/weights.pth
+detector_models/cell2d_fluorescence/weights.pth
+detector_models/organoid_brightfield/weights.pth
+detector_models/organoid_fluorescence/weights.pth
+```
+
 Only detector `config.py` files are intended to live in the repository. Checkpoint
 `weights.pth` files are local runtime assets, restored by the download script and ignored
 by git.
@@ -662,6 +671,22 @@ class, output filename, and confidence threshold:
       "model_config": "detector_models/cell2d/config.py",
       "model_checkpoint": "detector_models/cell2d/weights.pth"
     },
+    "2Dcell_brightfield": {
+      "target_class_id": 0,
+      "target_class_name": "2D_cell",
+      "score_thr": 0.2,
+      "output_filename": "2Dcell_brightfield_locations_list.json",
+      "model_config": "detector_models/cell2d_brightfield/config.py",
+      "model_checkpoint": "detector_models/cell2d_brightfield/weights.pth"
+    },
+    "2Dcell_fluorescence": {
+      "target_class_id": 0,
+      "target_class_name": "2D_cell",
+      "score_thr": 0.2,
+      "output_filename": "2Dcell_fluorescence_locations_list.json",
+      "model_config": "detector_models/cell2d_fluorescence/config.py",
+      "model_checkpoint": "detector_models/cell2d_fluorescence/weights.pth"
+    },
     "organoid": {
       "target_class_id": 0,
       "target_class_name": "organoid",
@@ -669,6 +694,22 @@ class, output filename, and confidence threshold:
       "output_filename": "organoid_locations_list.json",
       "model_config": "detector_models/organoid/config.py",
       "model_checkpoint": "detector_models/organoid/weights.pth"
+    },
+    "organoid_brightfield": {
+      "target_class_id": 0,
+      "target_class_name": "Organoids",
+      "score_thr": 0.2,
+      "output_filename": "organoid_brightfield_locations_list.json",
+      "model_config": "detector_models/organoid_brightfield/config.py",
+      "model_checkpoint": "detector_models/organoid_brightfield/weights.pth"
+    },
+    "organoid_fluorescence": {
+      "target_class_id": 0,
+      "target_class_name": "Organoids",
+      "score_thr": 0.2,
+      "output_filename": "organoid_fluorescence_locations_list.json",
+      "model_config": "detector_models/organoid_fluorescence/config.py",
+      "model_checkpoint": "detector_models/organoid_fluorescence/weights.pth"
     },
     "mitosis": {
       "target_class_id": 0,
@@ -866,3 +907,7 @@ tasks, planner skills, and tool integrations.
 Changes affecting real hardware control, image-analysis behavior, generated-code
 execution, or Fiji plugin-dependent features should include relevant validation steps and
 dependency declarations.
+
+## Citation
+
+Embodied Intelligence Enables Agentic Exploration in Microscopy, 09 February 2026, PREPRINT (Version 1) available at Research Square [https://doi.org/10.21203/rs.3.rs-8617009/v1]

@@ -5,7 +5,7 @@ def main():
     # Create the device manager.
     device_manager = gx.DeviceManager()
     
-    # Enumerate connected devices.
+    # Enumerate devices.
     dev_num, dev_info_list = device_manager.update_device_list()
     if dev_num == 0:
         print("No device found")
@@ -16,26 +16,26 @@ def main():
     cam = device_manager.open_device_by_sn(sn)
     print(f"Opened device with SN: {sn}")
     
-    # Configure image dimensions.
+    # Set the image width and height.
     cam.Width.set(640)
     cam.Height.set(480)
     
-    # Configure the frame rate.
+    # Set the frame rate.
     cam.AcquisitionFrameRateMode.set(gx.GxSwitchEntry.ON)
     cam.AcquisitionFrameRate.set(30.0)
     
-    # Configure exposure time.
+    # Set the exposure time.
     cam.ExposureMode.set(gx.GxExposureModeEntry.TIMED)
     cam.ExposureTime.set(10.0)
     
-    # Report the current frame rate.
+    # Print the current frame rate.
     current_frame_rate = cam.CurrentAcquisitionFrameRate.get()
     print(f"Current frame rate: {current_frame_rate} fps")
     
     # Start acquisition.
     cam.stream_on()
     
-    # Acquire one frame.
+    # Acquire an image.
     raw_image = cam.data_stream[0].get_image()
     if raw_image is None:
         print("Failed to get image")
@@ -43,7 +43,7 @@ def main():
         cam.close_device()
         return
     
-    # Convert the frame to RGB.
+    # Convert to an RGB image.
     rgb_image = raw_image.convert("RGB")
     if rgb_image is None:
         print("Failed to convert image to RGB")
@@ -51,7 +51,7 @@ def main():
         cam.close_device()
         return
     
-    # Convert the frame to a NumPy array.
+    # Convert the image to a NumPy array.
     numpy_image = rgb_image.get_numpy_array()
     if numpy_image is None:
         print("Failed to convert image to numpy array")
@@ -59,7 +59,7 @@ def main():
         cam.close_device()
         return
     
-    # Save the frame with Pillow.
+    # Save the image with PIL.
     image = Image.fromarray(numpy_image, 'RGB')
     image.save("captured_image.jpg")
     print("Image saved as captured_image.jpg")

@@ -6,7 +6,7 @@ import math
 import torch
 from torch import nn
 
-from docs_public.VLA.Mircomanipulation_tool.model.detr.util.misc import NestedTensor
+from model.detr.util.misc import NestedTensor
 
 import IPython
 e = IPython.embed

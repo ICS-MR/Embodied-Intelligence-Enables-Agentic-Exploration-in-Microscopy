@@ -1,7 +1,0 @@
-dataset_dir: ./data/dataset/dataset_Splicing_2
-ckpt_dir: ./data/result/Splicing_2/cs30_1e-04
-batch_size: 8
-seed: 1
-num_epochs: 1000
-lr: 0.0001
-chunk_size: 30

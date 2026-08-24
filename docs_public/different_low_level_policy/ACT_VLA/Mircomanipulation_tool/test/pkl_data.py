@@ -2,8 +2,8 @@ import os
 import pickle
 import pprint
 
-# Target pickle directory.
-folder_path = "./data/task/task_Splicing_3/epoch_0/Observations/stage"
+# ✅ Set the target folder path.
+folder_path = "/home/nova/mir/task/task_Splicing_3/epoch_0/Observations/stage"
 
 def load_and_print_pkl(file_path):
     try:
@@ -12,11 +12,11 @@ def load_and_print_pkl(file_path):
         print("Contents:")
         pprint.pprint(data, depth=5, compact=True)
     except Exception as e:
-        print(f"Unable to load {file_path}: {e}")
+        print(f"❌ Failed to load {file_path}. Error: {e}")
 
 def main():
     if not os.path.isdir(folder_path):
-        print(f"Directory does not exist: {folder_path}")
+        print(f"❌ Folder does not exist: {folder_path}")
         return
 
     for i in range(600):

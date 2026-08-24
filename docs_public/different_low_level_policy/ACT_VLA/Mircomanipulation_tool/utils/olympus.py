@@ -6,10 +6,10 @@ import os
 import time
 import numpy as np
 from pynput import keyboard
-from docs_public.VLA.Mircomanipulation_tool.utils.image_processing import image_process
+from utils.image_processing import image_process
 
 mm_dir = os.environ.get("MICRO_MANAGER_DIR", r"C:\Program Files\Micro-Manager-2.0")
-config_path = os.environ.get("MICRO_MANAGER_CONFIG", r"docs_public\cfg\Micro-Manager_2.0.3_20260502.cfg")
+config_path = os.environ.get("MICRO_MANAGER_CONFIG", r"E:\ZZY\MMConfig_demo2.cfg")
 
 Max_Z_position = 10000
 Min_Z_position = 0

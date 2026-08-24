@@ -1,0 +1,15 @@
+# Required paths. Replace both values before starting training.
+dataset_dir: "/path/to/hdf5_dataset"
+ckpt_dir: "/path/to/output_directory"
+
+# Training parameters
+batch_size: 64
+seed: 1
+num_epochs: 5000
+lr: 5.0e-6
+
+# ACT model and loss parameters
+kl_weight: 10
+chunk_size: 50
+hidden_dim: 512
+dim_feedforward: 800

@@ -3,7 +3,7 @@ from torch.nn import functional as f
 import torch
 import torchvision.transforms as transforms
 
-from docs_public.VLA.Mircomanipulation_tool.model.detr.main import build_ACT_model_and_optimizer
+from model.detr.main import build_ACT_model_and_optimizer
 
 import IPython
 e = IPython.embed

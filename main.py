@@ -234,6 +234,7 @@ def _record_cli_user_input(
     *,
     input_kind: str,
     prompt_text: str = "",
+    prompt_mode: str = "",
     command_snapshot: str = "",
 ) -> None:
     runtime_context.history_manager.record_user_input(
@@ -241,7 +242,7 @@ def _record_cli_user_input(
         source="cli",
         input_kind=input_kind,
         prompt_text=prompt_text,
-        prompt_mode="plan_confirmation" if prompt_text else "",
+        prompt_mode=prompt_mode,
         command_snapshot=command_snapshot,
     )
 
@@ -255,16 +256,23 @@ def request_plan_confirmation(runtime_context, original_command: str) -> Optiona
             lambda on_delta: runtime_context.task_orchestrator.stream_plan_preview(plan, on_delta)
         )
 
-    def prompt_user(prompt_text: str, command_snapshot: str) -> str:
-        del command_snapshot
+    def prompt_user(prompt_text: str, command_snapshot: str, prompt_mode: str) -> str:
+        del command_snapshot, prompt_mode
         return cli_input(f"{prompt_text}\nYou: ")
 
-    def record_user_input(text: str, input_kind: str, prompt_text: str, command_snapshot: str) -> None:
+    def record_user_input(
+        text: str,
+        input_kind: str,
+        prompt_text: str,
+        command_snapshot: str,
+        prompt_mode: str,
+    ) -> None:
         _record_cli_user_input(
             runtime_context,
             text,
             input_kind=input_kind,
             prompt_text=prompt_text,
+            prompt_mode=prompt_mode,
             command_snapshot=command_snapshot,
         )
 

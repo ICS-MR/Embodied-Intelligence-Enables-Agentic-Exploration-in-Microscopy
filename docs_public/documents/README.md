@@ -38,15 +38,7 @@ This folder contains organized dataset and experimental outcome files.
 
    Note: full detection/evaluation records are excluded here and kept under `experimental_outcomes/different_disturbance_detection/`.
 
-5. `conformal_prediction_dataset/`
-
-   Content: calibration dataset.
-
-6. `conformal_prediction/`
-
-   Content: scripts used to calculate the non-conformity score and conformal threshold.
-
-7. `teleoperation_dataset/`
+5. `teleoperation_dataset/`
 
    Content: external human teleoperation dataset link and clone instructions.
 

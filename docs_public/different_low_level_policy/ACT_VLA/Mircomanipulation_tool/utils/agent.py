@@ -1,11 +1,11 @@
 import copy
 import time
-from docs_public.VLA.Mircomanipulation_tool.utils.robot import Robot
+from utils.robot import Robot
 import threading
 from pynput import keyboard
 import datetime
-from docs_public.VLA.Mircomanipulation_tool.utils.camera import DahengCamera
-# Track key press times for motion-key release handling.
+from utils.camera import DahengCamera
+# Dictionary used to store key press times.
 key_press_times = {}
 lock = threading.Lock()
 
@@ -25,9 +25,9 @@ class Agent:
         self.should_exit = False
 
         self.stage_definitions = {
-            0: "approach",
-            1: "manipulate",
-            2: "retract"
+            0: "approach",  # Approach stage
+            1: "manipulate", # Manipulation stage
+            2: "retract"    # Retraction stage
         }
         self.current_stage = 0
         self.stage_lock = threading.Lock()
@@ -40,7 +40,7 @@ class Agent:
         self.buffer = bytearray()
 
     def _synchronization_loop(self):
-        """Synchronize cached camera frames and robot positions in the background."""
+        """Synchronize camera frames and robot positions in the background."""
         self.sync_thread_running = True
         print("[INFO] Synchronization thread started...")
         while self.sync_thread_running:
@@ -65,7 +65,7 @@ class Agent:
 
     def open(self):
         self.robot.open()
-        # Start camera display, keyboard listener, and synchronization threads.
+        # Open the camera.
         self.camera_thread.start()
         # self.camera_thread.daemon = True
         self.listen_thread.start()
@@ -78,10 +78,10 @@ class Agent:
             if temp_pos is None:
                 time.sleep(0.1)
         self.ee_pos = temp_pos
-        print(f'Initialization complete; initial position: {temp_pos}')
+        print(f'Initialization complete. Initial position: {temp_pos}')
 
     def close(self):
-        print("[INFO] Shutting down agent...")
+        print("[INFO] Starting Agent shutdown...")
         self.sync_thread_running = False
         self.camera.close()
         print("[INFO] Camera closed safely")
@@ -89,13 +89,13 @@ class Agent:
         print("[INFO] Robot closed safely")
         if hasattr(self, 'listener'):
             self.listener.stop()
-            print("[INFO] Keyboard listener closed safely")
+            print("[INFO] Listener closed safely")
         if self.sync_thread.is_alive():
             self.sync_thread.join(timeout=0.5)
         print("[INFO] All threads closed safely")
     
     def listen(self):
-        # Create the keyboard listener.
+        # Create the listener object.
         self.listener = keyboard.Listener(on_press=self.on_key_press,
                                         on_release=self.on_key_release)
         self.listener.start()
@@ -122,7 +122,7 @@ class Agent:
     
     def get_current_stage(self):
         with self.stage_lock:
-            # Return -1 for an invalid stage index.
+            # Return the current stage number, or None/-1 if it is undefined.
             return self.current_stage if self.current_stage in self.stage_definitions else -1
 
     def get_current_stage_name(self):
@@ -130,20 +130,20 @@ class Agent:
             return self.stage_definitions.get(self.current_stage, "unknown")
 
     def on_key_press(self, key):
-        # Convert the pynput key object to a stable name.
+        # Convert the key object to its string name.
         key_name = key.char if isinstance(key, keyboard.KeyCode) else key.name
             
-        # Record the first press time for each key.
+        # Record the press time.
         if key_name not in key_press_times:
             key_press_times[key_name] = datetime.datetime.now()
 
-        # Arrow keys move the robot in the XY plane.
+        # Handle arrow keys.
         if key_name in ['up', 'down', 'left', 'right']:
             self.robot.set_interrupt()
             current_pos = self.get_ee_pos()
             print(f"Current position: {current_pos if current_pos else 'unavailable'}")
             
-            # Compute the bounded target position.
+            # Calculate the new position.
             new_pos = copy.deepcopy(current_pos)
             if key_name == 'up':
                 new_pos[1] = max(-10000, new_pos[1] - step)
@@ -167,7 +167,7 @@ class Agent:
         elif key_name == 'space':
             if self.current_stage < len(self.stage_definitions) - 1:
                 self.current_stage = self.current_stage + 1
-                print(f'\nEntered next stage: {self.get_current_stage_name()}')
+                print(f'\nEntering the next stage: {self.get_current_stage_name()}')
             elif self.current_stage >= len(self.stage_definitions) - 1 :
                 self.current_stage = len(self.stage_definitions) - 1
                 print(f'\nAlready at the final stage: {self.get_current_stage_name()}')
@@ -175,26 +175,26 @@ class Agent:
             self.delete_Flag = True
             print('delete last result of your collection')
         elif key_name == "esc":
-            print("[ESC] Exit requested")
+            print("[ESC] Exit command received")
             self.should_exit = True
         else:
             pass
 
     def on_key_release(self, key):
-        # Convert the pynput key object to a stable name.
+        # Convert the key object to its string name.
         if isinstance(key, keyboard.KeyCode):
             key_name = key.char
         else:
             key_name = key.name
 
         if key_name in ['up', 'down', 'left', 'right']:
-            # Stop movement when an arrow key is released.
+            # Calculate the duration if the key is in the dictionary.
             if key_name in key_press_times:
                 self.robot.set_interrupt()
-                pressed_time = key_press_times.pop(key_name)
+                pressed_time = key_press_times.pop(key_name)  # Retrieve and remove the press time.
                 released_time = datetime.datetime.now()
                 duration = (released_time - pressed_time).total_seconds()
-                # print(f"Arrow key {key_name} released at {released_time}; held for {duration:.3f} seconds")
+                # print(f"Arrow key {key_name} released at {released_time}; duration: {duration:.3f} seconds")
                 # time.sleep(0.1)
                 self.get_ee_pos()
                 print(f"Current position: {self.ee_pos}")

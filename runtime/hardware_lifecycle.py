@@ -1,9 +1,9 @@
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 import threading
 
 from bootstrap.microscope_semantics import resolve_channel_input, resolve_objective_input
-from bootstrap.config import StartupConfig, load_startup_config
+from bootstrap.config import StartupConfig, is_demo_mapping_payload, load_startup_config, normalize_demo_environment
 from runtime.config import _has_transmitted_light_brightness_control
 from runtime.models import RuntimeContext
 
@@ -18,6 +18,53 @@ def _check_cancelled(cancel_event: Optional[threading.Event]) -> None:
         raise RuntimeError("hardware operation cancelled")
 
 
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _is_managed_demo_microscope(env_olympus: Any) -> bool:
+    system_config = getattr(env_olympus, "system_config", None)
+    if system_config is None:
+        return False
+    return is_demo_mapping_payload(
+        config_path=str(getattr(env_olympus, "config_path", getattr(system_config, "CONFIG_PATH", ""))),
+        camera_device=str(getattr(env_olympus, "camera_device", getattr(system_config, "camera_device", ""))),
+        xy_stage_device=str(getattr(env_olympus, "xy_stage_device", getattr(system_config, "xy_stage_device", ""))),
+        objective_device=str(getattr(env_olympus, "objective_device", getattr(system_config, "objective_device", ""))),
+        focus_drive=str(getattr(env_olympus, "focus_drive", getattr(system_config, "focus_drive", ""))),
+        dichroic=str(getattr(env_olympus, "Dichroic", getattr(system_config, "Dichroic", ""))),
+        objectives=_mapping(getattr(env_olympus, "objectives", getattr(system_config, "objectives", {}))),
+        channels=_mapping(getattr(env_olympus, "channels", getattr(system_config, "channels", {}))),
+        transmitted_light=_mapping(getattr(system_config, "transmitted_light", {})),
+    )
+
+
+def _apply_demo_environment(env_olympus: Any) -> None:
+    if not _is_managed_demo_microscope(env_olympus):
+        return
+    system_config = getattr(env_olympus, "system_config", None)
+    core = getattr(env_olympus, "core", None)
+    camera_device = str(getattr(env_olympus, "camera_device", getattr(system_config, "camera_device", "")))
+    if core is None or not camera_device:
+        raise RuntimeError("Cannot apply demo environment: microscope core or camera device is unavailable.")
+
+    env = normalize_demo_environment(getattr(system_config, "demo_environment", {}))
+    properties = {
+        "Mode": "Fluorescent Beads",
+        "BeadDensity": int(env.get("sample_density", 100)),
+        "BeadSize": float(env.get("sample_size", 2.0)),
+        "BeadBlurRate": float(env.get("bead_blur_rate", 0.5)),
+    }
+    for prop, value in properties.items():
+        try:
+            core.setProperty(camera_device, prop, value)
+            core.waitForDevice(camera_device)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to apply demo environment {camera_device}.{prop}={value!r}."
+            ) from exc
+
+
 def _resolve_startup_label(value: str, system_config: Any, resolver: Any) -> str:
     if system_config is None:
         return value
@@ -28,6 +75,7 @@ def _resolve_startup_label(value: str, system_config: Any, resolver: Any) -> str
 def initialize_microscope(env_olympus: Any, cancel_event: Optional[threading.Event] = None) -> None:
     _check_cancelled(cancel_event)
     env_olympus.initialize()
+    _apply_demo_environment(env_olympus)
     _check_cancelled(cancel_event)
 
 

@@ -228,17 +228,27 @@ class Frap(BaseTool):
 
     def release_session(self) -> None:
         """Release the current cellSens FRAP session while keeping this tool reusable."""
+        was_prepared = bool(self._session_prepared or self._window_info)
         self._laser_enabled = False
         self._session_prepared = False
+        profile = getattr(self, "_profile", None)
+        if not profile:
+            self._window_info = {}
+            return
         try:
-            profile = getattr(self, "_profile", None)
-            if not profile:
-                return
             window_info = self._wait_for_window(profile["window_title_keyword"], timeout_sec=1.0)
+        except RuntimeError as exc:
+            self._window_info = {}
+            if was_prepared:
+                raise RuntimeError(
+                    "FRAP session was prepared, but the cellSens window was not found during release."
+                ) from exc
+            return
+        try:
             self._activate_window_if_needed(profile, window_info=window_info)
             self._close_window(window_info)
-        except Exception:
-            pass
+        except Exception as exc:
+            raise RuntimeError("Failed to release the FRAP cellSens session.") from exc
         finally:
             self._window_info = {}
 

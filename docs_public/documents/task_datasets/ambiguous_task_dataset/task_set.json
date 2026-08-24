@@ -1,638 +1,214 @@
 [
     {
-        "method":  "final_clarify",
-        "id":  1,
-        "source_file":  "final_clarify/1.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a high-magnification objective, configure DAPI fluorescence, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.\r\n[input 2] Neither 40× nor 60×; use the 20× objective."
+        "id": 1,
+        "user_input": "[Round 1] Observation target: organoids. Use a high-magnification objective, configure DAPI fluorescence, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring."
     },
     {
-        "method":  "final_clarify",
-        "id":  2,
-        "source_file":  "final_clarify/2.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate.\r\n[input 2] None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.\r\n[input 3] Neither; use the 20× objective."
+        "id": 2,
+        "user_input": "[Round 1] Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate."
     },
     {
-        "method":  "final_clarify",
-        "id":  3,
-        "source_file":  "final_clarify/3.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.\r\n[input 2] Use the 20× objective."
+        "id": 3,
+        "user_input": "[Round 1] Observation target: 2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask."
     },
     {
-        "method":  "final_clarify",
-        "id":  4,
-        "source_file":  "final_clarify/4.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a high-magnification objective in brightfield mode to capture the current field of view, image the organoids along the Z-axis, and generate one complete image.\r\n[input 2] Use the 20× objective."
+        "id": 4,
+        "user_input": "[Round 1] Observation target: organoids. Use a high-magnification objective in brightfield mode to capture the current field of view, image the organoids along the Z-axis, and generate one complete image."
     },
     {
-        "method":  "final_clarify",
-        "id":  5,
-        "source_file":  "final_clarify/5.md",
-        "user_input":  "Observation target: 2D section. Use a 4× objective, configure fluorescence imaging to acquire a 3 mm × 3 mm regional image, and determine the positions of 2D cell regions."
+        "id": 5,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective, configure fluorescence imaging to acquire a 3 mm × 3 mm regional image, and determine the positions of 2D cell regions."
     },
     {
-        "method":  "final_clarify",
-        "id":  6,
-        "source_file":  "final_clarify/6.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 24-well plate once per hour for 24 hours.\r\n[input 2] Use the DAPI fluorescence channel."
+        "id": 6,
+        "user_input": "[Round 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 24-well plate once per hour for 24 hours."
     },
     {
-        "method":  "final_clarify",
-        "id":  7,
-        "source_file":  "final_clarify/7.md",
-        "user_input":  "[input 1] Observation target: fluorescent section. Use a high-magnification objective, configure TRITC fluorescence, and capture a single-field image.\r\n[input 2] Neither; use the 20× objective."
+        "id": 7,
+        "user_input": "[Round 1] Observation target: fluorescent section. Use a high-magnification objective, configure TRITC fluorescence, and capture a single-field image."
     },
     {
-        "method":  "final_clarify",
-        "id":  8,
-        "source_file":  "final_clarify/8.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 96-well plate once per hour for 24 hours.\r\n[input 2] Use the DAPI fluorescence channel/filter."
+        "id": 8,
+        "user_input": "[Round 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 96-well plate once per hour for 24 hours."
     },
     {
-        "method":  "final_clarify",
-        "id":  9,
-        "source_file":  "final_clarify/9.md",
-        "user_input":  "[input 1] Observation target: 2D section. First use a 4× objective to acquire a 5 mm × 1 mm brightfield regional image, and then acquire a fluorescence image of the same region.\r\n[input 2] Use the DAPI fluorescence channel.\r\n[input 3] Yes. After configuring DAPI fluorescence parameters, refocus before acquiring the fluorescence image, without moving away from the same region."
+        "id": 9,
+        "user_input": "[Round 1] Observation target: 2D section. First use a 4× objective to acquire a 5 mm × 1 mm brightfield regional image, and then acquire a fluorescence image of the same region."
     },
     {
-        "method":  "final_clarify",
-        "id":  10,
-        "source_file":  "final_clarify/10.md",
-        "user_input":  "Observation target: 2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state."
+        "id": 10,
+        "user_input": "[Round 1] Observation target: 2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state."
     },
     {
-        "method":  "final_clarify",
-        "id":  11,
-        "source_file":  "final_clarify/11.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.\r\n[input 2] Use the 20× objective for the high-magnification fluorescence imaging.\r\n[input 3] Use the DAPI fluorescence channel."
+        "id": 11,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification."
     },
     {
-        "method":  "final_clarify",
-        "id":  12,
-        "source_file":  "final_clarify/12.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a multi-channel image of the DAPI and FITC fluorescence channels at the center of the first detected 2D cell region under high magnification.\r\n[input 2] Use the 20× objective for the high-magnification fluorescence imaging."
+        "id": 12,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a multi-channel image of the DAPI and FITC fluorescence channels at the center of the first detected 2D cell region under high magnification."
     },
     {
-        "method":  "final_clarify",
-        "id":  13,
-        "source_file":  "final_clarify/13.md",
-        "user_input":  "[input 1] Observation target: organoids. First use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect organoid positions; then move the stage to the first detected organoid and switch to a high-magnification objective to acquire a brightfield image.\r\n[input 2] Use the 20× objective for the high-magnification brightfield image.\r\n[input 3] Use simple 2D single-plane brightfield acquisition; no 3D Z-stack or extended-depth-of-field processing is needed."
+        "id": 13,
+        "user_input": "[Round 1] Observation target: organoids. First use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect organoid positions; then move the stage to the first detected organoid and switch to a high-magnification objective to acquire a brightfield image."
     },
     {
-        "method":  "final_clarify",
-        "id":  14,
-        "source_file":  "final_clarify/14.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 20× objective to acquire a fluorescent multi-channel image.\r\n[input 2] Capture DAPI and FITC channels; automatic merged RGB composite creation is not specified."
+        "id": 14,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 20× objective to acquire a fluorescent multi-channel image."
     },
     {
-        "method":  "final_clarify",
-        "id":  15,
-        "source_file":  "final_clarify/15.md",
-        "user_input":  "[input 1] Observation target: organoids. First acquire a 2 mm × 2 mm brightfield image using a 4× objective and detect organoid positions; then switch to a high-magnification objective and acquire multiple fluorescence images of the first organoid.\r\n[input 2] Use the 20× objective and capture multiple fluorescence channels: DAPI, FITC, and TRITC."
+        "id": 15,
+        "user_input": "[Round 1] Observation target: organoids. First acquire a 2 mm × 2 mm brightfield image using a 4× objective and detect organoid positions; then switch to a high-magnification objective and acquire multiple fluorescence images of the first organoid."
     },
     {
-        "method":  "final_clarify",
-        "id":  16,
-        "source_file":  "final_clarify/16.md",
-        "user_input":  "Observation target: 2D section. First use a 4× objective in brightfield mode to scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a high-magnification objective, and acquire FITC fluorescence images of that location every 30 minutes."
+        "id": 16,
+        "user_input": "[Round 1] Observation target: 2D section. First use a 4× objective in brightfield mode to scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a high-magnification objective, and acquire FITC fluorescence images of that location every 30 minutes."
     },
     {
-        "method":  "final_clarify",
-        "id":  17,
-        "source_file":  "final_clarify/17.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 4× objective in brightfield mode to scan a 3 mm × 3 mm region, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire a multi-fluorescence multi-channel image.\r\n[input 2] Use 3D Z-stack multi-channel fluorescence images."
+        "id": 17,
+        "user_input": "[Round 1] Observation target: organoids. Use a 4× objective in brightfield mode to scan a 3 mm × 3 mm region, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire a multi-fluorescence multi-channel image."
     },
     {
-        "method":  "final_clarify",
-        "id":  18,
-        "source_file":  "final_clarify/18.md",
-        "user_input":  "[input 1] Observation target: section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.\r\n[input 2] Use a 40× objective for the high-magnification imaging step."
+        "id": 18,
+        "user_input": "[Round 1] Observation target: section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view."
     },
     {
-        "method":  "final_clarify",
-        "id":  19,
-        "source_file":  "final_clarify/19.md",
-        "user_input":  "[input 1] Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.\r\n[input 2] Neither 20× nor 40×; use the 10× objective."
+        "id": 19,
+        "user_input": "[Round 1] Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells."
     },
     {
-        "method":  "final_clarify",
-        "id":  20,
-        "source_file":  "final_clarify/20.md",
-        "user_input":  "Observation target: cells. Record the process of cell morphological changes after drug treatment continuously for 4 hours."
+        "id": 20,
+        "user_input": "[Round 1] Observation target: cells. Record the process of cell morphological changes after drug treatment continuously for 4 hours."
     },
     {
-        "method":  "final_clarify",
-        "id":  21,
-        "source_file":  "final_clarify/21.md",
-        "user_input":  "[input 1] Observation target: cells. Capture one image every 5 minutes for an appropriate duration to record fluorescence signal changes in cells after drug treatment.\r\n[input 2] Use 20× magnification, and monitor for 4 hours after drug treatment.\r\n[input 3] Only the raw time-lapse fluorescence images are needed for manual analysis later.\r\n[input 4] Use the FITC channel."
+        "id": 21,
+        "user_input": "[Round 1] Observation target: cells. Capture one image every 5 minutes for an appropriate duration to record fluorescence signal changes in cells after drug treatment."
     },
     {
-        "method":  "final_clarify",
-        "id":  22,
-        "source_file":  "final_clarify/22.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure the DAPI filter, set the brightness to 0, set the exposure time to 200 ms, fix the Z-axis at the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.\r\n[input 2] Capture a single 2D image with the Z-axis fixed at the midpoint; no Z-stack scanning is required."
+        "id": 22,
+        "user_input": "[Round 1] Observation target: organoids. Use a 20× objective, configure the DAPI filter, set the brightness to 0, set the exposure time to 200 ms, fix the Z-axis at the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring."
     },
     {
-        "method":  "final_clarify",
-        "id":  23,
-        "source_file":  "final_clarify/23.md",
-        "user_input":  "Observation target: organoids. Obtain the well-position information of a 96-well plate, move to the first well, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and automatically adjust brightness, then autofocus, obtain the recommended Z-stack parameters for the current image, and use the configured parameters to image every well in the 96-well plate."
+        "id": 23,
+        "user_input": "[Round 1] Observation target: organoids. Obtain the well-position information of a 96-well plate, move to the first well, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and automatically adjust brightness, then autofocus, obtain the recommended Z-stack parameters for the current image, and use the configured parameters to image every well in the 96-well plate."
     },
     {
-        "method":  "final_clarify",
-        "id":  24,
-        "source_file":  "final_clarify/24.md",
-        "user_input":  "Observation target: 2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask."
+        "id": 24,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask."
     },
     {
-        "method":  "final_clarify",
-        "id":  25,
-        "source_file":  "final_clarify/25.md",
-        "user_input":  "Observation target: 2D section. Move the Z-axis to the midpoint of its range, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, capture a single-field image, and perform denoising."
+        "id": 25,
+        "user_input": "[Round 1] Observation target: 2D section. Move the Z-axis to the midpoint of its range, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, capture a single-field image, and perform denoising."
     },
     {
-        "method":  "final_clarify",
-        "id":  26,
-        "source_file":  "final_clarify/26.md",
-        "user_input":  "Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations."
+        "id": 26,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations."
     },
     {
-        "method":  "final_clarify",
-        "id":  27,
-        "source_file":  "final_clarify/27.md",
-        "user_input":  "Observation target: organoids. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 24-well plate once per hour for 24 hours, with Z-stack capture included."
+        "id": 27,
+        "user_input": "[Round 1] Observation target: organoids. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 24-well plate once per hour for 24 hours, with Z-stack capture included."
     },
     {
-        "method":  "final_clarify",
-        "id":  28,
-        "source_file":  "final_clarify/28.md",
-        "user_input":  "Observation target: fluorescent section. Use a 20× objective, configure the TRITC filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and capture a single-field image."
+        "id": 28,
+        "user_input": "[Round 1] Observation target: fluorescent section. Use a 20× objective, configure the TRITC filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and capture a single-field image."
     },
     {
-        "method":  "final_clarify",
-        "id":  29,
-        "source_file":  "final_clarify/29.md",
-        "user_input":  "Observation target: organoids. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus once without refocusing afterward, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 96-well plate once per hour for 24 hours, with Z-stack capture included."
+        "id": 29,
+        "user_input": "[Round 1] Observation target: organoids. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus once without refocusing afterward, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 96-well plate once per hour for 24 hours, with Z-stack capture included."
     },
     {
-        "method":  "final_clarify",
-        "id":  30,
-        "source_file":  "final_clarify/30.md",
-        "user_input":  "Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, and acquire a 5 mm × 1 mm regional image; then configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, refocus, and capture a fluorescence image of the same region."
+        "id": 30,
+        "user_input": "[Round 1] Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, and acquire a 5 mm × 1 mm regional image; then configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, refocus, and capture a fluorescence image of the same region."
     },
     {
-        "method":  "final_clarify",
-        "id":  31,
-        "source_file":  "final_clarify/31.md",
-        "user_input":  "Observation target: 2D section. Use a 4× objective, move the Z-axis to the midpoint of its range, use brightfield mode, execute auto-exposure, then auto-brightness adjustment, then autofocus in that order, and finally record the current hardware state, including objective magnification, light-source mode, Z-axis position, and filter configuration."
+        "id": 31,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective, move the Z-axis to the midpoint of its range, use brightfield mode, execute auto-exposure, then auto-brightness adjustment, then autofocus in that order, and finally record the current hardware state, including objective magnification, light-source mode, Z-axis position, and filter configuration."
     },
     {
-        "method":  "final_clarify",
-        "id":  32,
-        "source_file":  "final_clarify/32.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.\r\n[input 2] The 200 ms exposure is specified for DAPI; no separate FITC exposure time is given."
+        "id": 32,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes."
     },
     {
-        "method":  "final_clarify",
-        "id":  33,
-        "source_file":  "final_clarify/33.md",
-        "user_input":  "Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image."
+        "id": 33,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image."
     },
     {
-        "method":  "final_clarify",
-        "id":  34,
-        "source_file":  "final_clarify/34.md",
-        "user_input":  "Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region without Z-axis scanning, and detect organoid positions; then move the stage to the first detected organoid, switch to a 20× objective, readjust brightness, refocus, obtain the recommended Z-stack parameters for the current image, and capture a brightfield stack."
+        "id": 34,
+        "user_input": "[Round 1] Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region without Z-axis scanning, and detect organoid positions; then move the stage to the first detected organoid, switch to a 20× objective, readjust brightness, refocus, obtain the recommended Z-stack parameters for the current image, and capture a brightfield stack."
     },
     {
-        "method":  "final_clarify",
-        "id":  35,
-        "source_file":  "final_clarify/35.md",
-        "user_input":  "Observation target: 2D section. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and acquire multi-channel images containing both DAPI and FITC fluorescence within a single field of view."
+        "id": 35,
+        "user_input": "[Round 1] Observation target: 2D section. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and acquire multi-channel images containing both DAPI and FITC fluorescence within a single field of view."
     },
     {
-        "method":  "final_clarify",
-        "id":  36,
-        "source_file":  "final_clarify/36.md",
-        "user_input":  "[input 1] Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region without Z-axis scanning, and detect organoid positions; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire a multi-channel fluorescence stack containing DAPI, FITC, and TRITC images.\r\n[input 2] The 200 ms exposure is specified for DAPI; no optimized exposure times for FITC or TRITC are specified."
+        "id": 36,
+        "user_input": "[Round 1] Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region without Z-axis scanning, and detect organoid positions; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire a multi-channel fluorescence stack containing DAPI, FITC, and TRITC images."
     },
     {
-        "method":  "final_clarify",
-        "id":  37,
-        "source_file":  "final_clarify/37.md",
-        "user_input":  "Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours."
+        "id": 37,
+        "user_input": "[Round 1] Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours."
     },
     {
-        "method":  "final_clarify",
-        "id":  38,
-        "source_file":  "final_clarify/38.md",
-        "user_input":  "Observation target: organoids. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 3 mm × 3 mm region without Z-axis scanning, identify and record the center coordinates of all organoids; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire multi-channel fluorescence images containing DAPI, FITC, and TRITC."
+        "id": 38,
+        "user_input": "[Round 1] Observation target: organoids. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 3 mm × 3 mm region without Z-axis scanning, identify and record the center coordinates of all organoids; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire multi-channel fluorescence images containing DAPI, FITC, and TRITC."
     },
     {
-        "method":  "final_clarify",
-        "id":  39,
-        "source_file":  "final_clarify/39.md",
-        "user_input":  "Observation target: section. Use a 10× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 4 mm × 4 mm region and detect 2D cell regions, move to the center of the first 2D cell region, switch to a 40× objective, readjust brightness, refocus, and acquire a brightfield image of the current field of view."
+        "id": 39,
+        "user_input": "[Round 1] Observation target: section. Use a 10× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 4 mm × 4 mm region and detect 2D cell regions, move to the center of the first 2D cell region, switch to a 40× objective, readjust brightness, refocus, and acquire a brightfield image of the current field of view."
     },
     {
-        "method":  "final_clarify",
-        "id":  40,
-        "source_file":  "final_clarify/40.md",
-        "user_input":  "Observation target: 3D cells. Use a 10× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, scan a 2 mm × 2 mm region with Z-stack acquisition, perform extended depth-of-field synthesis, and then use the cell-segmentation platform to automatically count all cells."
+        "id": 40,
+        "user_input": "[Round 1] Observation target: 3D cells. Use a 10× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, scan a 2 mm × 2 mm region with Z-stack acquisition, perform extended depth-of-field synthesis, and then use the cell-segmentation platform to automatically count all cells."
     },
     {
-        "method":  "final_clarify",
-        "id":  41,
-        "source_file":  "final_clarify/41.md",
-        "user_input":  "[input 1] Observation target: fluorescent section; use a low-magnification objective, enable the DAPI fluorescence channel, and use a deconvolution algorithm to make the image clearer.\r\n[input 2] Use the 4× objective."
+        "id": 41,
+        "user_input": "[Round 1] Observation target: fluorescent section; use a low-magnification objective, enable the DAPI fluorescence channel, and use a deconvolution algorithm to make the image clearer."
     },
     {
-        "method":  "final_clarify",
-        "id":  42,
-        "source_file":  "final_clarify/42.md",
-        "user_input":  "Observation target: 2D cells; use a suitable objective to focus in brightfield mode, capture a single-field image, and use Cellpose for cell segmentation to output a binary mask."
+        "id": 42,
+        "user_input": "[Round 1] Observation target: 2D cells; use a suitable objective to focus in brightfield mode, capture a single-field image, and use Cellpose for cell segmentation to output a binary mask."
     },
     {
-        "method":  "final_clarify",
-        "id":  43,
-        "source_file":  "final_clarify/43.md",
-        "user_input":  "[input 1] Observation target: organoids; use a 20× objective, choose a fluorescence channel, and perform continuous imaging for 24 hours by capturing one image of each well in a 24-well plate every 1 hour.\r\n[input 2] Use the DAPI (blue) fluorescence channel."
+        "id": 43,
+        "user_input": "[Round 1] Observation target: organoids; use a 20× objective, choose a fluorescence channel, and perform continuous imaging for 24 hours by capturing one image of each well in a 24-well plate every 1 hour."
     },
     {
-        "method":  "final_clarify",
-        "id":  44,
-        "source_file":  "final_clarify/44.md",
-        "user_input":  "Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels."
+        "id": 44,
+        "user_input": "[Round 1] Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels."
     },
     {
-        "method":  "final_clarify",
-        "id":  45,
-        "source_file":  "final_clarify/45.md",
-        "user_input":  "[input 1] Observation target: fluorescent section; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.\r\n[input 2] Use the 4× objective for imaging the whole fluorescent section.\r\n[input 3] Use precise DAPI-positive nuclei segmentation and individual labeled-cell counting to calculate density per unit area."
+        "id": 45,
+        "user_input": "[Round 1] Observation target: fluorescent section; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells."
     },
     {
-        "method":  "final_clarify",
-        "id":  46,
-        "source_file":  "final_clarify/46.md",
-        "user_input":  "Observation target: cells; use a 4× objective to rapidly capture cell images in all central wells of the plate."
+        "id": 46,
+        "user_input": "[Round 1] Observation target: cells; use a 4× objective to rapidly capture cell images in all central wells of the plate."
     },
     {
-        "method":  "final_clarify",
-        "id":  47,
-        "source_file":  "final_clarify/47.md",
-        "user_input":  "Observation target: cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment."
+        "id": 47,
+        "user_input": "[Round 1] Observation target: cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment."
     },
     {
-        "method":  "final_clarify",
-        "id":  48,
-        "source_file":  "final_clarify/48.md",
-        "user_input":  "[input 1] Observation target: organoids; use a low-magnification objective to perform region scanning on the organoid section, locate intact organoids, and then use a high-magnification objective to perform detailed data acquisition at the corresponding positions.\r\n[input 2] Use 20× for the detailed high-magnification organoid imaging.\r\n[input 3] Scan a 3 mm × 3 mm region during the initial low-magnification survey.\r\n[input 4] Capture single 2D brightfield images for the initial 4× survey scan; Z-stacks are only acquired later at 20× for detailed data."
+        "id": 48,
+        "user_input": "[Round 1] Observation target: organoids; use a low-magnification objective to perform region scanning on the organoid section, locate intact organoids, and then use a high-magnification objective to perform detailed data acquisition at the corresponding positions."
     },
     {
-        "method":  "final_clarify",
-        "id":  49,
-        "source_file":  "final_clarify/49.md",
-        "user_input":  "Observation target: cells; perform continuous imaging for 24 hours, using an appropriate objective to capture the cell differentiation process at the center of the field of view."
+        "id": 49,
+        "user_input": "[Round 1] Observation target: cells; perform continuous imaging for 24 hours, using an appropriate objective to capture the cell differentiation process at the center of the field of view."
     },
     {
-        "method":  "final_clarify",
-        "id":  50,
-        "source_file":  "final_clarify/50.md",
-        "user_input":  "[input 1] Observation target: fluorescent section; use a high-magnification objective to acquire images of the blue and green fluorescence channels in the current field of view, and process the acquired images with an appropriate method.\r\n[input 2] Neither 40× nor 60×; use the 20× objective.\r\n[input 3] Just the individual DAPI and FITC fluorescence images, denoised separately; no merged composites or quantitative intensity/colocalization analysis.\r\n[input 4] Acquire them sequentially, switching filters between DAPI and FITC acquisitions."
+        "id": 50,
+        "user_input": "[Round 1] Observation target: fluorescent section; use a high-magnification objective to acquire images of the blue and green fluorescence channels in the current field of view, and process the acquired images with an appropriate method."
     },
     {
-        "method":  "final_clarify",
-        "id":  51,
-        "source_file":  "final_clarify/51.md",
-        "user_input":  "[input 1] Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.\r\n[input 2] Use the 20× objective.\r\n[input 3] Use brightfield (transmitted light) imaging, not fluorescence."
+        "id": 51,
+        "user_input": "[Round 1] Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image."
     },
     {
-        "method":  "final_clarify",
-        "id":  52,
-        "source_file":  "final_clarify/52.md",
-        "user_input":  "[input 1] Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.\r\n[input 2] Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC."
+        "id": 52,
+        "user_input": "[Round 1] Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid."
     },
     {
-        "method":  "final_clarify",
-        "id":  53,
-        "source_file":  "final_clarify/53.md",
-        "user_input":  "[input 1] Observation target: cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration.\r\n[input 2] The total monitoring duration should be 4 hours.\r\n[input 3] Just the captured fluorescence time-lapse images; no quantitative intensity analysis is specified.\r\n[input 4] Use the 20× objective, not the current 4× objective."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  1,
-        "source_file":  "final_cotclarify/1.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a high-magnification objective, configure DAPI fluorescence, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.\r\n[input 2] Use the 20× objective, not 60×.\r\n[input 3] Switch to 20× with the DAPI filter, but do not scan or manually reposition; autofocus at the current field of view.\r\n[input 4] No specific exposure time value is given; use automatically selected high-exposure parameters for DAPI instead of a fixed 10.0 ms.\r\n[input 5] Set the light source brightness to 0 for DAPI imaging.\r\n[input 6] Use the automatically selected high-exposure parameters for DAPI, not the current 10.0 ms camera exposure."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  2,
-        "source_file":  "final_cotclarify/2.md",
-        "user_input":  "Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  3,
-        "source_file":  "final_cotclarify/3.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a high-magnification objective in brightfield mode, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to segment cells and output a mask.\r\n[input 2] The numeric Z-axis range is not specified; use the midpoint of the microscope system’s available Z range.\r\n[input 3] Neither 4× nor 40×; switch to the 20× objective."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  4,
-        "source_file":  "final_cotclarify/4.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a high-magnification objective in brightfield mode to capture the current field of view, image the organoids along the Z-axis, and generate one complete image.\r\n[input 2] None of those; the intended high-magnification objective is 20×."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  5,
-        "source_file":  "final_cotclarify/5.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective, configure fluorescence imaging to acquire a 3 mm × 3 mm regional image, and determine the positions of 2D cell regions.\r\n[input 2] Use the DAPI fluorescence filter/channel."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  6,
-        "source_file":  "final_cotclarify/6.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 24-well plate once per hour for 24 hours.\r\n[input 2] Use the DAPI filter for fluorescence imaging.\r\n[input 3] Acquire a full 3D Z-stack for each well during the time-lapse experiment.\r\n[input 4] It is not specified; the task only requires obtaining the recommended Z-stack parameters for the current image and including Z-stack capture.\r\n[input 5] Use the recommended Z-stack parameters for the current image; the ideal state does not specify reusing first-well parameters or setting separate parameters for each well.\r\n[input 6] Use the recommended Z-stack parameters for the current image; the task does not specify determining separate Z-stack parameters for each well."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  7,
-        "source_file":  "final_cotclarify/7.md",
-        "user_input":  "Observation target: fluorescent section. Use a high-magnification objective, configure TRITC fluorescence, and capture a single-field image."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  8,
-        "source_file":  "final_cotclarify/8.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 96-well plate once per hour for 24 hours.\r\n[input 2] Use the DAPI fluorescence filter set.\r\n[input 3] Capture 3D Z-stack images, not only 2D images.\r\n[input 4] Apply the Z-stack parameters from the first/current image to all 96 wells; do not perform individual Z-stack analysis or focusing for each well.\r\n[input 5] Not specified; the ideal task only requires imaging every well with Z-stack capture once per hour.\r\n[input 6] The task does not specify multi-field scanning; it only requires imaging every well with Z-stack capture."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  9,
-        "source_file":  "final_cotclarify/9.md",
-        "user_input":  "[input 1] Observation target: 2D section. First use a 4× objective to acquire a 5 mm × 1 mm brightfield regional image, and then acquire a fluorescence image of the same region.\r\n[input 2] Use the DAPI fluorescence filter/channel.\r\n[input 3] Use the automatically configured high-exposure parameters for DAPI fluorescence, not the brightfield exposure time."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  10,
-        "source_file":  "final_cotclarify/10.md",
-        "user_input":  "[input 1] Observation target: 2D section. Move the Z-axis to the midpoint of its range, use brightfield autofocus, and then record the current hardware state.\r\n[input 2] Move the Z-axis to the midpoint before performing brightfield autofocus; record the hardware state after autofocus."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  11,
-        "source_file":  "final_cotclarify/11.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective in brightfield mode, scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a fluorescence image of the first detected 2D cell region under high magnification.\r\n[input 2] Use the DAPI filter, not FITC, for the fluorescence imaging.\r\n[input 3] Use the 20× objective for the high-magnification fluorescence image."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  12,
-        "source_file":  "final_cotclarify/12.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect 2D cell regions, then acquire a multi-channel image of the DAPI and FITC fluorescence channels at the center of the first detected 2D cell region under high magnification.\r\n[input 2] Use 20×, not 40×, for the high-magnification multi-channel imaging.\r\n[input 3] Use a single multi-channel acquisition covering both DAPI and FITC channels, rather than separate acquisitions.\r\n[input 4] The ideal task state does not specify a 20× field-of-view size for the XY acquisition area.\r\n[input 5] The 20× field-of-view size is not specified; acquire at the center of the first detected 2D cell region.\r\n[input 6] Capture a single high-magnification field of view at the center of the first detected 2D cell region; no larger-area coverage is specified."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  13,
-        "source_file":  "final_cotclarify/13.md",
-        "user_input":  "[input 1] Observation target: organoids. First use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect organoid positions; then move the stage to the first detected organoid and switch to a high-magnification objective to acquire a brightfield image.\r\n[input 2] Use a 20× objective for the high-magnification image.\r\n[input 3] Stop after imaging the first detected organoid; do not image all detected organoids sequentially."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  14,
-        "source_file":  "final_cotclarify/14.md",
-        "user_input":  "Observation target: 2D section. Use a 20× objective to acquire a fluorescent multi-channel image."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  15,
-        "source_file":  "final_cotclarify/15.md",
-        "user_input":  "[input 1] Observation target: organoids. First acquire a 2 mm × 2 mm brightfield image using a 4× objective and detect organoid positions; then switch to a high-magnification objective and acquire multiple fluorescence images of the first organoid.\r\n[input 2] Use the DAPI, FITC, and TRITC fluorescence channels.\r\n[input 3] Use the 20× objective for the fluorescence imaging.\r\n[input 4] Capture a 3D multi-channel Z-stack, not single 2D images.\r\n[input 5] Use the recommended Z-stack parameters for the current image; no fixed step size is specified.\r\n[input 6] Only the first detected organoid should be imaged."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  16,
-        "source_file":  "final_cotclarify/16.md",
-        "user_input":  "Observation target: 2D section. First use a 4× objective in brightfield mode to scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a high-magnification objective, and acquire FITC fluorescence images of that location every 30 minutes."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  17,
-        "source_file":  "final_cotclarify/17.md",
-        "user_input":  "Observation target: organoids. Use a 4× objective in brightfield mode to scan a 3 mm × 3 mm region, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire a multi-fluorescence multi-channel image."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  18,
-        "source_file":  "final_cotclarify/18.md",
-        "user_input":  "[input 1] Observation target: section. Use a 10× objective in brightfield mode to scan a 4 mm × 4 mm region and detect 2D cell regions; move to the center of the first 2D cell region, switch to a high-magnification objective, and acquire a brightfield image of the current field of view.\r\n[input 2] Use the 40× objective.\r\n[input 3] The ideal task state does not specify what to do if no 2D cell regions are detected.\r\n[input 4] No fallback behavior is specified; the workflow assumes a first detected 2D cell region to move to.\r\n[input 5] No out-of-range handling is specified; the workflow should move to the center of the first detected 2D cell region."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  19,
-        "source_file":  "final_cotclarify/19.md",
-        "user_input":  "[input 1] Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.\r\n[input 2] Use the 10× objective, not 40×.\r\n[input 3] Use extended depth-of-field synthesis and count cells from that; 3D segmentation of individual Z-stack slices is not required.\r\n[input 4] Switch to DAPI fluorescence mode only; do not acquire brightfield images."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  20,
-        "source_file":  "final_cotclarify/20.md",
-        "user_input":  "Observation target: cells. 持续4小时记录观察细胞加药后形态变化过程。"
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  21,
-        "source_file":  "final_cotclarify/21.md",
-        "user_input":  "[input 1] Observation target: cells. 每5分钟拍摄一次，持续合适得时长记录细胞加药后荧光信号变化过程。\r\n[input 2] FITC fluorescence."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  22,
-        "source_file":  "final_cotclarify/22.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 20× objective, configure the DAPI filter, set the brightness to 0, set the exposure time to 200 ms, fix the Z-axis at the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.\r\n[input 2] Fix the Z-axis at the midpoint before autofocus; do not autofocus first and lock to the autofocus-determined position.\r\n[input 3] Set the Z-axis to the midpoint as the starting position, then allow autofocus to move to its determined focus position for acquisition.\r\n[input 4] Set the Z-axis to the midpoint, then autofocus at the current field of view without repositioning."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  23,
-        "source_file":  "final_cotclarify/23.md",
-        "user_input":  "Observation target: organoids. Obtain the well-position information of a 96-well plate, move to the first well, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and automatically adjust brightness, then autofocus, obtain the recommended Z-stack parameters for the current image, and use the configured parameters to image every well in the 96-well plate."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  24,
-        "source_file":  "final_cotclarify/24.md",
-        "user_input":  "Observation target: 2D section. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and use Cellpose to perform cell segmentation and output a binary mask."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  25,
-        "source_file":  "final_cotclarify/25.md",
-        "user_input":  "[input 1] Observation target: 2D section. Move the Z-axis to the midpoint of its range, use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, capture a single-field image, and perform denoising.\r\n[input 2] The specific Z-axis range is not specified; use the midpoint of the available Z-axis range."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  26,
-        "source_file":  "final_cotclarify/26.md",
-        "user_input":  "Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, acquire a 3 mm × 3 mm regional image, and automatically detect 2D cell region locations."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  27,
-        "source_file":  "final_cotclarify/27.md",
-        "user_input":  "Observation target: organoids. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 24-well plate once per hour for 24 hours, with Z-stack capture included."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  28,
-        "source_file":  "final_cotclarify/28.md",
-        "user_input":  "[input 1] Observation target: fluorescent section. Use a 20× objective, configure the TRITC filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and capture a single-field image.\r\n[input 2] Switch to TRITC fluorescence mode only; do not image both channels."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  29,
-        "source_file":  "final_cotclarify/29.md",
-        "user_input":  "Observation target: organoids. Use a 20× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus once without refocusing afterward, obtain the recommended Z-stack parameters for the current image, and continuously image every well in a 96-well plate once per hour for 24 hours, with Z-stack capture included."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  30,
-        "source_file":  "final_cotclarify/30.md",
-        "user_input":  "[input 1] Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, and acquire a 5 mm × 1 mm regional image; then configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, refocus, and capture a fluorescence image of the same region.\r\n[input 2] Brightness 0 applies only to the DAPI fluorescence acquisition; the brightfield acquisition should use auto-brightness."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  31,
-        "source_file":  "final_cotclarify/31.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective, move the Z-axis to the midpoint of its range, use brightfield mode, execute auto-exposure, then auto-brightness adjustment, then autofocus in that order, and finally record the current hardware state, including objective magnification, light-source mode, Z-axis position, and filter configuration.\r\n[input 2] Calculate it from the Z-axis range; no 4×-specific working range is specified."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  32,
-        "source_file":  "final_cotclarify/32.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, then in DAPI fluorescence mode configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, and refocus, and finally acquire multi-channel images in DAPI and FITC fluorescence modes.\r\n[input 2] The FITC exposure time is not specified; only the DAPI exposure is set to 200 ms.\r\n[input 3] No FITC-specific exposure time is specified; only the DAPI exposure is set to 200 ms.\r\n[input 4] No separate FITC exposure time is specified; only the DAPI fluorescence exposure is set to 200 ms.\r\n[input 5] The 200 ms exposure applies only to DAPI; no FITC exposure time is specified.\r\n[input 6] No FITC exposure time is specified; only the DAPI exposure is set to 200 ms."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  33,
-        "source_file":  "final_cotclarify/33.md",
-        "user_input":  "[input 1] Observation target: 2D section. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 5 mm × 1 mm region and detect 2D cell regions, move the stage to the center of the first detected 2D cell region, switch to a 20× objective, readjust brightness, refocus, and capture a single-field brightfield image.\r\n[input 2] Use 30 ms; the final 20× step only specifies readjusting brightness, not changing the exposure time."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  34,
-        "source_file":  "final_cotclarify/34.md",
-        "user_input":  "[input 1] Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 5 mm × 1 mm region without Z-axis scanning, and detect organoid positions; then move the stage to the first detected organoid, switch to a 20× objective, readjust brightness, refocus, obtain the recommended Z-stack parameters for the current image, and capture a brightfield stack.\r\n[input 2] The 30 ms exposure is specified only for the initial 4× scan; for 20×, only brightness is to be readjusted before capturing the stack."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  35,
-        "source_file":  "final_cotclarify/35.md",
-        "user_input":  "Observation target: 2D section. Use a 20× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, and acquire multi-channel images containing both DAPI and FITC fluorescence within a single field of view."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  36,
-        "source_file":  "final_cotclarify/36.md",
-        "user_input":  "Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region without Z-axis scanning, and detect organoid positions; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire a multi-channel fluorescence stack containing DAPI, FITC, and TRITC images."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  37,
-        "source_file":  "final_cotclarify/37.md",
-        "user_input":  "Observation target: 2D section. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region and detect 2D cell distribution regions; then choose the first 2D cell region, switch to a 40× objective, configure the FITC filter, set brightness to 0, set the exposure time to 200 ms, refocus, and acquire FITC fluorescence images of that location every 30 minutes for 24 hours."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  38,
-        "source_file":  "final_cotclarify/38.md",
-        "user_input":  "[input 1] Observation target: organoids. Use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 3 mm × 3 mm region without Z-axis scanning, identify and record the center coordinates of all organoids; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire multi-channel fluorescence images containing DAPI, FITC, and TRITC.\r\n[input 2] Only on the first organoid.\r\n[input 3] Only 200 ms is specified; separate FITC and TRITC exposure times are not given."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  39,
-        "source_file":  "final_cotclarify/39.md",
-        "user_input":  "[input 1] Observation target: section. Use a 10× objective with a brightfield filter, set the exposure time to 30 ms and enable automatic brightness adjustment, autofocus, scan a 4 mm × 4 mm region and detect 2D cell regions, move to the center of the first 2D cell region, switch to a 40× objective, readjust brightness, refocus, and acquire a brightfield image of the current field of view.\r\n[input 2] Use the same 30 ms exposure time; only brightness is readjusted after switching to 40×."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  40,
-        "source_file":  "final_cotclarify/40.md",
-        "user_input":  "[input 1] Observation target: 3D cells. Use a 10× objective, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, scan a 2 mm × 2 mm region with Z-stack acquisition, perform extended depth-of-field synthesis, and then use the cell-segmentation platform to automatically count all cells.\r\n[input 2] Perform cell counting on the extended depth-of-field synthesized image.\r\n[input 3] No; the task specifies setting brightness to 0 for the DAPI channel.\r\n[input 4] No—the required DAPI brightness setting is 0; no different brightness value is specified."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  41,
-        "source_file":  "final_cotclarify/41.md",
-        "user_input":  "[input 1] Observation target: fluorescent section; use a low-magnification objective, enable the DAPI fluorescence channel, and use a deconvolution algorithm to make the image clearer.\r\n[input 2] The current 4× objective is the required low-magnification objective; do not change to a different objective.\r\n[input 3] No specific deconvolution algorithm type is specified; use deconvolution-based deblurring."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  42,
-        "source_file":  "final_cotclarify/42.md",
-        "user_input":  "[input 1] Observation target: 2D cells; use a suitable objective to focus in brightfield mode, capture a single-field image, and use Cellpose for cell segmentation to output a binary mask.\r\n[input 2] Use the 10× objective, not the currently configured 4× or a 20× objective.\r\n[input 3] Use the Cellpose **cyto** model."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  43,
-        "source_file":  "final_cotclarify/43.md",
-        "user_input":  "Observation target: organoids; use a 20× objective, choose a fluorescence channel, and perform continuous imaging for 24 hours by capturing one image of each well in a 24-well plate every 1 hour."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  44,
-        "source_file":  "final_cotclarify/44.md",
-        "user_input":  "[input 1] Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels.\r\n[input 2] Use the DAPI and FITC fluorescence channels.\r\n[input 3] Fluorescence imaging should be performed only at the first recorded organoid coordinate.\r\n[input 4] Capture a single Z-plane at the refocused target position; no Z-stack is specified.\r\n[input 5] Proceed with the specified workflow parameters: use 4× brightfield for the scan, then switch to 20× for fluorescence imaging.\r\n[input 6] The task only specifies covering the 3 mm × 3 mm region with 4× brightfield images; it does not specify single-image vs tiled or overlap."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  45,
-        "source_file":  "final_cotclarify/45.md",
-        "user_input":  "[input 1] Observation target: fluorescent section; acquire images across the whole area under blue fluorescence (nuclear staining), stitch the images, and calculate the density of labeled cells.\r\n[input 2] Stitch the acquired images into one panoramic fluorescence image before segmenting nuclei, counting cells, and calculating density.\r\n[input 3] Switch from brightfield to DAPI fluorescence mode; the 4× objective remains the intended objective.\r\n[input 4] Use a 3 mm × 3 mm region as the whole area to cover for XY acquisition."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  46,
-        "source_file":  "final_cotclarify/46.md",
-        "user_input":  "Observation target: cells; use a 4× objective to rapidly capture cell images in all central wells of the plate."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  47,
-        "source_file":  "final_cotclarify/47.md",
-        "user_input":  "Observation target: cells; use a moderate-magnification objective to record fluorescence imaging of the cytoskeleton in the current field of view after drug treatment."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  48,
-        "source_file":  "final_cotclarify/48.md",
-        "user_input":  "[input 1] Observation target: organoids; use a low-magnification objective to perform region scanning on the organoid section, locate intact organoids, and then use a high-magnification objective to perform detailed data acquisition at the corresponding positions.\r\n[input 2] Use a 20× objective for detailed data acquisition.\r\n[input 3] Cover a 3 mm × 3 mm region during the low-magnification scan."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  49,
-        "source_file":  "final_cotclarify/49.md",
-        "user_input":  "Observation target: cells; perform continuous imaging for 24 hours, using an appropriate objective to capture the cell differentiation process at the center of the field of view."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  50,
-        "source_file":  "final_cotclarify/50.md",
-        "user_input":  "Observation target: fluorescent section; use a high-magnification objective to acquire images of the blue and green fluorescence channels in the current field of view, and process the acquired images with an appropriate method."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  51,
-        "source_file":  "final_cotclarify/51.md",
-        "user_input":  "[input 1] Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.\r\n[input 2] Use the 20× objective; not 40×, 60×, or 100×.\r\n[input 3] Use brightfield mode, not FITC fluorescence mode.\r\n[input 4] Use a simple 2D single-field brightfield capture; do not perform 3D Z-stack imaging or extended depth-of-field processing."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  52,
-        "source_file":  "final_cotclarify/52.md",
-        "user_input":  "[input 1] Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.\r\n[input 2] Use the DAPI and FITC fluorescence channels."
-    },
-    {
-        "method":  "final_cotclarify",
-        "id":  53,
-        "source_file":  "final_cotclarify/53.md",
-        "user_input":  "[input 1] Observation target: cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration.\r\n[input 2] The time-lapse imaging duration is 4 hours.\r\n[input 3] Use FITC fluorescence imaging, not brightfield; the intended objective is 20×.\r\n[input 4] Administer the drug before starting the 4-hour time-lapse acquisition.\r\n[input 5] Administer the drug before the initial autofocus/focusing; the ideal state does not specify that it must occur before system configuration.\r\n[input 6] Administer the drug before autofocus at the initial XY position and before starting image acquisition; the ideal state does not specify an exact slot among steps 1–4."
+        "id": 53,
+        "user_input": "[Round 1] Observation target: cells; capture one image every 5 minutes for a specified duration to record fluorescence-signal changes in cells after drug administration."
     }
 ]

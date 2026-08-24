@@ -9,10 +9,10 @@ import numpy as np
 class SerialCommunication:
     def __init__(self, port, baudrate, timeout=1):
         """
-        Initialize serial communication.
-        :param port: Serial port, for example 'COM3' or '/dev/ttyUSB0'.
-        :param baudrate: Serial baud rate, for example 9600.
-        :param timeout: Read timeout in seconds.
+        Initialize the serial communication class.
+        :param port: Serial port, such as 'COM3' or '/dev/ttyUSB0'
+        :param baudrate: Baud rate, such as 9600
+        :param timeout: Timeout in seconds; defaults to 1 second
         """
         self.port = port
         self.baudrate = baudrate
@@ -29,26 +29,26 @@ class SerialCommunication:
         try:
             if not self.ser or not self.ser.is_open:
                 self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
-                # Verify the port state with a few short retries.
-                for _ in range(3):
+                # Verify that the serial port opened successfully.
+                for _ in range(3):  # Retry three times.
                     if self.ser.is_open:
-                        print("Serial port opened successfully")
+                        print("Port opened successfully")
                         return
                     time.sleep(0.1)
-                raise serial.SerialException("Timed out while opening serial port")
+                raise serial.SerialException("Timed out while opening the port")
         except Exception as e:
-            print(f"Unable to open serial port: {e}")
-            raise
+            print(f"Failed to open the serial port: {e}")
+            raise  # Propagate the exception.
     
     
 
     def write_data(self, data):
         """
-        Write bytes to the serial port.
-        :param data: Payload to write; must be bytes.
+        Write data to the serial port.
+        :param data: Data to write; must be bytes
         """
         if not isinstance(data, bytes):
-            raise TypeError("Serial payload must be bytes")
+            raise TypeError("Data must be of type bytes")
         try:
 
             if self.ser and self.ser.is_open:
@@ -56,9 +56,9 @@ class SerialCommunication:
                 self.rx_buffer.clear()
                 self.ser.write(data)
             else:
-                print("Serial port is not open; cannot write data")
+                print("The serial port is not open; data cannot be written")
         except serial.SerialException as e:
-            print(f"Serial write failed: {e}")
+            print(f"Failed to write data: {e}")
 
     def _trim_buffer(self):
         head_idx = self.rx_buffer.find(self.frame_head)
@@ -87,8 +87,8 @@ class SerialCommunication:
 
     def read_data(self) -> Optional[bytes]:
         """
-        Read one framed payload from the serial port.
-        :return: A bytes frame, or None when no frame is available.
+        Read data from the serial port.
+        :return: Received bytes, or None if no data is available
         """
         try:
             if not self.ser or not self.ser.is_open:
@@ -114,7 +114,7 @@ class SerialCommunication:
 
             return self._extract_frame()
         except serial.SerialException as e:
-            print(f"Serial read failed: {e}")
+            print(f"Failed to read data: {e}")
             return None
 
     def close_port(self):
@@ -126,9 +126,9 @@ class SerialCommunication:
                 self.ser.close()
                 # print("Serial port closed")
             else:
-                print("Serial port is not open or is already closed")
+                print("The serial port is not open or is already closed")
         except serial.SerialException as e:
-            print(f"Unable to close serial port: {e}")
+            print(f"Failed to close the serial port: {e}")
 
 class Robot(object):
     def __init__(self, port_id, baudrate, timeout):
@@ -166,7 +166,7 @@ class Robot(object):
                 self.buffer.extend(data)
 
     def _extract_frame(self) -> Optional[bytes]:
-        """Extract one complete frame from the receive buffer."""
+        """Extract a complete frame from the buffer."""
         while len(self.buffer) >= 4:
             # Find the frame header.
             start = self.buffer.find(b'\x5D\x5B')
@@ -185,12 +185,12 @@ class Robot(object):
         return None
 
     def get_pose(self):
-        # Control frame requesting the robot coordinates.
+        # Control frame requesting robotic manipulator coordinates.
         my_set = bytes([0x5D, 0x5B, 0x01, 0x01, 0x01, 0xFE, 0x40, 0x55,
                         0x00, 0x01, 0x00, 0xD2, 0x21, 0x5D, 0x5D])
 
-        MAX_RETRY = 5
-        COORD_START_IDX = 11
+        MAX_RETRY = 5            # Maximum allowed failures.
+        COORD_START_IDX = 11     # Starting index of coordinate data.
         COORD_RANGE = (-10000.0, 10000.0)
         for attempt in range(1, MAX_RETRY + 1):
             try:
@@ -199,36 +199,36 @@ class Robot(object):
                     axis_pose_bytes = self.port.read_data()
 
                 if not axis_pose_bytes:
-                    print(f"[Attempt {attempt}] No data returned")
+                    print(f"[Attempt {attempt}] ❌ No data returned")
                     continue
 
-                # Validate the frame header and trailer.
+                # 1. ✅ Validate the frame header and trailer.
                 if axis_pose_bytes[:2] != b'\x5D\x5B' or axis_pose_bytes[-2:] != b'\x5D\x5D':
-                    print(f"[Attempt {attempt}] Invalid frame header or trailer")
+                    print(f"[Attempt {attempt}] ❌ Invalid frame header or trailer")
                     continue
 
-                # Optional frame-length validation.
+                # 2. ✅ Check the length and skip malformed frames.
                 # if not (len(axis_pose_bytes) == 194):
-                #     print(f"[Attempt {attempt}] Unexpected frame length: {len(axis_pose_bytes)}")
+                #     print(f"[Attempt {attempt}] ⚠️ Invalid frame length: {len(axis_pose_bytes)}; skipping")
                 #     continue
 
-                # Decode coordinate values.
+                # 3. ✅ Parse coordinate data.
                 try:
                     x, y, z = struct.unpack('>fff', axis_pose_bytes[COORD_START_IDX:COORD_START_IDX+12])
                 except struct.error as e:
-                    print(f"[Attempt {attempt}] Coordinate decoding failed: {e}")
+                    print(f"[Attempt {attempt}] ❌ Failed to decode coordinates: {e}")
                     continue
 
-                # Validate coordinate ranges.
+                # 4. ✅ Validate the coordinate range.
                 if not all(COORD_RANGE[0] <= val <= COORD_RANGE[1] for val in (x, y, z)):
-                    print(f"[Attempt {attempt}] Coordinates out of range: x={x:.2f}, y={y:.2f}, z={z:.2f}")
+                    print(f"[Attempt {attempt}] ❌ Coordinates out of range: x={x:.2f}, y={y:.2f}, z={z:.2f}")
                     continue
                 
-                # Reject implausibly large jumps on the Y axis.
+                # 5. ✅ Validate special cases.
                 if self.current_pose is not None:
                     delta_y = abs(self.current_pose[1] - y)
                     if delta_y > 600:
-                        print(f"[Attempt {attempt}] Abnormal Y-axis jump: {delta_y:.2f}")
+                        print(f"[Attempt {attempt}] ⚠️ Abnormal Y-axis jump: {delta_y:.2f}")
                         continue
 
                 self.current_pose = [x, y, z]
@@ -238,19 +238,19 @@ class Robot(object):
                 else:
                     self.smoothed_pose = self.alpha * current_raw_pose + (1 - self.alpha) * self.smoothed_pose
 
-                # Return the smoothed pose after all checks pass.
+                # ✅ Return the value after all checks pass.
                 return [round(val, 2) for val in self.smoothed_pose]
 
             except Exception as e:
-                print(f"[Attempt {attempt}] Robot communication error: {e}")
+                print(f"[Attempt {attempt}] ⚠️ System exception: {e}")
                 self._reconnect_port()
 
-        print(f"Failed to acquire robot coordinates after {MAX_RETRY} attempts.")
+        print(f"⚠️ Failed to acquire robotic manipulator coordinates {MAX_RETRY} consecutive times.")
         if self.smoothed_pose is not None:
             last_pose = [round(val, 2) for val in self.smoothed_pose]
-            print(f"    Returning the last smoothed pose: {last_pose}")
+            print(f"    Returning the previous smoothed coordinates: {last_pose}")
             return last_pose
-        print("    No valid coordinates have been received; returning [0, 0, 0]")
+        print("    Critical warning: no valid coordinates have ever been received. Returning [0, 0, 0]")
         return [0.0, 0.0, 0.0]
 
     def _reconnect_port(self):
@@ -260,18 +260,18 @@ class Robot(object):
             time.sleep(0.5)
             self.port.open_port()
         except Exception as e:
-            print(f"Serial port reconnection failed: {e}")
+            print(f"Failed to reconnect the port: {e}")
 
     def move_pose(self, actions):
-        # Use a fixed movement speed.
+        # Fixed speed value.
         speed = 4000.0
         MAX_RETRY = 3
         self.is_moving = True
-        # Send one movement command per axis.
+        # Send a movement command for each coordinate.
         for axis, coord in zip(['x', 'y', 'z'], actions):
             if axis == 'z':
                 continue
-            # Select the protocol byte for this axis.
+            # Select the axis byte (57:x, 58:y, 59:z).
             axis_byte = {
                 'x': 0x57,
                 'y': 0x58,
@@ -287,18 +287,18 @@ class Robot(object):
                     if response and response[:2] == b'\x5D\x5B':
                         break
                     if attempt == MAX_RETRY - 1:
-                        print(f'Timed out waiting for the {axis}-axis movement response')
+                        print(f'Timed out waiting for the {axis}-axis movement response; skipping this wait')
                 except Exception as e:
-                    print(f'Command transmission failed: {e}')
+                    print(f'Command transmission error: {e}')
                     self._reconnect_port()
             self.is_moving = False
 
     @staticmethod
     def crc16_modbus(data: bytes) -> int:
         """
-        Compute a Modbus CRC16 checksum.
-        :param data: Data covered by the checksum.
-        :return: CRC16 checksum.
+        Calculate a CRC16 checksum.
+        :param data: Data used to calculate the checksum
+        :return: CRC16 checksum
         """
         crc = 0xFFFF  
         for byte in data:
@@ -311,15 +311,15 @@ class Robot(object):
                     crc >>= 1
         return crc
     def command_create(self, axis_byte, speed, coord):
-        # Build the protocol command frame.
+        # Build the command frame.
         command = [
             0x5D, 0x5B,                                         # Frame header
             0x01, 0x01, 0x01, 0xFE, 0x60, 0x66, 0x00, 0x09,     # Fixed parameters
-            axis_byte,                                          # Axis selector
+            axis_byte,                                          # Axis selection
         ]
-        # Append position and speed as big-endian IEEE 754 floats.
-        command.extend(struct.pack('>f', coord))
-        command.extend(struct.pack('>f', speed))
+        # Add position and speed as IEEE 754 big-endian single-precision floats.
+        command.extend(struct.pack('>f', coord))                    # Position
+        command.extend(struct.pack('>f', speed))                    # Speed
         crc = self.crc16_modbus(bytes(command[2:]))
         command.extend([crc & 0xFF, (crc >> 8) & 0xFF])             # CRC checksum
         command.extend([0x5D, 0x5D])                                # Frame trailer
@@ -334,10 +334,10 @@ class Robot(object):
                 response = self.port.read_data()
                 # print(f"Interrupt response: {response.hex() if response else None}")
 
-            # A short frame may acknowledge the interrupt without coordinates.
+            # A short frame may acknowledge the interrupt and need no coordinate parsing.
             self.is_moving = False
             self.is_interrupt = False
-            print('Movement interrupted')
+            print('Interrupt completed')
 
     def set_interrupt(self):
         self.is_interrupt = True
