@@ -334,7 +334,12 @@ class PreviewStreamService:
         meta = []
         if status.get("last_frame_age_sec") is not None:
             meta.append(f"Last frame age: {status['last_frame_age_sec']:.1f}s")
-        hardware = "Micro-Manager demo hardware" if status.get("microscope_mode") == "demo" else "Real hardware"
+        microscope_mode = status.get("microscope_mode")
+        hardware = {
+            "demo": "Micro-Manager demo hardware",
+            "mock": "mock microscope",
+            "real": "real hardware",
+        }.get(microscope_mode, f"unknown microscope mode ({microscope_mode})")
         meta.append(f"Preview source: {hardware}")
         if status.get("mode_summary"):
             meta.append(status["mode_summary"])

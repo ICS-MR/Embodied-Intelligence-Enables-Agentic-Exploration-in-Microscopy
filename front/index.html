@@ -1344,7 +1344,7 @@
                     <div class="config-status-strip">
                         <span class="status-chip"><span class="status-dot"></span><span id="configStatusBadge">Waiting
                                 for Configuration</span></span>
-                        <p id="configStatusText" class="config-status-detail">The page is loading the current configuration. Demo mode uses the managed demo configuration. Real mode accepts your Micro-Manager .cfg and hardware mappings.</p>
+                        <p id="configStatusText" class="config-status-detail">The page is loading the current configuration. Demo uses managed DemoCamera hardware, Mock uses the simulated microscope, and Real connects to configured physical hardware.</p>
                         <div id="configSummary" class="config-status-summary">Not initialized yet.</div>
                     </div>
                 </div>
@@ -1364,6 +1364,7 @@
                             <div class="field-grid three-column">
                                 <div class="field"><label for="microscopeMode">Microscope Mode</label><select id="microscopeMode">
                                         <option value="demo">Demo - Use Micro-Manager demo hardware</option>
+                                        <option value="mock">Mock - Use simulated microscope</option>
                                         <option value="real">Real - Connect to microscope hardware</option>
                                     </select></div>
                                 <div class="field"><label for="imageAnalysisMode">Image Analysis Mode</label><select id="imageAnalysisMode">
@@ -1448,13 +1449,18 @@
                                 </div>
                             </div>
                             <div class="field-grid">
-                                <div class="field full"><label for="configPath">CONFIG_PATH<span class="required-mark">*</span></label><input id="configPath" type="text" placeholder="Micro-Manager .cfg file path actually used at runtime"></div>
-                                <div class="field"><label for="mmDir">MM_DIR<span class="required-mark">*</span></label><input id="mmDir" type="text" placeholder="Micro-Manager installation directory"></div>
+                                <div id="configPathField" class="field full"><label for="configPath">CONFIG_PATH<span class="required-mark">*</span></label><input id="configPath" type="text" placeholder="Micro-Manager .cfg file path actually used at runtime"></div>
+                                <div id="mmDirField" class="field"><label for="mmDir">MM_DIR<span class="required-mark">*</span></label><input id="mmDir" type="text" placeholder="Micro-Manager installation directory"></div>
                                 <div class="field"><label for="fijiPath">FIJI_PATH</label><input id="fijiPath" type="text" placeholder="Fiji.app or Fiji installation directory"></div>
                             </div>
                         </div>
 
-                        <div class="settings-group">
+                        <div id="mockMicroscopeNotice" class="settings-group" hidden>
+                            <h4>Mock Microscope Capabilities</h4>
+                            <p class="group-description">Mock mode uses built-in virtual objectives and channels. No Micro-Manager cfg, device names, or physical state labels are required.</p>
+                        </div>
+
+                        <div id="deviceMappingGroup" class="settings-group">
                             <h4>Device Mapping</h4>
                             <p class="group-description">Required EIMS roles mapped to device instance names declared by the cfg.</p>
                             <div class="field-grid three-column">
@@ -1466,7 +1472,7 @@
                             </div>
                         </div>
 
-                        <div class="settings-group">
+                        <div id="labelMappingGroup" class="settings-group">
                             <h4>Suggested Label Mapping</h4>
                             <p class="group-description">AI recommendations are selected in the editable fields. Unavailable labels may be left blank.</p>
                             <div class="field-grid three-column">
@@ -1649,11 +1655,13 @@
             previewAutoRetried: false,
             isCfgImporting: false,
             configured: false,
+            microscopeMode: "demo",
             realHardwareConfigDraft: null,
             realStartupDraft: null,
             transmittedLightConfigDraft: {},
             demoManagedSystem: null,
             demoManagedStartup: null,
+            mockCapabilities: {},
             taskProgress: null,
             taskProgressClearTimer: null,
             configStatusRequestController: null,
@@ -1813,8 +1821,10 @@
             const realStartupDraft = data.real_startup_draft || {};
             uiState.demoManagedSystem = cloneJson(data.demo_system || {});
             uiState.demoManagedStartup = cloneJson(data.demo_startup || {});
+            uiState.mockCapabilities = cloneJson(data.mock_capabilities || {});
             const agent = data.agent || {};
             const startup = data.startup || {};
+            const microscopeMode = agent.microscope_mode || "demo";
             if (Object.keys(realSystemDraft).length > 0) {
                 uiState.realHardwareConfigDraft = JSON.parse(JSON.stringify(realSystemDraft));
             } else if ((agent.microscope_mode ?? "demo") !== "demo") {
@@ -1836,9 +1846,12 @@
             fillSemanticMappingFields(system);
             fillLimitFields(system);
             fillDemoEnvironmentFields(system.demo_environment);
-            fillStartupFields(startup, currentSemanticMapping(system));
-            $("microscopeMode").value = agent.microscope_mode || "demo";
-            applyRuntimeTransmittedLightInfo(data.transmitted_light_runtime || {});
+            $("microscopeMode").value = microscopeMode;
+            fillStartupFields(startup, activeStartupMapping(currentSemanticMapping(system)));
+            uiState.microscopeMode = $("microscopeMode").value;
+            if (microscopeMode === "real") {
+                applyRuntimeTransmittedLightInfo(data.transmitted_light_runtime || {});
+            }
             $("imageAnalysisMode").value = agent.image_analysis_mode || "mock";
             $("segmentationMode").value = agent.segmentation_mode || "mock";
             $("clarifyEnabled").value = String(agent.clarify_enabled ?? false);
@@ -1860,7 +1873,9 @@
         }
 
         function buildCurrentSystemDraft() {
-            const mapping = collectSemanticMappingPayload();
+            const mapping = uiState.microscopeMode === "real"
+                ? collectSemanticMappingPayload()
+                : currentSemanticMapping(uiState.realHardwareConfigDraft || {});
             return {
                 CONFIG_PATH: $("configPath").value.trim(),
                 camera_device: $("cameraDevice").value.trim(),
@@ -1903,7 +1918,7 @@
         }
 
         function applyManagedStartupDraft(startup) {
-            fillStartupFields(startup || {}, collectSemanticMappingPayload());
+            fillStartupFields(startup || {}, activeStartupMapping());
         }
 
         function hasLimitFields(system) {
@@ -1980,6 +1995,7 @@
 
         function formatMappingOptionLabel(key, entry) {
             const displayName = String(entry?.display_name || key);
+            if ($("microscopeMode").value === "mock") return `${displayName} (virtual)`;
             const label = String(entry?.label || "").trim();
             return label ? `${displayName} (${label})` : `${displayName} (missing label)`;
         }
@@ -2009,7 +2025,7 @@
         }
 
         function refreshStartupMappingOptions(startup = {}) {
-            const mapping = collectSemanticMappingPayload();
+            const mapping = activeStartupMapping();
             fillMappingSelect("startupObjective", mapping.objectives, startup.objective || $("startupObjective").value || "40x");
             fillMappingSelect("startupChannel", mapping.channels, startup.channel || $("startupChannel").value || "brightfield");
         }
@@ -2026,29 +2042,37 @@
         }
 
         function handleMicroscopeModeChange() {
-            const demoModeEnabled = $("microscopeMode").value === "demo";
+            const selectedMode = $("microscopeMode").value;
+            const previousMode = uiState.microscopeMode || selectedMode;
+            const demoModeEnabled = selectedMode === "demo";
             if (demoModeEnabled) {
-                uiState.realHardwareConfigDraft = buildCurrentSystemDraft();
-                uiState.realStartupDraft = buildCurrentStartupDraft();
+                if (previousMode !== "demo") {
+                    uiState.realHardwareConfigDraft = buildCurrentSystemDraft();
+                    uiState.realStartupDraft = buildCurrentStartupDraft();
+                }
                 applyManagedSystemDraft(cloneJson(uiState.demoManagedSystem || {}));
                 applyManagedStartupDraft(cloneJson(uiState.demoManagedStartup || {}));
+                uiState.microscopeMode = selectedMode;
                 syncMicroscopeModeUi();
                 showFeedback("Microscope demo mode will use the managed Micro-Manager demo config, device mapping, travel limits, and startup state.", false);
                 return;
             }
 
-            if (uiState.realHardwareConfigDraft) {
+            if (previousMode === "demo" && uiState.realHardwareConfigDraft) {
                 applyManagedSystemDraft(cloneJson(uiState.realHardwareConfigDraft));
                 if (uiState.realStartupDraft) {
                     applyManagedStartupDraft(cloneJson(uiState.realStartupDraft));
                 }
-                syncMicroscopeModeUi();
-                showFeedback("Restored the last known real hardware configuration and startup draft.", false);
-                return;
             }
 
+            uiState.microscopeMode = selectedMode;
             syncMicroscopeModeUi();
-            showFeedback("Microscope real mode selected. Save configuration to restore the persisted real hardware settings.", false);
+            showFeedback(
+                selectedMode === "mock"
+                    ? "Microscope mock mode selected. Built-in virtual devices will use the persisted limits and startup state."
+                    : "Microscope real mode selected. Import or edit the physical microscope configuration, then save it before startup.",
+                false
+            );
         }
 
         function setElementsDisabled(elementIds, disabled) {
@@ -2118,7 +2142,7 @@
 
         function setCfgImportBusy(isBusy, detail = "") {
             uiState.isCfgImporting = isBusy;
-            const demoModeEnabled = $("microscopeMode").value === "demo";
+            const realModeEnabled = $("microscopeMode").value === "real";
             const lifecycleBusy = ["initializing", "executing", "releasing"].includes(uiState.systemPhase);
             const status = $("cfgImportStatus");
             const detailElement = $("cfgImportStatusDetail");
@@ -2133,13 +2157,13 @@
                 detailElement.textContent = detail;
             }
             if (uploadButton) {
-                uploadButton.disabled = isBusy || lifecycleBusy || demoModeEnabled;
+                uploadButton.disabled = isBusy || lifecycleBusy || !realModeEnabled;
                 uploadButton.textContent = isBusy ? "Inspecting..." : "Import, Inspect & AI Map";
             }
             if (chooseButton) {
-                chooseButton.disabled = isBusy || lifecycleBusy || demoModeEnabled;
+                chooseButton.disabled = isBusy || lifecycleBusy || !realModeEnabled;
             }
-            $("cfgFile").disabled = isBusy || lifecycleBusy || demoModeEnabled;
+            $("cfgFile").disabled = isBusy || lifecycleBusy || !realModeEnabled;
             $("testLlmBtn").disabled = isBusy;
             $("testVlmBtn").disabled = isBusy;
             $("saveConfigBtn").disabled = isBusy || lifecycleBusy;
@@ -2147,16 +2171,22 @@
         }
 
         function syncMicroscopeModeUi() {
-            const demoModeEnabled = $("microscopeMode").value === "demo";
+            const microscopeMode = $("microscopeMode").value;
+            const demoModeEnabled = microscopeMode === "demo";
+            const mockModeEnabled = microscopeMode === "mock";
+            const realModeEnabled = microscopeMode === "real";
+            const lifecycleBusy = ["initializing", "executing", "releasing"].includes(uiState.systemPhase);
             const demoVirtualEnvironmentGroup = $("demoVirtualEnvironmentGroup");
             if (demoVirtualEnvironmentGroup) {
                 demoVirtualEnvironmentGroup.hidden = !demoModeEnabled;
             }
+            $("mockMicroscopeNotice").hidden = !mockModeEnabled;
+            $("deviceMappingGroup").hidden = mockModeEnabled;
+            $("labelMappingGroup").hidden = mockModeEnabled;
+            $("configPathField").hidden = mockModeEnabled;
+            $("mmDirField").hidden = mockModeEnabled;
             setElementsDisabled(
                 [
-                    "cfgFile",
-                    "chooseCfgBtn",
-                    "uploadCfgBtn",
                     "configPath",
                     "cameraDevice",
                     "xyStageDevice",
@@ -2205,6 +2235,42 @@
             );
             setElementsDisabled(
                 [
+                    "mmDir",
+                    "configPath",
+                    "cameraDevice",
+                    "xyStageDevice",
+                    "objectiveDevice",
+                    "focusDrive",
+                    "dichroicDevice",
+                    "objective4x",
+                    "objective10x",
+                    "objective20x",
+                    "objective30x",
+                    "objective40x",
+                    "objective60x",
+                    "objective100x",
+                    "objective4xPixelSize",
+                    "objective10xPixelSize",
+                    "objective20xPixelSize",
+                    "objective30xPixelSize",
+                    "objective40xPixelSize",
+                    "objective60xPixelSize",
+                    "objective100xPixelSize",
+                    "channelBrightfield",
+                    "channelDapi",
+                    "channelFitc",
+                    "channelTritc",
+                    "transmittedLightDevice",
+                    "transmittedLightProperty",
+                ],
+                !realModeEnabled
+            );
+            setElementsDisabled(
+                ["cfgFile", "chooseCfgBtn", "uploadCfgBtn"],
+                !realModeEnabled || uiState.isCfgImporting || lifecycleBusy
+            );
+            setElementsDisabled(
+                [
                     "demoSampleDensity",
                     "demoSampleSize",
                     "demoBeadBlurRate",
@@ -2219,22 +2285,29 @@
             );
             for (const elementId of allMappingDraftInputIds()) {
                 const picker = document.getElementById(`${elementId}Candidates`);
-                if (picker) picker.disabled = demoModeEnabled;
+                if (picker) picker.disabled = !realModeEnabled;
             }
             if (uiState.isCfgImporting) {
                 setCfgImportBusy(true);
             }
             $("microscopeConfigSubtitle").textContent = demoModeEnabled
-                ? "Demo mode is locked to the managed Micro-Manager demo configuration and verified device mapping. Switch to real mode to import a .cfg and edit hardware mappings."
-                : "Import your existing Micro-Manager config first, then configure EIMS to match its device names and state labels. Do not rename a working .cfg just for EIMS.";
+                ? "Demo mode is locked to the managed Micro-Manager demo configuration and verified device mapping. Switch to real mode to import a .cfg."
+                : realModeEnabled
+                    ? "Import your existing Micro-Manager config first, then configure EIMS to match its device names and state labels. Do not rename a working .cfg just for EIMS."
+                    : "Mock mode uses built-in virtual objectives and channels with the persisted operating limits and startup state. No Micro-Manager mapping is required.";
             $("configStatusText").textContent = demoModeEnabled
-                ? "Demo mode uses the managed Micro-Manager demo configuration. Hardware path and API fields can still be edited, but demo device mapping is locked."
-                : "Real mode accepts your Micro-Manager .cfg and hardware mappings. Import a .cfg or edit the fields manually, then save configuration.";
+                ? "Demo mode uses the managed Micro-Manager demo configuration. LLM and Fiji settings remain editable, while demo hardware mapping is locked."
+                : realModeEnabled
+                    ? "Real mode accepts your Micro-Manager .cfg and hardware mappings. Import a .cfg or edit the fields manually, then save configuration."
+                    : "Mock mode preserves editable limits and startup values without applying a managed configuration overlay.";
             if (demoModeEnabled) {
                 $("cfgFileName").textContent = "Managed by demo mode";
+            } else if (!realModeEnabled) {
+                $("cfgFileName").textContent = "Unavailable in mock mode";
             } else if (!$("cfgFile").files[0]) {
                 $("cfgFileName").textContent = "No file selected";
             }
+            refreshStartupMappingOptions();
             captureConfigUiState("syncMicroscopeModeUi");
         }
 
@@ -2244,6 +2317,14 @@
                 channels: system?.channels || {},
                 transmitted_light: system?.transmitted_light || {},
             };
+        }
+
+        function activeStartupMapping(fallback = null) {
+            const microscopeMode = $("microscopeMode").value;
+            if (microscopeMode === "mock") return uiState.mockCapabilities || {};
+            if (fallback) return fallback;
+            if (microscopeMode === "demo") return currentSemanticMapping(uiState.demoManagedSystem || {});
+            return collectSemanticMappingPayload();
         }
 
         function objectiveMappingDefinitions() {
@@ -2427,7 +2508,7 @@
         }
 
         function restoreMappingDraftCandidates() {
-            if ($("microscopeMode").value === "demo") return;
+            if ($("microscopeMode").value !== "real") return;
             let draft = null;
             try {
                 const raw = localStorage.getItem("eimsMappingDraft");
@@ -2619,13 +2700,16 @@
             }
         }
 
-        function renderRuntimeReadySubtitle() {
-            const status = uiState.previewStatus || {};
-            const modeSummary = status.mode_summary || "Microscope: demo | Fiji: mock | Cellpose: mock";
-            const hardware = status.microscope_mode === "real"
-                ? "Preview source: real hardware"
-                : "Preview source: Micro-Manager demo hardware";
-            return `${modeSummary} | ${hardware}`;
+        function previewSourceLabel(microscopeMode) {
+            if (microscopeMode === "real") return "Preview source: real hardware";
+            if (microscopeMode === "mock") return "Preview source: mock microscope";
+            return "Preview source: Micro-Manager demo hardware";
+        }
+
+        function renderRuntimeReadySubtitle(status = uiState.previewStatus || {}) {
+            const microscopeMode = status.microscope_mode || "demo";
+            const modeSummary = status.mode_summary || `Microscope: ${microscopeMode} | Fiji: mock | Cellpose: mock`;
+            return `${modeSummary} | ${previewSourceLabel(microscopeMode)}`;
         }
         const STARTUP_RETRY_ATTEMPTS = 10;
         const STARTUP_RETRY_DELAY_MS = 1200;
@@ -2689,7 +2773,7 @@
 
         function setLifecycleControlsDisabled(disabled) {
             const shouldDisable = disabled || uiState.isCfgImporting;
-            const demoModeEnabled = $("microscopeMode").value === "demo";
+            const realModeEnabled = $("microscopeMode").value === "real";
             if (shouldDisable) {
                 $("startSystemBtn").disabled = true;
             } else if (uiState.systemPhase === "ready") {
@@ -2699,8 +2783,8 @@
             $("shutdownServerRuntimeBtn").disabled = shouldDisable;
             $("restartPreviewBtn").disabled = shouldDisable;
             $("saveConfigBtn").disabled = shouldDisable;
-            $("chooseCfgBtn").disabled = shouldDisable || demoModeEnabled;
-            $("uploadCfgBtn").disabled = shouldDisable || demoModeEnabled;
+            $("chooseCfgBtn").disabled = shouldDisable || !realModeEnabled;
+            $("uploadCfgBtn").disabled = shouldDisable || !realModeEnabled;
             $("testLlmBtn").disabled = shouldDisable;
             $("testVlmBtn").disabled = shouldDisable;
         }
@@ -2798,9 +2882,7 @@
             if (!uiState.isTaskRunning && !uiState.isWaitingForUserInput) {
                 if (phase === "live") {
                     $("videoModeBadge").textContent = "Preview Live";
-                    $("runtimeSubtitle").textContent = status?.microscope_mode === "demo"
-                        ? `${status?.mode_summary || "Microscope: demo | Fiji: mock | Cellpose: mock"} | Preview source: Micro-Manager demo hardware`
-                        : `${status?.mode_summary || "Microscope: real | Fiji: mock | Cellpose: mock"} | Preview source: real hardware`;
+                    $("runtimeSubtitle").textContent = renderRuntimeReadySubtitle(status);
                 } else if (phase === "starting") {
                     $("videoModeBadge").textContent = "Preview Starting";
                     $("runtimeSubtitle").textContent = status?.detail || "Starting live preview";
@@ -2967,8 +3049,8 @@
             if (uiState.isCfgImporting) {
                 return;
             }
-            if ($("microscopeMode").value === "demo") {
-                showFeedback("Demo mode uses the managed Micro-Manager demo configuration. Switch to real mode to import a .cfg.", true);
+            if ($("microscopeMode").value !== "real") {
+                showFeedback("External Micro-Manager .cfg import is available only in Real microscope mode.", true);
                 return;
             }
             const file = $("cfgFile").files[0];
@@ -3104,9 +3186,11 @@
         }
 
         function collectConfigPayload() {
-            const semanticMapping = collectSemanticMappingPayload();
-            const limitPayload = collectLimitPayload();
             const microscopeMode = $("microscopeMode").value;
+            const semanticMapping = microscopeMode === "real"
+                ? collectSemanticMappingPayload()
+                : { objectives: {}, channels: {}, transmitted_light: {} };
+            const limitPayload = collectLimitPayload();
             return {
                 mm_dir: $("mmDir").value.trim(),
                 config_path: $("configPath").value.trim(),
@@ -3150,8 +3234,11 @@
                 body: JSON.stringify(collectConfigPayload())
             });
             const status = await refreshConfigStatus({ allowEnterRuntime: false });
-            const effectiveConfigPath = data.effective_config_path || status?.system?.CONFIG_PATH || $("configPath").value.trim();
-            $("configPath").value = effectiveConfigPath;
+            const mockModeEnabled = $("microscopeMode").value === "mock";
+            const effectiveConfigPath = mockModeEnabled
+                ? ""
+                : data.effective_config_path || status?.system?.CONFIG_PATH || $("configPath").value.trim();
+            if (!mockModeEnabled) $("configPath").value = effectiveConfigPath;
             showFeedback(buildConfigSavedMessage(data.message || status.status_message || "Configuration saved.", effectiveConfigPath), false);
             return status;
         }

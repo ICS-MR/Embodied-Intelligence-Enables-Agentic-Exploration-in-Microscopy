@@ -5,7 +5,7 @@
       "prompt_source": "prompts.executor.microscope_with_brightness:prompt_olympus",
       "constructor_kind": "microscope",
       "validate_real_stack": true,
-      "mock_class_path": "core_tool.microscope:MicroscopeController"
+      "mock_class_path": "simulation.microscope:MicroscopeController"
     },
     "image_analysis": {
       "real_class_path": "core_tool.fiji:ImageJProcessor",

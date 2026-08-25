@@ -5,7 +5,7 @@ Interactive end-to-end demo sessions of the EIMS workflow. Each subdirectory is 
 ## Contents
 
 | Directory | Rounds | Output artifacts |
- --- | ---: | --- |
+| --- | ---: | --- |
 | `bright_spot_detection_and_60x_acquisition/` | 4 | Brightfield overview, bright-spot detection JSON, and 11 60x bright-spot field images. |
 | `multichannel_fluorescence_merge/` | 1 | Multi-channel fluorescence stack (DAPI/FITC/TRITC) and merged RGB composite. |
 

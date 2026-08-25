@@ -175,6 +175,7 @@ class ConfigStatusResponse(BaseModel):
     real_startup_draft: Dict[str, Any] = Field(default_factory=dict)
     demo_system: Dict[str, Any] = Field(default_factory=dict)
     demo_startup: Dict[str, Any] = Field(default_factory=dict)
+    mock_capabilities: Dict[str, Any] = Field(default_factory=dict)
     transmitted_light_runtime: Dict[str, Any] = Field(default_factory=dict)
     agent: AgentConfigView
     startup: StartupConfigView

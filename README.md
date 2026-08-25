@@ -12,22 +12,23 @@
 
 EIMS is a research platform that connects natural-language experimental intent with
 microscope control, image analysis, segmentation, validation, and iterative correction.
-It provides a Web interface and a CLI, supports both Micro-Manager demo devices and real
-hardware, and keeps every run in an isolated history directory for inspection.
+It provides a Web interface and a CLI, supports a simulated microscope, Micro-Manager
+demo devices, and real hardware, and keeps every run in an isolated history directory
+for inspection.
 
 > EIMS is experimental research software. Validate new workflows in Demo mode before
 > using real hardware, and always confirm generated plans before execution.
 
 [Quick Start](#quick-start) · [Capabilities](#what-eims-can-do) · [Runtime Modes](#runtime-modes) ·
 [Real Microscope Setup](#real-microscope-setup) · [Configuration](#configuration-reference) ·
-[Extending EIMS](#extending-eims)
+[Public Materials](docs_public/README.md) · [Extending EIMS](#extending-eims)
 
 ## ✦ At a Glance
 
 | Area | What EIMS provides |
 | --- | --- |
 | Interaction | Natural-language planning in English or Chinese, with confirmation before execution |
-| Microscope | Micro-Manager DemoCamera for hardware-free validation and `pymmcore-plus` for real hardware |
+| Microscope | Pure simulation, Micro-Manager DemoCamera validation, and `pymmcore-plus` real-hardware control |
 | Analysis | Fiji/ImageJ integration, Cellpose segmentation, and MMDetection target detection |
 | Reliability | Image-quality checks, plan-trace checks, code-repair routing, and mode-scoped startup validation |
 | Interfaces | Web configuration, initialization, preview, live execution updates, summaries, and a CLI for research and debugging |
@@ -80,9 +81,11 @@ The main runtime path is managed by `services/runtime_manager.py` and
 | Goal | Recommended path |
 | --- | --- |
 | Try the Web application without microscope hardware | Use the default `demo / mock / mock` profile and follow [Quick Start](#quick-start) |
+| Use the pure simulated microscope | Select `mock` for Microscope Mode; persisted system and startup values remain active |
 | Connect a physical microscope | Complete Quick Start, then follow [Real Microscope Setup](#real-microscope-setup) |
 | Work directly from a terminal | Start with `uv run python main.py` after configuration |
 | Inspect the conceptual hardware-free example | Open `Hardware-Free-Demo.ipynb` |
+| Browse public datasets and qualitative examples | Open [docs_public/README.md](docs_public/README.md) |
 | Add planner skills or tool integrations | See [Extending EIMS](#extending-eims) |
 
 <a id="quick-start"></a>
@@ -103,7 +106,7 @@ cd Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy
 
 - Python `>=3.10,<3.11`
 - [`uv`](https://docs.astral.sh/uv/)
-- Micro-Manager 2.0 for microscope `demo` and `real` modes
+- Micro-Manager 2.0 for microscope `demo` and `real` modes; it is not required for `mock`
 - Fiji/ImageJ for image-analysis `real` mode
 - An NVIDIA GPU with CUDA is recommended for Cellpose and MMDetection
 
@@ -207,7 +210,7 @@ EIMS selects the runtime mode of each subsystem independently:
 
 | Setting | Values | Controls |
 | --- | --- | --- |
-| `microscope_mode` | `demo`, `real` | Managed Micro-Manager demo devices or the configured real microscope |
+| `microscope_mode` | `demo`, `mock`, `real` | Managed DemoCamera devices, the simulated microscope, or the configured real microscope |
 | `image_analysis_mode` | `mock`, `real` | Mock processing or the real Fiji/ImageJ runtime |
 | `segmentation_mode` | `mock`, `real` | Mock segmentation or real Cellpose/model-backed segmentation |
 
@@ -222,6 +225,12 @@ segmentation_mode=mock
 The microscope still uses the real Micro-Manager MMCore chain in Demo mode, but with the
 built-in DemoCamera configuration. Fiji and Cellpose may remain mocked until their real
 runtimes are needed.
+
+Mock microscope mode uses `simulation/microscope.py` with built-in virtual objectives and
+channels, so it does not require a Micro-Manager cfg, device names, or physical state
+labels. It preserves the operating limits and startup values saved in
+`config/runtime_config.json` without applying a managed overlay. External Micro-Manager
+cfg import is available only in Real mode.
 
 Startup validation is mode-scoped. Demo and mock subsystems are checked only against the
 assets they actually require and do not require real Fiji, Cellpose, or hardware-only
@@ -246,8 +255,8 @@ DCam / DXYStage / DStage / DObjective / DStateDevice
 The managed cfg also retains the original `DLightPath` and `DShutter` instances. They are
 cfg devices, not additional public EIMS role fields that users must configure.
 
-External cfg import is disabled in Demo mode in both the Web UI and backend. Switch to
-Real mode before importing a hardware cfg.
+External cfg import is disabled in Demo and Mock modes in both the Web UI and backend.
+Switch to Real mode before importing a hardware cfg.
 
 Do not rename those devices to generic aliases in the demo `.cfg`. With the current
 DemoCamera build, renaming them breaks the `Fluorescent Beads` XY image coupling. In Demo
@@ -393,8 +402,9 @@ The import has deliberately narrow behavior:
 - **Save Configuration** remains the only Web UI action that persists the form to
   `runtime_config.json`.
 
-The import workflow is disabled in Demo mode because Demo mode uses the managed cfg and
-known device mapping. The backend also rejects external cfg imports in Demo mode.
+The import workflow is available only in Real mode. Demo mode uses the managed cfg and
+known device mapping, while Mock mode does not initialize external Micro-Manager hardware.
+The backend rejects external cfg imports in both Demo and Mock modes.
 
 #### CLI: ai-map
 
@@ -425,7 +435,7 @@ uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg --apply
   rule-based draft without calling the LLM.
 - AI output is a recommendation. Review `REVIEW`-marked, low-confidence, and
   `manual_required` fields before applying.
-- Like the Web UI, `ai-map` is disabled while `microscope_mode` is `demo`.
+- Like the Web UI, `ai-map` is available only while `microscope_mode` is `real`.
 
 AI output is a recommendation, not hardware verification. Test the resulting mapping with
 low-risk operations before automated acquisition.
@@ -510,15 +520,6 @@ The script installs:
 detector_models/cell2d/weights.pth
 detector_models/organoid/weights.pth
 detector_models/mitosis/weights.pth
-```
-
-The modality-specific transfer-package detectors use the same local asset convention:
-
-```text
-detector_models/cell2d_brightfield/weights.pth
-detector_models/cell2d_fluorescence/weights.pth
-detector_models/organoid_brightfield/weights.pth
-detector_models/organoid_fluorescence/weights.pth
 ```
 
 Only detector `config.py` files are intended to live in the repository. Checkpoint
@@ -657,8 +658,10 @@ Known legacy label values are normalized to their matching semantic keys when lo
 `system.Min_exposure` and `system.Max_exposure` define the exposure range enforced by the
 microscope controller, alongside the existing motion and brightness limits.
 
-Detection targets are configured independently. Each target may define its model paths,
-class, output filename, and confidence threshold:
+EIMS currently registers three detector presets: `2Dcell`, `organoid`, and `mitosis`.
+Their defaults are defined centrally in `bootstrap.config.DEFAULT_DETECTION_TARGETS`.
+`config/runtime_config.json` may override the class, confidence threshold, output
+filename, and local model paths for each registered target:
 
 ```json
 {
@@ -671,22 +674,6 @@ class, output filename, and confidence threshold:
       "model_config": "detector_models/cell2d/config.py",
       "model_checkpoint": "detector_models/cell2d/weights.pth"
     },
-    "2Dcell_brightfield": {
-      "target_class_id": 0,
-      "target_class_name": "2D_cell",
-      "score_thr": 0.2,
-      "output_filename": "2Dcell_brightfield_locations_list.json",
-      "model_config": "detector_models/cell2d_brightfield/config.py",
-      "model_checkpoint": "detector_models/cell2d_brightfield/weights.pth"
-    },
-    "2Dcell_fluorescence": {
-      "target_class_id": 0,
-      "target_class_name": "2D_cell",
-      "score_thr": 0.2,
-      "output_filename": "2Dcell_fluorescence_locations_list.json",
-      "model_config": "detector_models/cell2d_fluorescence/config.py",
-      "model_checkpoint": "detector_models/cell2d_fluorescence/weights.pth"
-    },
     "organoid": {
       "target_class_id": 0,
       "target_class_name": "organoid",
@@ -694,22 +681,6 @@ class, output filename, and confidence threshold:
       "output_filename": "organoid_locations_list.json",
       "model_config": "detector_models/organoid/config.py",
       "model_checkpoint": "detector_models/organoid/weights.pth"
-    },
-    "organoid_brightfield": {
-      "target_class_id": 0,
-      "target_class_name": "Organoids",
-      "score_thr": 0.2,
-      "output_filename": "organoid_brightfield_locations_list.json",
-      "model_config": "detector_models/organoid_brightfield/config.py",
-      "model_checkpoint": "detector_models/organoid_brightfield/weights.pth"
-    },
-    "organoid_fluorescence": {
-      "target_class_id": 0,
-      "target_class_name": "Organoids",
-      "score_thr": 0.2,
-      "output_filename": "organoid_fluorescence_locations_list.json",
-      "model_config": "detector_models/organoid_fluorescence/config.py",
-      "model_checkpoint": "detector_models/organoid_fluorescence/weights.pth"
     },
     "mitosis": {
       "target_class_id": 0,
@@ -725,6 +696,8 @@ class, output filename, and confidence threshold:
 
 `model_checkpoint` is a local runtime path. Large detector checkpoints are distributed
 through GitHub Releases and must be downloaded to the referenced local path.
+Reviewer-facing qualitative examples for all three presets are available in
+`docs_public/detector_model_examples/`; they do not introduce additional detector weights.
 
 ## 🏗️ Architecture
 

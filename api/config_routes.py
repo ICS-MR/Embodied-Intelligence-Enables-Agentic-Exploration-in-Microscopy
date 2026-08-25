@@ -21,6 +21,7 @@ from api.models import (
 from bootstrap.config import (
     build_demo_startup_overrides,
     build_demo_system_overrides,
+    build_mock_microscope_capabilities,
     is_demo_mapping_payload,
     read_config_snapshot,
     load_runtime_settings,
@@ -106,6 +107,7 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         real_startup_draft=persisted_snapshot["startup"],
         demo_system=build_demo_system_overrides(),
         demo_startup=build_demo_startup_overrides(),
+        mock_capabilities=build_mock_microscope_capabilities(),
         transmitted_light_runtime=runtime_manager.get_transmitted_light_runtime_info(),
         agent=snapshot["agent"],
         startup=snapshot["startup"],
@@ -230,7 +232,7 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
     startup_current = snapshot["startup"]
     microscope_mode = str(req.microscope_mode or "demo").strip().lower()
     preserve_persisted_hardware_fields = (
-        microscope_mode == "demo"
+        microscope_mode in {"demo", "mock"}
         or is_demo_mapping_payload(
             config_path=req.config_path,
             camera_device=req.camera_device,
@@ -244,36 +246,40 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         )
     )
     system_updates = {
-        "MM_DIR": coalesce_text(req.mm_dir, system_current["MM_DIR"]),
+        "MM_DIR": (
+            system_current["MM_DIR"]
+            if preserve_persisted_hardware_fields
+            else coalesce_text(req.mm_dir, system_current["MM_DIR"])
+        ),
         "CONFIG_PATH": (
             system_current["CONFIG_PATH"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else normalize_config_path(req.config_path, system_current["CONFIG_PATH"])
         ),
         "FIJI_PATH": coalesce_text(req.fiji_path, system_current["FIJI_PATH"]),
         "camera_device": (
             system_current["camera_device"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else coalesce_text(req.camera_device, system_current["camera_device"])
         ),
         "xy_stage_device": (
             system_current["xy_stage_device"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else coalesce_text(req.xy_stage_device, system_current["xy_stage_device"])
         ),
         "objective_device": (
             system_current["objective_device"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else coalesce_text(req.objective_device, system_current["objective_device"])
         ),
         "focus_drive": (
             system_current["focus_drive"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else coalesce_text(req.focus_drive, system_current["focus_drive"])
         ),
         "Dichroic": (
             system_current["Dichroic"]
-            if microscope_mode == "demo" or preserve_persisted_hardware_fields
+            if preserve_persisted_hardware_fields
             else coalesce_text(req.Dichroic, system_current["Dichroic"])
         ),
     }
@@ -287,11 +293,11 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
     maybe_number_update(system_updates, "Min_brightness", req.Min_brightness)
     maybe_number_update(system_updates, "Max_exposure", req.Max_exposure)
     maybe_number_update(system_updates, "Min_exposure", req.Min_exposure)
-    if req.objectives and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+    if req.objectives and not preserve_persisted_hardware_fields:
         system_updates["objectives"] = req.objectives
-    if req.channels and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+    if req.channels and not preserve_persisted_hardware_fields:
         system_updates["channels"] = req.channels
-    if req.transmitted_light and not (microscope_mode == "demo" or preserve_persisted_hardware_fields):
+    if req.transmitted_light and not preserve_persisted_hardware_fields:
         system_updates["transmitted_light"] = req.transmitted_light
     if req.demo_environment and microscope_mode == "demo":
         system_updates["demo_environment"] = req.demo_environment
@@ -311,19 +317,30 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         effective_system = {**system_current, **system_updates}
         startup_objective = coalesce_text(req.startup_objective, startup_current["objective"])
         startup_channel = coalesce_text(req.startup_channel, startup_current["channel"])
-        objectives = effective_system.get("objectives", {})
-        channels = effective_system.get("channels", {})
+        if microscope_mode == "mock":
+            mock_capabilities = build_mock_microscope_capabilities()
+            objectives = mock_capabilities["objectives"]
+            channels = mock_capabilities["channels"]
+        else:
+            objectives = effective_system.get("objectives", {})
+            channels = effective_system.get("channels", {})
         objective_entry = objectives.get(startup_objective, {}) if isinstance(objectives, dict) else {}
         channel_entry = channels.get(startup_channel, {}) if isinstance(channels, dict) else {}
-        if not isinstance(objective_entry, dict) or not str(objective_entry.get("label") or "").strip():
+        objective_is_valid = isinstance(objective_entry, dict) and bool(objective_entry) and (
+            microscope_mode == "mock" or bool(str(objective_entry.get("label") or "").strip())
+        )
+        channel_is_valid = isinstance(channel_entry, dict) and bool(channel_entry) and (
+            microscope_mode == "mock" or bool(str(channel_entry.get("label") or "").strip())
+        )
+        if not objective_is_valid:
             raise HTTPException(
                 status_code=422,
-                detail=f"Startup objective '{startup_objective}' is not present in the current objective mapping.",
+                detail=f"Startup objective '{startup_objective}' is not available in {microscope_mode} microscope mode.",
             )
-        if not isinstance(channel_entry, dict) or not str(channel_entry.get("label") or "").strip():
+        if not channel_is_valid:
             raise HTTPException(
                 status_code=422,
-                detail=f"Startup channel '{startup_channel}' is not present in the current channel mapping.",
+                detail=f"Startup channel '{startup_channel}' is not available in {microscope_mode} microscope mode.",
             )
         startup_updates = {
             "objective": startup_objective,
@@ -351,7 +368,7 @@ async def save_config(req: ConfigSaveRequest, runtime_manager=Depends(get_runtim
         initialized=save_result["initialized"],
         initializing=save_result.get("initializing", False),
         message=save_result["message"],
-        effective_config_path=saved_snapshot["system"]["CONFIG_PATH"],
+        effective_config_path="" if microscope_mode == "mock" else saved_snapshot["system"]["CONFIG_PATH"],
         system_phase=save_result.get("system_phase", runtime_manager.system_status.system_phase),
         preview_phase=preview_phase,
         failure_step=save_result.get("failure_step", runtime_manager.system_status.failure_step),

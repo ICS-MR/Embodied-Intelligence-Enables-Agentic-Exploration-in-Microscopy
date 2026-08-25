@@ -69,7 +69,7 @@ class MicroscopeController(BaseTool):
         self.objective_labels = dict(getattr(system_config, "objective_labels", {}))
         self.dichroic_colors = dict(getattr(system_config, "dichroic_colors", {}))
 
-        # Axis and parameter ranges (mock overlay widens Z so calibration values fit).
+        # Axis and parameter ranges come directly from the persisted runtime configuration.
         self.Max_X_position = float(getattr(system_config, "Max_X_position"))
         self.Min_X_position = float(getattr(system_config, "Min_X_position"))
         self.Max_Y_position = float(getattr(system_config, "Max_Y_position"))
@@ -676,6 +676,7 @@ class MicroscopeController(BaseTool):
     def get_transmitted_light_runtime_info(self) -> Dict[str, Any]:
         """Report simulated transmitted-light runtime information."""
         return {
+            "available": True,
             "device": self.brightness_device,
             "property": self.brightness_property,
             "control_kind": "mock_in_memory",
@@ -684,7 +685,7 @@ class MicroscopeController(BaseTool):
         }
 
     def _supports_transmitted_brightness(self) -> bool:
-        return bool(self.brightness_device)
+        return True
 
     # ------------------------------------------------------------------
     # External hardware-owner handoff

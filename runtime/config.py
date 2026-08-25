@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from bootstrap.config import ModelConfig, RuntimeSettings, TaskRuntimeConfig
+from bootstrap.config import ModelConfig, RuntimeSettings, TaskRuntimeConfig, build_mock_system_config
 from bootstrap.microscope_semantics import render_microscope_prompt_template
 from prompts.shared.function_generation import prompt_fgen
 from prompts.checker.quality_checker import (
@@ -210,9 +210,11 @@ def build_shared_lmp_configs(model_config: ModelConfig, system_config: Any | Non
 
 
 def build_runtime_config(settings: RuntimeSettings) -> Dict[str, Any]:
+    microscope_mode = str(getattr(settings.model, "microscope_mode", "demo")).strip().lower()
+    system_config = build_mock_system_config(settings.system) if microscope_mode == "mock" else settings.system
     return {
         "agent": settings.model,
-        "system": settings.system,
+        "system": system_config,
         "task": TaskRuntimeConfig(),
         "detection_targets": {
             str(key): dict(value)

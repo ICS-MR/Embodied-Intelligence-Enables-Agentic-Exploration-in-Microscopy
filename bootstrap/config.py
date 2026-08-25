@@ -3,6 +3,7 @@ import csv
 import logging
 import os
 import tempfile
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,72 @@ DEFAULT_TRANSMITTED_LIGHT: Dict[str, Any] = {
     "max": 250,
 }
 PUBLIC_TRANSMITTED_LIGHT_FIELDS = ("device", "intensity_property", "min", "max")
+
+DEFAULT_MOCK_OBJECTIVES: Dict[str, Dict[str, Any]] = {
+    "4x": {
+        "label": "4x",
+        "magnification": 4,
+        "display_name": "4x objective",
+        "pixel_size_um": 1.002084654,
+    },
+    "10x": {
+        "label": "10x",
+        "magnification": 10,
+        "display_name": "10x objective",
+        "pixel_size_um": 0.722713336,
+    },
+    "20x": {
+        "label": "20x",
+        "magnification": 20,
+        "display_name": "20x objective",
+        "pixel_size_um": 0.523608915,
+    },
+    "30x": {
+        "label": "30x",
+        "magnification": 30,
+        "display_name": "30x objective",
+        "pixel_size_um": 0.424891983,
+    },
+    "40x": {
+        "label": "40x",
+        "magnification": 40,
+        "display_name": "40x objective",
+        "pixel_size_um": 0.346901072,
+    },
+    "60x": {
+        "label": "60x",
+        "magnification": 60,
+        "display_name": "60x objective",
+        "pixel_size_um": 0.282669965,
+    },
+}
+
+DEFAULT_MOCK_CHANNELS: Dict[str, Dict[str, Any]] = {
+    "brightfield": {
+        "label": "brightfield",
+        "display_name": "Brightfield",
+        "color": [128, 128, 128],
+        "illumination": "transmitted",
+    },
+    "dapi": {
+        "label": "dapi",
+        "display_name": "DAPI / 405 nm",
+        "color": [0, 0, 255],
+        "illumination": "fluorescence",
+    },
+    "fitc": {
+        "label": "fitc",
+        "display_name": "FITC / 488 nm",
+        "color": [0, 255, 0],
+        "illumination": "fluorescence",
+    },
+    "tritc": {
+        "label": "tritc",
+        "display_name": "TRITC / 640 nm",
+        "color": [255, 0, 0],
+        "illumination": "fluorescence",
+    },
+}
 
 DEMO_OBJECTIVES: Dict[str, Dict[str, Any]] = {
     "4x": {"label": "1-UPLFLN4XPH", "magnification": 4, "display_name": "4x objective"},
@@ -285,6 +352,50 @@ class SystemConfig:
     fiji_executor_timeout_seconds: float = 300.0
 
 
+def build_mock_microscope_capabilities() -> Dict[str, Any]:
+    objectives = deepcopy(DEFAULT_MOCK_OBJECTIVES)
+    channels = deepcopy(DEFAULT_MOCK_CHANNELS)
+    for key, entry in objectives.items():
+        pixel_size = entry.get("pixel_size_um")
+        try:
+            resolved_pixel_size = float(pixel_size)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Mock objective '{key}' has invalid pixel_size_um={pixel_size!r}.") from exc
+        if resolved_pixel_size <= 0:
+            raise ValueError(f"Mock objective '{key}' pixel_size_um must be positive, got {resolved_pixel_size!r}.")
+    return {
+        "objectives": objectives,
+        "channels": channels,
+        "transmitted_light": {
+            "device": "",
+            "intensity_property": "",
+            "min": 0,
+            "max": 250,
+        },
+    }
+
+
+def build_mock_system_config(system_config: SystemConfig) -> SystemConfig:
+    mock_system = deepcopy(system_config)
+    capabilities = build_mock_microscope_capabilities()
+    mock_system.MM_DIR = ""
+    mock_system.CONFIG_PATH = ""
+    mock_system.camera_device = ""
+    mock_system.xy_stage_device = ""
+    mock_system.objective_device = ""
+    mock_system.focus_drive = ""
+    mock_system.Dichroic = ""
+    mock_system.objectives = capabilities["objectives"]
+    mock_system.channels = capabilities["channels"]
+    mock_system.transmitted_light = {
+        **capabilities["transmitted_light"],
+        "min": mock_system.Min_brightness,
+        "max": mock_system.Max_brightness,
+    }
+    _normalize_system_semantics(mock_system)
+    return mock_system
+
+
 @dataclass
 class ModelConfig:
     microscope_mode: str = "demo"
@@ -426,49 +537,13 @@ def build_demo_system_overrides() -> Dict[str, Any]:
 
 def build_demo_startup_overrides() -> Dict[str, Any]:
     return {
-        "objective": "40x",
+        "objective": "4x",
         "channel": "brightfield",
         "exposure": 100.0,
         "brightness": 100,
         "z_position": 0.0,
-        "x_position": 50000.0,
-        "y_position": 50000.0,
-    }
-
-
-def build_mock_system_overrides() -> Dict[str, Any]:
-    return {
-        "CONFIG_PATH": str(DEMO_CONFIG_PATH),
-        "camera_device": "DCam",
-        "xy_stage_device": "DXYStage",
-        "objective_device": "DObjective",
-        "focus_drive": "DStage",
-        "Dichroic": "DStateDevice",
-        "objectives": _demo_objectives_from_cfg(),
-        "channels": json.loads(json.dumps(DEMO_CHANNELS)),
-        "transmitted_light": dict(DEMO_TRANSMITTED_LIGHT),
-        "Min_X_position": -5000000.0,
-        "Max_X_position": 5000000.0,
-        "Min_Y_position": -5000000.0,
-        "Max_Y_position": 5000000.0,
-        "Min_Z_position": 0.0,
-        "Max_Z_position": 10000.0,
-        "Min_brightness": 0,
-        "Max_brightness": 250,
-        "Min_exposure": 0,
-        "Max_exposure": 1000,
-    }
-
-
-def build_mock_startup_overrides() -> Dict[str, Any]:
-    return {
-        "objective": "40x",
-        "channel": "brightfield",
-        "exposure": 10.0,
-        "brightness": 100,
-        "z_position": 4323.0,
-        "x_position": 50000.0,
-        "y_position": 50000.0,
+        "x_position": 0.0,
+        "y_position": 0.0,
     }
 
 
@@ -583,15 +658,6 @@ def _apply_demo_system_overrides(system_config: SystemConfig) -> None:
 
 def _apply_demo_startup_overrides(startup_config: StartupConfig) -> None:
     _update_dataclass(startup_config, build_demo_startup_overrides())
-
-
-def _apply_mock_system_overrides(system_config: SystemConfig) -> None:
-    _update_dataclass(system_config, build_mock_system_overrides())
-    _normalize_system_semantics(system_config)
-
-
-def _apply_mock_startup_overrides(startup_config: StartupConfig) -> None:
-    _update_dataclass(startup_config, build_mock_startup_overrides())
 
 
 def _objectives_from_legacy_labels(objective_labels: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:

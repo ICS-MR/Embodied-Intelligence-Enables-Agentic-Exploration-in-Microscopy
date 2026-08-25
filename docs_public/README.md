@@ -9,7 +9,8 @@ This directory contains only polished/published content.
 | --- | --- |
 | `c3_calibration/` | Conformal prediction calibration: `calibration_overview.json` (calibration dataset) and `compute_conformal_threshold.py` (non-conformity / conformal threshold calculation). |
 | `c3_knowledge_base/` | C3 Domain Prior: reviewed exemplar set (`knowledge_base_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
-| `documents/` | Organized dataset and experimental-outcome release: 7 task datasets + 14 experimental outcome collections (detailed below). |
+| `documents/` | Organized dataset and experimental-outcome release: 5 task datasets + 14 experimental outcome collections (detailed below). |
+| `Demo_test/` | End-to-end Demo workflow showcases with display Markdown and generated image/detection artifacts. |
 | `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
 | `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
 | `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, and mitosis. |
@@ -27,6 +28,12 @@ Primary index: [detector_model_examples/README.md](detector_model_examples/READM
 | `mitosis` | Original annotated mitosis qualitative subset | Existing system checkpoint: `detector_models/mitosis/weights.pth` |
 
 No detector weights are copied into `docs_public/`; inference uses the system-registered detector presets.
+
+## Demo Workflow Showcases
+
+Primary index: [Demo_test/README.md](Demo_test/README.md).
+
+`Demo_test/` contains self-contained, reviewer-facing execution showcases for bright-spot detection with 60x follow-up acquisition and multi-channel fluorescence merging. These are illustrative workflow records and generated artifacts, not benchmark datasets.
 
 ## Low-Level Policy Baselines
 
@@ -50,9 +57,9 @@ Primary index: [documents/README.md](documents/README.md).
 
 | Directory | Reference | Content / Status |
 | --- | --- | --- |
-| `different_sample_task_dataset/` | Table 1, S1 | Extracted task set (task_set.json/md). |
-| `generalization_dataset/` | Table S2 | Extracted task set. |
-| `ambiguous_task_dataset/` | Table S3 | Extracted user-input task set. |
+| `different_sample_task_dataset/` | Table 1, S1 | Extracted task set (`task_set.json`) and dataset README. |
+| `generalization_dataset/` | Table S2 | Extracted task set (`task_set.json`) and dataset README. |
+| `ambiguous_task_dataset/` | Table S3 | Extracted user-input task set (`task_set.json`) and dataset README. |
 | `imaging_perturbation_dataset/` | - | Perturbation sample images + state_metadata.json. |
 | `teleoperation_dataset/` | - | Download link (external Hugging Face asset, too large to bundle). |
 
