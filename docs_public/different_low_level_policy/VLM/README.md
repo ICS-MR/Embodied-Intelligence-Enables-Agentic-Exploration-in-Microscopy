@@ -22,8 +22,12 @@ on the same microscopy image. Three modes are supported:
 - `model`: tiled MMDetection inference with global NMS.
 - `compare`: COCO-style metric comparison (precision, recall, F1, localization error).
 
-Includes a `localization_toolkit/` package with CLI and Python API, plus unit
-tests. See `vlm_location_comparison/README.md` for full usage instructions.
+Includes a `localization_toolkit/` package with CLI and Python API, plus optional
+implementation self-checks that are not evaluation data. See
+`vlm_location_comparison/README.md` for full usage instructions.
+VLM endpoint credentials are configured in the gitignored `vlm_api_config.json`
+(copy the committed `vlm_api_config.example.json` and fill it in); never commit
+real credentials.
 
 ## vlm_focus_and_brightness
 

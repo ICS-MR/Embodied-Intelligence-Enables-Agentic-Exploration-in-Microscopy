@@ -30,6 +30,7 @@ class LocalizationConfig:
     # VLM settings.
     detection_threshold: float = 0.3
     query_texts: Sequence[str] = field(default_factory=lambda: ("cell",))
+    use_env_proxy: bool = True
 
     # Optional evaluation settings.
     gt_annotation_file: str | None = None
@@ -140,6 +141,7 @@ def run_vlm_localization(cfg: LocalizationConfig) -> int:
         str(raw_json),
         cfg.detection_threshold,
         list(cfg.query_texts),
+        use_env_proxy=cfg.use_env_proxy,
         show_window=False,
     )
 
@@ -166,10 +168,18 @@ def compare_localizations(
             str(output_dir / "model_detection_result.json"),
             str(output_dir / "vlm_output_coco.json"),
         ]
+    pred_files = list(pred_files)
+    missing_pred_files = [pred_file for pred_file in pred_files if not Path(pred_file).is_file()]
+    if missing_pred_files:
+        raise FileNotFoundError(
+            "Prediction file(s) not found. Run --mode model and --mode vlm first, "
+            "or pass --model-pred and --vlm-pred explicitly: "
+            + ", ".join(missing_pred_files)
+        )
 
     return compare_coco_predictions(
         gt_annotation_file=cfg.gt_annotation_file,
-        pred_files=list(pred_files),
+        pred_files=pred_files,
         method_names=list(method_names),
         iou_threshold=cfg.iou_threshold,
         confidence_threshold=cfg.confidence_threshold,

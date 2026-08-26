@@ -8,11 +8,19 @@ import time
 import cv2
 import os
 import io
+from pathlib import Path
+from urllib.request import getproxies
 
-# Replace these placeholders before running VLM inference.
+# Fallback credentials used only when the local API config file is absent.
+# Prefer filling docs_public/different_low_level_policy/VLM/vlm_api_config.json
+# (copy it from vlm_api_config.example.json) instead of editing these.
 API_KEY = "<your-vlm-api-key>"
 API_URL = "<your-vlm-api-endpoint>"
 MODEL_NAME = "<your-vlm-model-name>"
+
+# Local API configuration file (gitignored):
+# docs_public/different_low_level_policy/VLM/vlm_api_config.json
+DEFAULT_API_CONFIG_PATH = Path(__file__).resolve().parents[2] / "vlm_api_config.json"
 
 # Maximum input edge length.
 MAX_INPUT_SIZE = 512
@@ -36,8 +44,7 @@ def encode_image_from_pil(image, quality=95, progressive=False):
         img_byte_arr.seek(0)
         return base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
     except Exception as e:
-        print(f"Image encoding failed: {str(e)}")
-        return None
+        raise RuntimeError(f"Image encoding failed: {e}") from e
 
 
 def encode_image(image_path):
@@ -47,29 +54,72 @@ def encode_image(image_path):
             img = img.convert("RGB")
             return encode_image_from_pil(img, IMAGE_QUALITY, PROGRESSIVE_JPEG)
     except Exception as e:
-        print(f"Unable to read and encode image: {str(e)}")
-        return None
+        raise ValueError(f"Unable to read and encode image {os.path.abspath(image_path)}: {e}") from e
 
 
-def _load_api_config():
-    values = {
-        "API_KEY": str(API_KEY).strip(),
-        "API_URL": str(API_URL).strip(),
-        "MODEL_NAME": str(MODEL_NAME).strip(),
-    }
+def _load_api_config(config_path=None):
+    """Load VLM API credentials from the local config file, falling back to module constants.
+
+    The config file is a JSON object with api_key / api_url / model_name keys.
+    Pass `config_path` explicitly for testing; otherwise the default gitignored
+    file under docs_public/different_low_level_policy/VLM/ is used.
+    """
+    if config_path is not None:
+        path = Path(config_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"VLM API config file not found: {path}")
+    else:
+        path = DEFAULT_API_CONFIG_PATH
+
+    if path.is_file():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"VLM API config file is not valid JSON: {path}: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"VLM API config file must contain a JSON object: {path}")
+        values = {
+            "API_KEY": str(payload.get("api_key") or "").strip(),
+            "API_URL": str(payload.get("api_url") or "").strip(),
+            "MODEL_NAME": str(payload.get("model_name") or "").strip(),
+        }
+        source = str(path)
+    else:
+        values = {
+            "API_KEY": str(API_KEY).strip(),
+            "API_URL": str(API_URL).strip(),
+            "MODEL_NAME": str(MODEL_NAME).strip(),
+        }
+        source = "module constants"
+
     unconfigured = [
         name for name, value in values.items()
         if not value or (value.startswith("<") and value.endswith(">"))
     ]
     if unconfigured:
         raise RuntimeError(
-            "VLM API configuration contains placeholders. Replace: "
-            f"{', '.join(unconfigured)} in localization_toolkit/vlm_inference.py."
+            "VLM API configuration contains placeholders. Fill "
+            f"{', '.join(unconfigured)} in the local config file "
+            f"{DEFAULT_API_CONFIG_PATH} (copy from vlm_api_config.example.json)."
         )
     return values["API_KEY"], values["API_URL"], values["MODEL_NAME"]
 
 
-def call_qwen_vl_api(image_b64, queries):
+def _proxy_summary():
+    proxies = getproxies()
+    if not proxies:
+        return "none"
+    redacted = {}
+    for key, value in proxies.items():
+        proxy_value = str(value)
+        if "://" in proxy_value and "@" in proxy_value:
+            scheme, rest = proxy_value.split("://", 1)
+            proxy_value = f"{scheme}://***:***@{rest.split('@', 1)[1]}"
+        redacted[key] = proxy_value
+    return ", ".join(f"{key}={value}" for key, value in sorted(redacted.items()))
+
+
+def call_qwen_vl_api(image_b64, queries, *, use_env_proxy=True):
     api_key, api_url, model_name = _load_api_config()
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -109,8 +159,16 @@ def call_qwen_vl_api(image_b64, queries):
         "response_format": {"type": "json_object"}
     }
 
+    # OpenAI-compatible chat endpoints expect the /chat/completions path; the
+    # configured api_url may be a base URL (e.g. https://host/v1).
+    endpoint = str(api_url).strip().rstrip("/")
+    if not endpoint.endswith("/chat/completions"):
+        endpoint += "/chat/completions"
+
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=120)
+        session = requests.Session()
+        session.trust_env = bool(use_env_proxy)
+        response = session.post(endpoint, headers=headers, json=payload, timeout=120)
         response.raise_for_status()
         result = response.json()
 
@@ -122,6 +180,12 @@ def call_qwen_vl_api(image_b64, queries):
         detail = ""
         if exc.response is not None:
             detail = f" Response: {exc.response.text}"
+        if isinstance(exc, requests.ProxyError):
+            detail += (
+                " Python proxy settings: "
+                f"{_proxy_summary()}. Retry with --no-env-proxy to bypass environment proxies, "
+                "or fix the local proxy before rerunning."
+            )
         raise RuntimeError(f"VLM API request failed: {exc}.{detail}") from exc
 
 
@@ -129,7 +193,7 @@ def parse_detection_results(api_response, image_width, image_height, detection_t
     """Parse a VLM response and convert normalized coordinates to pixels."""
     try:
         if not api_response:
-            return [], [], []
+            raise ValueError("VLM response is empty")
 
         cleaned = str(api_response).strip()
         if cleaned.startswith("```"):
@@ -215,7 +279,7 @@ def draw_boxes(image, boxes, scores, labels):
         try:
             font = ImageFont.truetype(font_path, 16)
             break
-        except:
+        except OSError:
             continue
     if font is None:
         font = ImageFont.load_default()
@@ -230,8 +294,8 @@ def draw_boxes(image, boxes, scores, labels):
             x0, y0 = box[0], box[1] - text_height - 4
             draw.rectangle([x0 - 2, y0 - 2, x0 + text_width + 2, y0 + text_height + 2], fill=(0, 0, 0, 180))
             draw.text((x0, y0), label_text, fill="white", font=font)
-        except:
-            # fallback if textbbox fails
+        except (AttributeError, OSError, ValueError):
+            # Older Pillow versions or unusual fonts can fail textbbox; keep the saved visualization usable.
             draw.text((box[0], box[1] - 20), label_text, fill="white", font=font)
 
     return image
@@ -265,6 +329,7 @@ def vlm_inference(
     DETECTION_THRESHOLD,
     QUERY_TEXTS,
     *,
+    use_env_proxy=True,
     show_window=False,
 ):
     print("===== VLM localization (resize and JPEG compression) =====")
@@ -301,8 +366,7 @@ def vlm_inference(
     image_b64 = encode_image_from_pil(input_image, IMAGE_QUALITY, PROGRESSIVE_JPEG)
 
     if not image_b64:
-        print("Image encoding failed; stopping inference")
-        return
+        raise RuntimeError("Image encoding returned an empty payload")
 
     # Estimate the decoded JPEG size from the base64 payload.
     compressed_size = len(image_b64) * 3 / 4 / 1024
@@ -311,7 +375,7 @@ def vlm_inference(
     # 4. Call the VLM API.
     print("Calling VLM API...")
     start_time = time.time()
-    api_response = call_qwen_vl_api(image_b64, QUERY_TEXTS)
+    api_response = call_qwen_vl_api(image_b64, QUERY_TEXTS, use_env_proxy=use_env_proxy)
     elapsed = time.time() - start_time
     print(f"API response time: {elapsed:.2f} seconds")
 
@@ -364,18 +428,3 @@ def vlm_inference(
             print(f"Unable to display image; saved outputs are unaffected: {exc}")
 
     return len(boxes)
-
-
-if __name__ == "__main__":
-    # Example configuration
-    IMAGE_PATH = r"pos_4x.ome.png"
-    OUTPUT_IMAGE = "output_scaled.jpg"
-    OUTPUT_JSON = "detections_scaled.json"
-    DETECTION_THRESHOLD = 0.3
-    QUERY_TEXTS = ["cell"]
-
-    # Compression parameters can be adjusted for local experiments.
-    # IMAGE_QUALITY = 75  # Lower quality produces a smaller payload.
-    # PROGRESSIVE_JPEG = True
-
-    vlm_inference(IMAGE_PATH, OUTPUT_IMAGE, OUTPUT_JSON, DETECTION_THRESHOLD, QUERY_TEXTS)

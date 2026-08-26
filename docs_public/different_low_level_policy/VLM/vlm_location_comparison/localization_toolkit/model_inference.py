@@ -1,4 +1,3 @@
-# mmdet_tiled_inference_clean.py
 from mmdet.apis import init_detector, inference_detector
 from mmdet.visualization import DetLocalVisualizer
 from mmengine.structures import InstanceData
@@ -87,9 +86,11 @@ def detect_and_save_tiled_mmdet(
             # Run inference on this tile.
             try:
                 result = inference_detector(model, tile_img)
-            except Exception as e:
-                print(f"   Warning: inference failed for tile {tile_idx}: {e}")
-                continue
+            except Exception as exc:
+                raise RuntimeError(
+                    f"MMDetection inference failed for tile {tile_idx} "
+                    f"at x={x_min}:{x_max}, y={y_min}:{y_max}"
+                ) from exc
 
             pred = result.pred_instances.cpu()
             mask = pred.scores >= score_thr
@@ -216,26 +217,3 @@ def detect_and_save_tiled_mmdet(
         print(f"No detections; saved the original image to {output_img}")
 
     return json_results, model
-
-
-# Usage example
-if __name__ == "__main__":
-    config_file = r'work_dirs/2D_/2D_.py'
-    checkpoint_file = r'work_dirs/2D_/epoch_50.pth'
-    img_path = r"result_9blocks.jpg"
-
-    detect_and_save_tiled_mmdet(
-        config_file=config_file,
-        checkpoint_file=checkpoint_file,
-        img_path=img_path,
-        output_json="detection_result.json",
-        output_img="detection_result.jpg",
-        device='cuda:0',
-        score_thr=0.5,
-        nms_thr=0.5,
-        tile_size=2048,
-        overlap=128,
-        image_id=1,
-        category_id=1,
-        pad_to_tile_size=True  # Recommended for edge tiles.
-    )

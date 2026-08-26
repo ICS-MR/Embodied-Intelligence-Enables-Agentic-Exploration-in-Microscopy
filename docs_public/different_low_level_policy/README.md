@@ -19,7 +19,7 @@ with the EIMS workflow in manuscript analyses.
 
 | Path | Content |
 | --- | --- |
-| `VLM/vlm_location_comparison/` | VLM localization comparison workflow against local MMDetection predictions. |
+| `VLM/vlm_location_comparison/` | Single-image VLM vs tiled MMDetection localization comparison with COCO-style outputs; supports `detector_model_examples` presets and includes non-evaluation implementation self-checks. |
 | `VLM/vlm_focus_and_brightness/` | VLM focus and brightness benchmark scripts. |
 | `ACT_VLA/Micromanipulation_tool/` | ACT-style VLA micromanipulation code for data collection, training, and inference. |
 | `ACT_VLA/ACT_for_microscopy/` | Placeholder and layout notes for the external ACT/VLA weight bundle. |
@@ -29,4 +29,5 @@ with the EIMS workflow in manuscript analyses.
 - These baselines are not required for the default EIMS runtime, Micro-Manager demo mode, real microscope setup, Fiji/ImageJ integration, or the standard planner/executor/checker workflow.
 - VLM materials focus on visual perception and low-level decision comparisons, not on replacing the EIMS planner or execution runtime.
 - ACT/VLA materials provide policy-training and inference code for comparative low-level control experiments; model weights and large external assets should be restored separately as documented in the corresponding subfolder.
+- Self-check folders under these baselines validate implementation behavior only; they are not held-out evaluation datasets or reported benchmarks.
 - Runtime configuration for EIMS remains governed by the root README and `config/runtime_config.example.json`, not by the baseline folders here.

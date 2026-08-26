@@ -17,7 +17,7 @@ The workflow supports three actions:
 - `localization_toolkit/model_inference.py`: tiled MMDetection inference, global NMS, COCO result export, and visualization.
 - `localization_toolkit/vlm_inference.py`: Qwen-VL localization, coordinate conversion, raw JSON export, and visualization.
 - `localization_toolkit/evaluation.py`: COCO-style prediction comparison and error plots.
-- `tests/test_localization_toolkit.py`: unit tests for API configuration, response parsing, COCO conversion, and comparison metrics.
+- `self_checks/check_localization_toolkit.py`: implementation self-checks for parsing, COCO conversion, and comparison metrics. This is not an evaluation dataset.
 - `requirements.txt`: runtime dependencies, including `mmdet` and `mmengine`. The CUDA/PyTorch-compatible `mmcv` build must be installed separately (see below).
 
 ## Command Line Usage
@@ -31,14 +31,62 @@ uv pip install --python .venv\Scripts\python.exe -r docs_public\different_low_le
 The local-model mode also requires the CUDA/PyTorch-compatible MMCV build documented
 in the repository's main README.
 
-Before using `--mode vlm`, replace the configuration placeholders at the top of
-`localization_toolkit/vlm_inference.py`:
+Before using `--mode vlm`, create the local API config file from the committed
+template and fill in the three fields:
 
-```python
-API_KEY = "<your-vlm-api-key>"
-API_URL = "<your-vlm-api-endpoint>"
-MODEL_NAME = "<your-vlm-model-name>"
+```powershell
+Copy-Item docs_public\different_low_level_policy\VLM\vlm_api_config.example.json docs_public\different_low_level_policy\VLM\vlm_api_config.json
 ```
+
+```json
+{
+  "api_key": "<your-vlm-api-key>",
+  "api_url": "<your-vlm-api-endpoint>",
+  "model_name": "<your-vlm-model-name>"
+}
+```
+
+`vlm_api_config.json` is gitignored; never commit real credentials to this repository.
+
+Recommended preset workflow using `docs_public/detector_model_examples` assets:
+
+```powershell
+$env:PYTHONPATH = "docs_public/different_low_level_policy/VLM/vlm_location_comparison"
+$out = "localization_output"
+
+python -m localization_toolkit.cli --mode vlm `
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
+
+python -m localization_toolkit.cli --mode model `
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
+
+python -m localization_toolkit.cli --mode compare `
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
+```
+
+With `--target`, the CLI resolves the image path, COCO annotation file,
+`image_id`, `category_id`, VLM query text, detector config/checkpoint paths, and
+registered detector score threshold from `detector_model_examples` and
+`bootstrap.config.DEFAULT_DETECTION_TARGETS`. Use explicit flags such as
+`--score-thr`, `--queries`, `--image-id`, or `--category-id` only when you need to
+override the preset.
+
+If the VLM call fails with a proxy error such as `Cannot connect to proxy`, retry
+with environment proxies disabled for that API request:
+
+```powershell
+python -m localization_toolkit.cli --mode vlm `
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out `
+  --no-env-proxy
+```
+
+List available preset targets:
+
+```powershell
+python -m localization_toolkit.cli --list-targets
+```
+
+Manual mode is still available for custom images and annotations:
 
 ```powershell
 python -m localization_toolkit.cli `
@@ -109,31 +157,30 @@ Per-target parameters (image IDs are read from each `annotations.json`):
 | `2Dcell` | `testset/2Dcell` | 1 | `2D_cell` | `detector_models/cell2d/config.py` | `detector_models/cell2d/weights.pth` |
 | `mitosis` | `testset/mitosis` | 0 | `mitosis` | `detector_models/mitosis/config.py` | `detector_models/mitosis/weights.pth` |
 | `organoid` | `testset/organoid` | 1 | `Organoids` | `detector_models/organoid/config.py` | `detector_models/organoid/weights.pth` |
+| `2Dcell_brightfield` | `testset/2Dcell_brightfield` | 1 | `2D_cell` | `detector_models/cell2d_brightfield/config.py` | `detector_models/cell2d_brightfield/weights.pth` |
+| `organoid_fluorescence` | `testset/organoid_fluorescence` | 1 | `Organoids` | `detector_models/organoid_fluorescence/config.py` | `detector_models/organoid_fluorescence/weights.pth` |
 
 The detector config and checkpoint paths mirror
 `bootstrap.config.DEFAULT_DETECTION_TARGETS`, so the `model` step uses the same
 registered weights as the preset detectors.
 
 Example: a single `2Dcell` image (`Image_12106.jpg`, `image_id 1`), run from the
-repository root. Set `PYTHONPATH` so `localization_toolkit` imports correctly:
+repository root. Set `PYTHONPATH` so `localization_toolkit` imports correctly.
+The preset form is preferred because it reads the image/category IDs and detector
+assets automatically:
 
 ```powershell
 $env:PYTHONPATH = "docs_public/different_low_level_policy/VLM/vlm_location_comparison"
 $out = "localization_output"
-$image = "docs_public/detector_model_examples/testset/2Dcell/images/Image_12106.jpg"
-$gt = "docs_public/detector_model_examples/testset/2Dcell/annotations.json"
 
 python -m localization_toolkit.cli --mode vlm `
-  --image $image --output-dir $out --image-id 1 --category-id 1 --queries 2D_cell
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
 
 python -m localization_toolkit.cli --mode model `
-  --image $image --output-dir $out --image-id 1 --category-id 1 `
-  --config detector_models/cell2d/config.py `
-  --checkpoint detector_models/cell2d/weights.pth
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
 
 python -m localization_toolkit.cli --mode compare `
-  --gt $gt --model-pred "$out/model_detection_result.json" `
-  --vlm-pred "$out/vlm_output_coco.json" --output-dir $out
+  --target 2Dcell --image-name Image_12106.jpg --output-dir $out
 ```
 
 Notes for this testset:
@@ -143,10 +190,11 @@ Notes for this testset:
   illustrative, not as formal mAP/precision/recall reporting.
 - `image_id` and `category_id` must match the chosen `annotations.json`; otherwise
   `compare` matches nothing and every box counts as false positive or false negative.
-- `2Dcell` and `organoid` images are 512x512, so the VLM path sends them without
-  resizing. `mitosis` images are about 1882x1891 and are downscaled to a 512 edge
-  before the VLM call, which shrinks its roughly 64x52 px targets; keep that scale
-  tradeoff in mind when interpreting `mitosis` results.
+- `2Dcell`, `organoid`, and `organoid_fluorescence` images are 512x512, so the VLM
+  path sends them without resizing. `mitosis` images are about 1882x1891 and
+  `2Dcell_brightfield` images are 2048x2048; both are downscaled to a 512 edge
+  before the VLM call, which shrinks their small targets; keep that scale tradeoff
+  in mind when interpreting `mitosis` and `2Dcell_brightfield` results.
 
 ## Outputs
 
@@ -167,14 +215,30 @@ the reported localization errors are directly comparable.
 when both their image IDs and category IDs agree. When no boxes are matched,
 the localization-error fields are `null` rather than zero.
 
+## Implementation Self-Checks
+
+The `self_checks/` folder contains small implementation checks for parser,
+converter, and metric behavior. It is included to guard the workflow code against
+accidental breakage and should not be interpreted as a held-out benchmark or
+scientific test set.
+
+Run it only when modifying the toolkit code:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE = "1"
+python -m unittest discover -s self_checks -p "check_*.py"
+```
+
 ## Notes
 
-- Run commands from this directory so Python can import `localization_toolkit`.
+- Run commands from the repository root with `PYTHONPATH` set as shown above, or
+  run from this directory directly so Python can import `localization_toolkit`.
 - MMDetection, model configs, checkpoints, input images, and COCO annotation files
   are external test assets and are not stored here.
-- VLM credentials and endpoint details are configured at the top of
-  `localization_toolkit/vlm_inference.py`. Replace all three placeholders locally,
-  and never commit real credentials to this repository.
+- VLM credentials and endpoint details are read from
+  `docs_public/different_low_level_policy/VLM/vlm_api_config.json` (gitignored),
+  created by copying `vlm_api_config.example.json` and filling in the fields.
+  Never commit real credentials to this repository.
 - The VLM request asks for bounding boxes normalized to the `0-999` coordinate range.
   The configured endpoint and model must support that response convention.
 - For the default single-class workflow, set `--category-id` to the cell category ID
