@@ -13,8 +13,8 @@ FRAP + micromanipulation driving tasks and tools.
   - `frap/frap_test/06_circle_36_points_uninstalled.md` - 36-point circle with objective uninstalled.
 
 - `micromanipulation_system/` - processed micromanipulation-system interaction records
-  (movement, microsphere localization, pump aspiration/dispensing, and MP285-based
-  spheroid-transfer / ball-release / ball-grasping execution records):
+  (movement, spheroid localization, pump aspiration/dispensing, and MP285-based
+  spheroid-transfer / -release / -grasping execution records):
   - `micromanipulation_system/01_move_row_3_column_4.md` - stage movement to a specified grid position.
   - `micromanipulation_system/02_aspirate_and_dispense_10_ml.md` - pump aspiration and dispensing.
   - `micromanipulation_system/03_locate_microsphere.md` - microsphere localization.
