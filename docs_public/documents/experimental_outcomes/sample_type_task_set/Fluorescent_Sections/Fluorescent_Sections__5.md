@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: 2D section. Use a 20× objective to acquire a fluorescent multi-channel image.
-[Round 2] Capture DAPI and FITC channels; automatic merged RGB composite creation is not specified.
 ```
 
 ## 2. Biosample

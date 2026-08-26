@@ -293,7 +293,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-DEFAULT_KNOWLEDGE_BASE_PATH = "docs_public/c3_knowledge_base/knowledge_base_reviewed.json"
+DEFAULT_DOMAIN_PRIOR_PATH = "docs_public/c3_domain_prior/domain_prior_reviewed.json"
 
 
 @dataclass
@@ -350,6 +350,11 @@ class SystemConfig:
     acquisition_timeout_base_seconds: float = 0.0  # 0 = no acquisition deadline
     acquisition_timeout_per_position_seconds: float = 0.0  # extra seconds per XY position
     fiji_executor_timeout_seconds: float = 300.0
+    autofocus_timeout_seconds: float = 300.0  # wall-clock cap for autofocus; <=0 falls back to the default
+    autobrightness_timeout_seconds: float = 20.0  # wall-clock cap for autobrightness
+    init_component_timeout_seconds: float = 90.0  # wall-clock cap for runtime component initialization
+    microscope_setup_timeout_seconds: float = 30.0  # wall-clock cap for microscope init/startup state apply
+    preview_start_command_timeout_seconds: float = 10.0  # wall-clock cap for preview start command
 
 
 def build_mock_microscope_capabilities() -> Dict[str, Any]:
@@ -415,7 +420,7 @@ class ModelConfig:
     # C3 conformal threshold calibrated from docs_public/c3_calibration/calibration_overview.json.
     # Keep this value aligned with that calibration set's selected_threshold.
     task_similarity_threshold: float = 0.029
-    knowledge_base_path: str = DEFAULT_KNOWLEDGE_BASE_PATH
+    domain_prior_path: str = DEFAULT_DOMAIN_PRIOR_PATH
 
 @dataclass
 class RuntimeSettings:
@@ -1004,7 +1009,7 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
         "clarify_enabled": settings.model.clarify_enabled,
         "checker_enabled": settings.model.checker_enabled,
         "skill_mode": settings.model.skill_mode,
-        "knowledge_base_path": settings.model.knowledge_base_path,
+        "domain_prior_path": settings.model.domain_prior_path,
         "base_url": settings.model.base_url,
         "model_name": settings.model.model_name,
         "vlm_base_url": settings.model.vlm_base_url,
@@ -1032,6 +1037,11 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "acquisition_timeout_base_seconds": settings.system.acquisition_timeout_base_seconds,
             "acquisition_timeout_per_position_seconds": settings.system.acquisition_timeout_per_position_seconds,
             "fiji_executor_timeout_seconds": settings.system.fiji_executor_timeout_seconds,
+            "autofocus_timeout_seconds": settings.system.autofocus_timeout_seconds,
+            "autobrightness_timeout_seconds": settings.system.autobrightness_timeout_seconds,
+            "init_component_timeout_seconds": settings.system.init_component_timeout_seconds,
+            "microscope_setup_timeout_seconds": settings.system.microscope_setup_timeout_seconds,
+            "preview_start_command_timeout_seconds": settings.system.preview_start_command_timeout_seconds,
             "camera_device": settings.system.camera_device,
             "xy_stage_device": settings.system.xy_stage_device,
             "objective_device": settings.system.objective_device,
@@ -1076,6 +1086,5 @@ def read_public_config_snapshot(
 ) -> Dict[str, Any]:
     settings = load_runtime_settings(config_path, apply_env=apply_env, apply_demo_overlay=apply_demo_overlay)
     return _snapshot_payload(settings, include_secrets=False)
-
 
 

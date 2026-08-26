@@ -68,6 +68,7 @@ async def shutdown_system_api(
         initializing=False,
         error=None,
         message="Backend shutdown requested.",
+        restart_required=False,
     )
     background_tasks.add_task(_terminate_current_process)
     return SystemShutdownResponse(
@@ -90,6 +91,7 @@ async def get_system_status(runtime_manager=Depends(get_runtime_manager)) -> Sys
         system_phase=runtime_manager.system_status.system_phase,
         preview_phase=preview_phase,
         failure_step=runtime_manager.system_status.failure_step,
+        restart_required=runtime_manager.system_status.restart_required,
     )
 
 

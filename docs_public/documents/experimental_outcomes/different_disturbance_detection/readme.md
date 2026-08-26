@@ -1,6 +1,19 @@
+# Different Disturbance Detection
+
+Fig. 7c: environmental/imaging perturbation detection outcomes.
+
 ## Data Description
 
-This directory contains the test results for `different_disturbance_detection`. The results are organized by sample type.
+This directory contains the test results for `different_disturbance_detection`. The results are organized by sample type and imaging modality.
+
+## Contents
+
+- `2D_CELL_BF/` - 2D cell brightfield results.
+- `2D_CELL_FLU/` - 2D cell fluorescence results.
+- `3D_CELL_BF/` - 3D cell brightfield results.
+- `3D_CELL_FLU/` - 3D cell fluorescence results.
+- `SLIDE_BF/` - slide brightfield results.
+- `SLIDE_FLU/` - slide fluorescence results.
 
 ## File Naming Conventions
 

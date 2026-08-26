@@ -4,8 +4,6 @@
 
 ```text
 [Round 1] Observation target: 2D section. First use a 4× objective to acquire a 5 mm × 1 mm brightfield regional image, and then acquire a fluorescence image of the same region.
-[Round 2] Use the DAPI fluorescence channel.
-[Round 3] Yes. After configuring DAPI fluorescence parameters, refocus before acquiring the fluorescence image, without moving away from the same region.
 ```
 
 ## 2. Biosample

@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids; use a 4× objective in brightfield to acquire images across the current well and obtain a panoramic image within the well, identify and record organoid positions, then switch to a 20× objective and sequentially acquire fluorescence-channel images of each organoid.
-[Round 2] Acquire two fluorescence channels for each organoid: DAPI and FITC; do not acquire TRITC.
 ```
 
 ## 2. Biosample

@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: fluorescent section; use a low-magnification objective, enable the DAPI fluorescence channel, and use a deconvolution algorithm to make the image clearer.
-[Round 2] Use the 4× objective.
 ```
 
 ## 2. Biosample

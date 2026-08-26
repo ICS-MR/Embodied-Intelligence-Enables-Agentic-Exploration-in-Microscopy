@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a high-magnification objective, configure DAPI fluorescence, move the Z-axis to the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.
-[Round 2] Neither 40× nor 60×; use the 20× objective.
 ```
 
 ## 2. Biosample

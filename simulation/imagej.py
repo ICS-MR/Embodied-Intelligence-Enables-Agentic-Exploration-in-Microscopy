@@ -345,10 +345,14 @@ class ImageJProcessor(BaseTool):
         image_meta,
         target_type: str,
         description: str,
+        output_filename: Optional[str] = None,
     ) -> List[Tuple[int, int, int, int]]:
         print(f"Running function: analysis_platform_find_target_positions for {target_type}")
         spec = self.detection_targets.get(str(target_type), {})
-        filename = spec.get("output_filename") or f"{target_type}_locations_list.json"
+        default_filename = spec.get("output_filename") or f"{target_type}_locations_list.json"
+        filename = self._validate_detection_output_filename(
+            default_filename if output_filename is None else output_filename
+        )
         target = str(target_type).lower()
         if target == "tumor":
             regions = [(10, 20, 30, 40), (60, 80, 25, 25)]
@@ -377,15 +381,19 @@ class ImageJProcessor(BaseTool):
                 reserved_filenames.add(normalized_filename)
         return reserved_filenames
 
-    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+    def _validate_detection_output_filename(self, output_filename: str) -> str:
         normalized_filename = str(output_filename or "").replace("\\", "/").strip()
         if not normalized_filename:
-            raise ValueError("Custom detection output_filename must be a non-empty relative JSON filename")
+            raise ValueError("Detection output_filename must be a non-empty relative JSON filename")
         output_path = Path(normalized_filename)
         if output_path.is_absolute() or ".." in output_path.parts:
-            raise ValueError("Custom detection output_filename must stay under the analysis output directory")
+            raise ValueError("Detection output_filename must stay under the analysis output directory")
         if output_path.suffix.lower() != ".json":
-            raise ValueError("Custom detection output_filename must end with .json")
+            raise ValueError("Detection output_filename must end with .json")
+        return normalized_filename
+
+    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+        normalized_filename = self._validate_detection_output_filename(output_filename)
         if normalized_filename.lower() in self._reserved_detection_output_filenames():
             raise ValueError(
                 "Custom detection output_filename is reserved by configured model detection targets; "

@@ -94,6 +94,60 @@ run_model_localization(cfg)
 compare_localizations(cfg)
 ```
 
+## Using the detector_model_examples testset
+
+The repository ships a self-contained qualitative image set under
+`docs_public/detector_model_examples/testset/<target>/`, each with a COCO-format
+`annotations.json`. It is the recommended source of test images and ground truth
+for this comparison workflow. The toolkit is single-image by design: pick one
+image from a target folder and run the three steps against it.
+
+Per-target parameters (image IDs are read from each `annotations.json`):
+
+| target | testset dir | `category_id` | VLM query | detector config | detector checkpoint |
+| --- | --- | --- | --- | --- | --- |
+| `2Dcell` | `testset/2Dcell` | 1 | `2D_cell` | `detector_models/cell2d/config.py` | `detector_models/cell2d/weights.pth` |
+| `mitosis` | `testset/mitosis` | 0 | `mitosis` | `detector_models/mitosis/config.py` | `detector_models/mitosis/weights.pth` |
+| `organoid` | `testset/organoid` | 1 | `Organoids` | `detector_models/organoid/config.py` | `detector_models/organoid/weights.pth` |
+
+The detector config and checkpoint paths mirror
+`bootstrap.config.DEFAULT_DETECTION_TARGETS`, so the `model` step uses the same
+registered weights as the preset detectors.
+
+Example: a single `2Dcell` image (`Image_12106.jpg`, `image_id 1`), run from the
+repository root. Set `PYTHONPATH` so `localization_toolkit` imports correctly:
+
+```powershell
+$env:PYTHONPATH = "docs_public/different_low_level_policy/VLM/vlm_location_comparison"
+$out = "localization_output"
+$image = "docs_public/detector_model_examples/testset/2Dcell/images/Image_12106.jpg"
+$gt = "docs_public/detector_model_examples/testset/2Dcell/annotations.json"
+
+python -m localization_toolkit.cli --mode vlm `
+  --image $image --output-dir $out --image-id 1 --category-id 1 --queries 2D_cell
+
+python -m localization_toolkit.cli --mode model `
+  --image $image --output-dir $out --image-id 1 --category-id 1 `
+  --config detector_models/cell2d/config.py `
+  --checkpoint detector_models/cell2d/weights.pth
+
+python -m localization_toolkit.cli --mode compare `
+  --gt $gt --model-pred "$out/model_detection_result.json" `
+  --vlm-pred "$out/vlm_output_coco.json" --output-dir $out
+```
+
+Notes for this testset:
+
+- The `detector_model_examples` set is a qualitative reviewer-facing sample, not a
+  held-out benchmark (see its README). Treat the metrics from `compare` as
+  illustrative, not as formal mAP/precision/recall reporting.
+- `image_id` and `category_id` must match the chosen `annotations.json`; otherwise
+  `compare` matches nothing and every box counts as false positive or false negative.
+- `2Dcell` and `organoid` images are 512x512, so the VLM path sends them without
+  resizing. `mitosis` images are about 1882x1891 and are downscaled to a 512 edge
+  before the VLM call, which shrinks its roughly 64x52 px targets; keep that scale
+  tradeoff in mind when interpreting `mitosis` results.
+
 ## Outputs
 
 - `model_detection_result.json`

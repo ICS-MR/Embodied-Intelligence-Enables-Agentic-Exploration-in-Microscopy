@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: fluorescent section. Use a high-magnification objective, configure TRITC fluorescence, and capture a single-field image.
-[Round 2] Neither; use the 20× objective.
 ```
 
 ## 2. Biosample

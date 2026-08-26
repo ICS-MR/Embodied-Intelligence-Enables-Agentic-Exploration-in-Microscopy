@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a 20× objective, configure the DAPI filter, set the brightness to 0, set the exposure time to 200 ms, fix the Z-axis at the midpoint of its range, autofocus, capture a single-field image, and apply deconvolution for deblurring.
-[Round 2] Capture a single 2D image with the Z-axis fixed at the midpoint; no Z-stack scanning is required.
 ```
 
 ## 2. Biosample

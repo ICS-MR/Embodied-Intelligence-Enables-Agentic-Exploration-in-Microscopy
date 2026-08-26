@@ -94,7 +94,12 @@
     "Min_exposure": 0,
     "Max_exposure": 1000,
     "in_process_executor_timeout_seconds": 180.0,
-    "fiji_executor_timeout_seconds": 300.0
+    "fiji_executor_timeout_seconds": 300.0,
+    "autofocus_timeout_seconds": 300.0,
+    "autobrightness_timeout_seconds": 20.0,
+    "init_component_timeout_seconds": 90.0,
+    "microscope_setup_timeout_seconds": 30.0,
+    "preview_start_command_timeout_seconds": 10.0
   },
   "model": {
     "microscope_mode": "demo",
@@ -107,7 +112,7 @@
     "model_name": "gpt-4.1",
     "vlm_base_url": "https://api.openai.com/v1",
     "vlm_model_name": "gpt-4.1",
-    "knowledge_base_path": "docs_public/c3_knowledge_base/knowledge_base_reviewed.json"
+    "domain_prior_path": "docs_public/c3_domain_prior/domain_prior_reviewed.json"
   },
   "startup": {
     "objective": "10x",

@@ -6,17 +6,19 @@ def _build_detection_targets_doc() -> str:
     target_names = list(targets.keys())
     targets_literal = ", ".join(f'"{name}"' for name in target_names) if target_names else ""
     return f"""# ----------------- Target Detection -----------------
-def analysis_platform_find_target_positions(image_meta, target_type, description):
+def analysis_platform_find_target_positions(image_meta, target_type, description, output_filename=None):
     \"\"\"
     Find target positions in an image using the configured model mapped to `target_type`.
     Use this for configured model-supported targets.
-    This function automatically saves and registers the result using the configured JSON filename.
+    This function automatically saves and registers the result using the configured JSON filename,
+    or `output_filename` when a distinct detection-result name is needed.
     Do not save the returned regions again.
 
     Parameters:
         image_meta (ImageWithMetadata): Input pathological image and its metadata
         target_type (str): Detection target name. Must be one of [{targets_literal}]
         description (str): Detection result description information
+        output_filename (Optional[str]): Optional relative JSON filename used to save/register this detection result
     Returns:
     List[Tuple[float, float, float, float]]: List of target area bounding boxes in pixel coordinates (center_x_px, center_y_px, width_px, height_px). 
     \"\"\"

@@ -56,6 +56,7 @@ class SystemStatusResponse(BaseModel):
     system_phase: SystemPhase = "unconfigured"
     preview_phase: PreviewPhase = "idle"
     failure_step: str = ""
+    restart_required: bool = False
 
 
 class TaskExecutionResponse(BaseModel):
@@ -170,6 +171,7 @@ class ConfigStatusResponse(BaseModel):
     system_phase: SystemPhase = "unconfigured"
     preview_phase: PreviewPhase = "idle"
     failure_step: str = ""
+    restart_required: bool = False
     system: Dict[str, Any]
     real_system_draft: Dict[str, Any] = Field(default_factory=dict)
     real_startup_draft: Dict[str, Any] = Field(default_factory=dict)

@@ -8,8 +8,8 @@ This directory contains only polished/published content.
 | Path | Content |
 | --- | --- |
 | `c3_calibration/` | Conformal prediction calibration: `calibration_overview.json` (calibration dataset) and `compute_conformal_threshold.py` (non-conformity / conformal threshold calculation). |
-| `c3_knowledge_base/` | C3 Domain Prior: reviewed exemplar set (`knowledge_base_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
-| `documents/` | Organized dataset and experimental-outcome release: 5 task datasets + 14 experimental outcome collections (detailed below). |
+| `c3_domain_prior/` | C3 Domain Prior: reviewed exemplar set (`domain_prior_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
+| `documents/` | Organized dataset and experimental-outcome release: 5 task datasets + 15 experimental outcome collections (detailed below). |
 | `Demo_test/` | End-to-end Demo workflow showcases with display Markdown and generated image/detection artifacts. |
 | `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
 | `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
@@ -43,9 +43,9 @@ Primary index: [different_low_level_policy/README.md](different_low_level_policy
 
 | Path | Content / Release status |
 | --- | --- |
-| `different_low_level_policy/VLM/` | VLM localization, focus, and brightness comparison workflows. |
-| `different_low_level_policy/ACT_VLA/Mircomanipulation_tool/` | Public source package for ACT-style micromanipulation data collection, dataset conversion, training, and inference. |
-| `different_low_level_policy/ACT_VLA/ACT_for_microscopy/` | Placeholder/layout notes for the external ACT/VLA weight bundle. |
+| `different_low_level_policy/VLM/` | VLM localization, focus, and brightness comparison workflows; focus/brightness includes representative public test images. |
+| `different_low_level_policy/ACT_VLA/Micromanipulation_tool/` | Public source package for ACT-style micromanipulation data collection, dataset conversion, training, and inference. |
+| `different_low_level_policy/ACT_VLA/ACT_for_microscopy/` | Layout notes for the external ACT/VLA weight bundle. |
 
 Large ACT/VLA datasets, checkpoints, hardware SDKs, and generated outputs are intentionally not bundled in `docs_public/`; the micromanipulation README points to the external Hugging Face resources and required local hardware configuration.
 

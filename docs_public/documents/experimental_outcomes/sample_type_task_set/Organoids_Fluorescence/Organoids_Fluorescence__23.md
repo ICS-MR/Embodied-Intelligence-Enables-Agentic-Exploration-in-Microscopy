@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: 3D cells. Use a high-magnification objective to scan a 2 mm × 2 mm region, acquire DAPI images, and then automatically count all cells.
-[Round 2] Neither 20× nor 40×; use the 10× objective.
 ```
 
 ## 2. Biosample

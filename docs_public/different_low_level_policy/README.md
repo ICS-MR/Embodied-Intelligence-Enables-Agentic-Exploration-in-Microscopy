@@ -21,7 +21,7 @@ with the EIMS workflow in manuscript analyses.
 | --- | --- |
 | `VLM/vlm_location_comparison/` | VLM localization comparison workflow against local MMDetection predictions. |
 | `VLM/vlm_focus_and_brightness/` | VLM focus and brightness benchmark scripts. |
-| `ACT_VLA/Mircomanipulation_tool/` | ACT-style VLA micromanipulation code for data collection, training, and inference. |
+| `ACT_VLA/Micromanipulation_tool/` | ACT-style VLA micromanipulation code for data collection, training, and inference. |
 | `ACT_VLA/ACT_for_microscopy/` | Placeholder and layout notes for the external ACT/VLA weight bundle. |
 
 ## Scope Notes

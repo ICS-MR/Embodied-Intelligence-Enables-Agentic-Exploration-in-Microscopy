@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a 20× objective, configure fluorescence imaging, and continuously image every well in a 24-well plate once per hour for 24 hours.
-[Round 2] Use the DAPI fluorescence channel.
 ```
 
 ## 2. Biosample

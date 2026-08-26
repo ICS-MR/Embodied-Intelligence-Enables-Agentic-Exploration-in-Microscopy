@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids; use a 4× objective to scan a 3 mm × 3 mm region in brightfield mode, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire fluorescence images in multiple channels.
-[Round 2] DAPI and FITC
 ```
 
 ## 2. Biosample

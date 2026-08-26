@@ -175,18 +175,24 @@ class RuntimeLifecycleService:
         runtime_context = None
         settings = load_runtime_settings()
         cancel_event = threading.Event()
+        init_timeout = float(settings.system.init_component_timeout_seconds)
+        if init_timeout <= 0:
+            init_timeout = INIT_COMPONENT_TIMEOUT_SEC
+        setup_timeout = float(settings.system.microscope_setup_timeout_seconds)
+        if setup_timeout <= 0:
+            setup_timeout = MICROSCOPE_SETUP_TIMEOUT_SEC
 
         try:
             runtime_context = await self.run_initialization_step(
                 initialize_system_components,
                 cancel_event,
-                timeout=INIT_COMPONENT_TIMEOUT_SEC,
+                timeout=init_timeout,
                 cancel_event=cancel_event,
             )
         except asyncio.TimeoutError:
             return await self.finalize_init_failure(
                 "runtime_build",
-                TimeoutError(f"timed out after {INIT_COMPONENT_TIMEOUT_SEC:.0f}s"),
+                TimeoutError(f"timed out after {init_timeout:.0f}s"),
                 runtime_context,
             )
         except asyncio.CancelledError:
@@ -209,13 +215,13 @@ class RuntimeLifecycleService:
                 initialize_microscope,
                 runtime_context.env_olympus,
                 cancel_event,
-                timeout=MICROSCOPE_SETUP_TIMEOUT_SEC,
+                timeout=setup_timeout,
                 cancel_event=cancel_event,
             )
         except asyncio.TimeoutError:
             return await self.finalize_init_failure(
                 "microscope_initialize",
-                TimeoutError(f"timed out after {MICROSCOPE_SETUP_TIMEOUT_SEC:.0f}s"),
+                TimeoutError(f"timed out after {setup_timeout:.0f}s"),
                 runtime_context,
             )
         except asyncio.CancelledError:
@@ -235,13 +241,13 @@ class RuntimeLifecycleService:
                 runtime_context.env_olympus,
                 settings.startup,
                 cancel_event,
-                timeout=MICROSCOPE_SETUP_TIMEOUT_SEC,
+                timeout=setup_timeout,
                 cancel_event=cancel_event,
             )
         except asyncio.TimeoutError:
             return await self.finalize_init_failure(
                 "startup_state_apply",
-                TimeoutError(f"timed out after {MICROSCOPE_SETUP_TIMEOUT_SEC:.0f}s"),
+                TimeoutError(f"timed out after {setup_timeout:.0f}s"),
                 runtime_context,
             )
         except asyncio.CancelledError:
@@ -279,6 +285,7 @@ class RuntimeLifecycleService:
             initializing=False,
             error=None,
             message=f"System ready ({mode_summary})",
+            restart_required=False,
         )
         self.ports.send_message("robot_say", ready_message)
         return self.ports.make_init_response().model_dump()

@@ -2507,7 +2507,9 @@ class ImageJProcessor(BaseTool):
 
         spec = _resolve_target_detection_spec(target_type, self.detection_targets)
         resolved_score_thr = float(spec.get("score_thr", 0.2) if score_thr is None else score_thr)
-        final_output_filename = output_filename or spec["output_filename"]
+        final_output_filename = self._validate_detection_output_filename(
+            spec["output_filename"] if output_filename is None else output_filename
+        )
         np_xarray = self.ij.py.to_xarray(image_meta.dataset)
         data = np_xarray.data
         dims = list(getattr(np_xarray, "dims", ()))
@@ -2656,15 +2658,19 @@ class ImageJProcessor(BaseTool):
                 reserved_filenames.add(normalized_filename)
         return reserved_filenames
 
-    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+    def _validate_detection_output_filename(self, output_filename: str) -> str:
         normalized_filename = str(output_filename or "").replace("\\", "/").strip()
         if not normalized_filename:
-            raise ValueError("Custom detection output_filename must be a non-empty relative JSON filename")
+            raise ValueError("Detection output_filename must be a non-empty relative JSON filename")
         output_path = Path(normalized_filename)
         if output_path.is_absolute() or ".." in output_path.parts:
-            raise ValueError("Custom detection output_filename must stay under the analysis output directory")
+            raise ValueError("Detection output_filename must stay under the analysis output directory")
         if output_path.suffix.lower() != ".json":
-            raise ValueError("Custom detection output_filename must end with .json")
+            raise ValueError("Detection output_filename must end with .json")
+        return normalized_filename
+
+    def _validate_custom_detection_output_filename(self, output_filename: str) -> str:
+        normalized_filename = self._validate_detection_output_filename(output_filename)
         if normalized_filename.lower() in self._reserved_detection_output_filenames():
             raise ValueError(
                 "Custom detection output_filename is reserved by configured model detection targets; "

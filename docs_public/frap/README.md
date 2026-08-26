@@ -47,4 +47,3 @@ python docs_public\frap\record_frap_click_once.py --diagnose
 This prints current screen dimensions, cursor position, and the detected cellSens
 window bounds without recording any clicks, useful for troubleshooting coordinate
 mismatches.
-mismatches.

@@ -41,7 +41,7 @@
     },
     {
         "id":  11,
-        "user_input":  "[input 1] Imaging target: 2D section; switch to the 4× objective\r\n[input 2] scan a 5×1 mm region to detect 2D cell areas\r\n[input 3] move to the first detected region\r\n[input 4] switch to the 20× objective, and acquire an image of a 3×3 mm field of view."
+        "user_input":  "[input 1] Imaging target: 2D section; switch to the 4× objective\n[input 2] scan a 5×1 mm region to detect 2D cell areas\n[input 3] move to the first detected region\n[input 4] switch to the 20× objective, and acquire an image of a 3×3 mm field of view."
     },
     {
         "id":  12,
@@ -109,7 +109,7 @@
     },
     {
         "id":  28,
-        "user_input":  "[input 1] Imaging target: 2D cells; capture fluorescent channels in a 3×3 mm area to distinguish live\r\n[input 2] dead cells (labeled with Calcein-AM)."
+        "user_input":  "[input 1] Imaging target: 2D cells; capture fluorescent channels in a 3×3 mm area to distinguish live/dead cells (labeled with Calcein-AM)."
     },
     {
         "id":  29,

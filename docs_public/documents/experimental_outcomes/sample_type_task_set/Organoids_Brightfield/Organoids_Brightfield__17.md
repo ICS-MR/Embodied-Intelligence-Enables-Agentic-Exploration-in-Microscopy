@@ -4,8 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids; use a high-magnification objective to image the organoid in the current field of view, and choose an appropriate algorithm to optimize the image and obtain a clear structural image.
-[Round 2] Use the 20× objective.
-[Round 3] Use brightfield (transmitted light) imaging, not fluorescence.
 ```
 
 ## 2. Biosample

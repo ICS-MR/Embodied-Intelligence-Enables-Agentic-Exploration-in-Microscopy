@@ -10,10 +10,10 @@ an Olympus microscope, without any natural-language planning layer.
 
 | Path | Content |
 | --- | --- |
-| `Mircomanipulation_tool/` | Full ACT pipeline: data collection, dataset conversion, policy training, and real-time inference. |
+| `Micromanipulation_tool/` | Full ACT pipeline: data collection, dataset conversion, policy training, and real-time inference. |
 | `ACT_for_microscopy/` | Placeholder for the external pretrained-weight bundle hosted on Hugging Face. |
 
-## Mircomanipulation_tool
+## Micromanipulation_tool
 
 The pipeline consists of four sequential scripts:
 
@@ -42,7 +42,7 @@ accepts an external YAML file, but none are bundled in this directory.
 
 ### Environment
 
-Python 3.8 with conda is recommended. See `Mircomanipulation_tool/README.md` for full
+Python 3.8 with conda is recommended. See `Micromanipulation_tool/README.md` for full
 setup instructions, including hardware-specific dependencies (Daheng SDK, Micro-Manager).
 
 ## ACT_for_microscopy

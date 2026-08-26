@@ -12,6 +12,21 @@ that the only variable is the scoring method.
 | `run_traditional_focus_brightness_benchmark.py` | Classical image-quality metrics (Tenengrad, Laplacian variance, adaptive Tenengrad, brightness fitness). |
 | `run_vlm_focus_brightness_benchmark.py` | VLM visual judgment via an OpenAI-compatible chat completions API. |
 
+## Public Test Dataset
+
+Representative static image sequences are bundled under `test_dataset/` for
+public inspection of the two visual-selection tasks:
+
+| Path | Content |
+| --- | --- |
+| `test_dataset/focus/` | Brightfield Z-stack images for focus selection; filenames encode the Z position. |
+| `test_dataset/brightness/` | Brightfield images across brightness settings; filenames encode the brightness value. |
+
+These images are qualitative test examples for reviewing focus and brightness
+selection behavior. They are not a complete statistical benchmark, and the online
+benchmark scripts below still acquire fresh candidate images from a connected
+microscope when executed.
+
 ## Search Strategy
 
 Both scripts use the same iterative candidate-search loop:

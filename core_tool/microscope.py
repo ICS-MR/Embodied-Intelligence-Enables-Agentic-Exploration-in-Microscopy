@@ -36,7 +36,9 @@ except Exception:
 from bootstrap.microscope_semantics import objective_pixel_size_um
 logger = logging.getLogger(__name__)
 
-AUTOFOCUS_TIMEOUT_SEC = 60.0
+# Wall-clock caps for autofocus/autobrightness. Defaults only; overridden by the
+# runtime config fields autofocus_timeout_seconds / autobrightness_timeout_seconds.
+AUTOFOCUS_TIMEOUT_SEC = 300.0
 AUTOBRIGHTNESS_TIMEOUT_SEC = 20.0
 
 
@@ -407,6 +409,24 @@ class MicroscopeController(BaseTool):
         self.acquisition_timeout_per_position_seconds = _optional_float_config(
             system_config, "acquisition_timeout_per_position_seconds", 0.0
         )
+        self.autofocus_timeout_seconds = _optional_float_config(
+            system_config, "autofocus_timeout_seconds", AUTOFOCUS_TIMEOUT_SEC
+        )
+        self.autobrightness_timeout_seconds = _optional_float_config(
+            system_config, "autobrightness_timeout_seconds", AUTOBRIGHTNESS_TIMEOUT_SEC
+        )
+        if self.autofocus_timeout_seconds <= 0:
+            logger.warning(
+                "autofocus_timeout_seconds must be positive; falling back to default %.1fs",
+                AUTOFOCUS_TIMEOUT_SEC,
+            )
+            self.autofocus_timeout_seconds = AUTOFOCUS_TIMEOUT_SEC
+        if self.autobrightness_timeout_seconds <= 0:
+            logger.warning(
+                "autobrightness_timeout_seconds must be positive; falling back to default %.1fs",
+                AUTOBRIGHTNESS_TIMEOUT_SEC,
+            )
+            self.autobrightness_timeout_seconds = AUTOBRIGHTNESS_TIMEOUT_SEC
 
         # Current state
         self.current_channel = ''
@@ -2341,7 +2361,7 @@ class MicroscopeController(BaseTool):
         settle_time_sec = float(auto_params["settle_time_sec"])
         scores: Dict[float, float] = {}
         autofocus_completed = False
-        autofocus_deadline = time.monotonic() + AUTOFOCUS_TIMEOUT_SEC
+        autofocus_deadline = time.monotonic() + self.autofocus_timeout_seconds
         lower_bound = max(effective_min_z, base_center_z - search_range)
         upper_bound = min(effective_max_z, base_center_z + search_range)
         coarse_positions_preview = np.arange(
@@ -2644,7 +2664,7 @@ class MicroscopeController(BaseTool):
         settle_time_sec: float = 0.15,
     ) -> int:
         del tolerance  # Kept for compatibility with older prompt signatures.
-        autobrightness_deadline = time.monotonic() + AUTOBRIGHTNESS_TIMEOUT_SEC
+        autobrightness_deadline = time.monotonic() + self.autobrightness_timeout_seconds
         if not self._supports_transmitted_brightness():
             logger.warning(
                 "Autobrightness skipped: transmitted-light brightness control is unavailable "

@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from adapters.llm_clients import create_chat_completion
 from agent.utils import _parse_json_object_response, _parse_json_response, extract_task_steps, merge_module_tasks
-from agent.knowledge_base import KnowledgeBase
+from agent.domain_prior import DomainPrior
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class Clarify:
         historymanager=None,
         *,
         has_brightness_control: bool = True,
-        knowledge_base_path: str = "",
+        domain_prior_path: str = "",
         num_candidate_solutions: int = 3,
     ):
         self._base_prompt = base_prompt
@@ -73,12 +73,12 @@ class Clarify:
             self._num_candidate_solutions = max(1, int(num_candidate_solutions))
         except (TypeError, ValueError):
             self._num_candidate_solutions = 3
-        self.knowledge_base: Optional[KnowledgeBase] = None
-        if knowledge_base_path:
+        self.domain_prior: Optional[DomainPrior] = None
+        if domain_prior_path:
             try:
-                self.knowledge_base = KnowledgeBase(knowledge_base_path, self._semantic_model)
+                self.domain_prior = DomainPrior(domain_prior_path, self._semantic_model)
             except Exception as exc:
-                logger.warning("Failed to initialize knowledge base: %s", exc)
+                logger.warning("Failed to initialize domain prior: %s", exc)
 
         self._GENERIC_CLARIFY_PATTERNS = (
             "please clarify",
@@ -320,13 +320,13 @@ Microscope Operation and System Module Notes:
                 "clarification_question": "",
             }
 
-        kb_context = ""
-        if self.knowledge_base:
-            similar_cases = self.knowledge_base.search(current_query)
+        domain_prior_context = ""
+        if self.domain_prior:
+            similar_cases = self.domain_prior.search(current_query)
             if similar_cases:
-                kb_context = "\n\nHere are similar past cases for reference:\n"
+                domain_prior_context = "\n\nHere are similar past cases from the Domain Prior for reference:\n"
                 for case_idx, case in enumerate(similar_cases, 1):
-                    kb_context += (
+                    domain_prior_context += (
                         f"\nCase {case_idx}:\n"
                         f"- Command: {case.get('command', '')}\n"
                         f"- State: {json.dumps(case.get('state', {}), ensure_ascii=False)}\n"
@@ -377,7 +377,7 @@ Output strictly in JSON format with the following fields:
 User's original task: {current_query}
 
 Proposed solutions:
-""" + "\n\n".join(f"Solution {i + 1}:\n{s}" for i, s in enumerate(solutions)) + f"\n{'-' * 50}" + kb_context
+""" + "\n\n".join(f"Solution {i + 1}:\n{s}" for i, s in enumerate(solutions)) + f"\n{'-' * 50}" + domain_prior_context
 
         response = self._query_llm(
             prompt=analyze_prompt,

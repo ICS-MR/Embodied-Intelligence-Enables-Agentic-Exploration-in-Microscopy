@@ -10,7 +10,7 @@ The system calibration information is as follows: in the raw material pool, the 
 
 ### Planner-Generated Plan
 
-- **1. [Microscope Operation Platform]** Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (x=50000.0 μm, y=50000.0 μm), with size requirements matching the current field of view; configure the filter set to the currently used brightfield mode, and its corresponding exposure parameter to the camera's current exposure time (10.0 ms); do not configure Z-axis stack parameters; do not configure time parameters. Keep the current brightness (100) and current focus (Z=4323, matching the raw material pool calibration value) unchanged, without automatic brightness adjustment or autofocus.
+- **1. [Microscope Operation Platform]** Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (x=0.0 μm, y=-13.0 μm), with size requirements matching the current field of view; configure the filter set to the currently used brightfield mode, and its corresponding exposure parameter to the camera's current exposure time (10.0 ms); do not configure Z-axis stack parameters; do not configure time parameters. Keep the current brightness (100) and current focus (Z=4323, matching the raw material pool calibration value) unchanged, without automatic brightness adjustment or autofocus.
 - **2. [Microscope Operation Platform]** Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the current field of view of the raw material pool.
 - **3. [Image Analysis Platform]** Image Import: Import the acquired image of the current field of view of the raw material pool.
 - **4. [Image Analysis Platform]** Target Detection: Detect all cell spheroids scattered in the imported image of the current field of view, and save the detection results as a JSON file.
@@ -21,7 +21,7 @@ The system calibration information is as follows: in the raw material pool, the 
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (x=50000.0 μm, y=50000.0 μm), with size requirements matching the current field of view; configure the filter set to the currently used brightfield mode, and its corresponding exposure parameter to the camera's current exposure time (10.0 ms); do not configure Z-axis stack parameters; do not configure time parameters. Keep the current brightness (100) and current focus (Z=4323, matching the raw material pool calibration value) unchanged, without automatic brightness adjustment or autofocus.;
+> Step instruction: Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (x=0.0 μm, y=-13.0 μm), with size requirements matching the current field of view; configure the filter set to the currently used brightfield mode, and its corresponding exposure parameter to the camera's current exposure time (10.0 ms); do not configure Z-axis stack parameters; do not configure time parameters. Keep the current brightness (100) and current focus (Z=4323, matching the raw material pool calibration value) unchanged, without automatic brightness adjustment or autofocus.;
 #Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the current field of view of the raw material pool.
 
 ```python
@@ -61,9 +61,15 @@ input_file = "raw_material_pool.ome.tif"
 say("[ACTION] Loading image of the current field of view of the raw material pool: " + input_file)
 image = load_image(input_file)
 say("[ACTION] Detecting all cell spheroids scattered in the imported field of view image")
-detection_result = analysis_platform_find_target_positions(image, "organoid", "All cell spheroids scattered in the current field of view of the raw material pool")
+first_detection_filename = "raw_pool_initial_organoid_locations.json"
+detection_result = analysis_platform_find_target_positions(
+    image,
+    "organoid",
+    "All cell spheroids scattered in the initial field of view of the raw material pool",
+    output_filename=first_detection_filename,
+)
 say("[INFO] Detected " + str(len(detection_result)) + " cell spheroid regions")
-say("[ACTION] Detection results saved and registered as JSON file")
+say(f"[ACTION] Detection results saved and registered as JSON file: {first_detection_filename}")
 fiji_shutdown()
 ```
 
@@ -74,13 +80,13 @@ fiji_shutdown()
 
 ```python
 say("[INFO] Starting to load target bounding boxes of all detected cell spheroids from JSON file")
-target_filename = "organoid_locations_list.json"
+target_filename = "raw_pool_initial_organoid_locations.json"
 say(f"[ACTION] Loading target locations from file {target_filename}")
 target_bounding_boxes = load_target_locations(target_filename)
 say(f"[INFO] Successfully loaded {len(target_bounding_boxes)} bounding boxes of detected cell spheroids")
 if len(target_bounding_boxes) == 0:
     say("[ERROR] No cell spheroid bounding boxes found in the JSON file")
-    raise RuntimeError("No cell spheroid targets loaded from organoid_locations_list.json")
+    raise RuntimeError(f"No cell spheroid targets loaded from {target_filename}")
 first_target = target_bounding_boxes[0]
 target_x, target_y, target_width, target_height = first_target
 say(f"[INFO] First cell spheroid bounding box: center=({target_x}, {target_y}) μm, size={target_width}×{target_height} μm")
@@ -106,7 +112,7 @@ Use the robotic arm to capture one, and record the current stage coordinates.
 
 ### Planner-Generated Plan
 
-- **1. [Microscope Operation Platform]** Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage, and record them as the capture location of the first cell spheroid (current field center: X=49981.73675 µm, Y=49981.73675 µm, Z=4323 µm).
+- **1. [Microscope Operation Platform]** Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage, and record them as the capture location of the first cell spheroid (current field center: X=-1.82633 µm, Y=-14.82633 µm, Z=4323 µm).
 - **2. [mp285_controller]** Establish communication with the MP-285 micromanipulator and the pump using default serial settings.
 - **3. [mp285_controller]** Query the needle's absolute XYZ coordinates in microns to verify the needle is at its initial state (Z=1400 safe height, X/Y at the field center).
 - **4. [mp285_controller]** Move the needle along the Z axis down to the working height Z=1321 µm (the calibrated robotic arm operating height for the raw material pool), keeping X/Y unchanged at the field center directly above the centered cell spheroid.
@@ -118,7 +124,7 @@ Use the robotic arm to capture one, and record the current stage coordinates.
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage, and record them as the capture location of the first cell spheroid (current field center: X=49981.73675 µm, Y=49981.73675 µm, Z=4323 µm).
+> Step instruction: Position Control: Obtain the current XY coordinate position and Z-axis focusing position of the stage, and record them as the capture location of the first cell spheroid (current field center: X=-1.82633 µm, Y=-14.82633 µm, Z=4323 µm).
 
 ```python
 say("[INFO] Retrieving current stage position for first cell spheroid capture location")
@@ -392,7 +398,7 @@ Return to the previously recorded raw material pool position.
 ### Planner-Generated Plan
 
 - **1. [mp285_controller]** Move the needle along the Z axis to the safe height Z=1400 µm while keeping X/Y unchanged at the field center, ensuring the robotic arm is at safe height before stage movement.
-- **2. [Microscope Operation Platform]** Position Control: Move the XY stage to the previously recorded raw material pool position X=49981.73675 µm, Y=49981.73675 µm, and set the Z-axis focus directly to the raw material pool calibration value Z=4323 µm; keep brightness at 100 and exposure at 10.0 ms unchanged, with no automatic brightness adjustment or autofocus performed.
+- **2. [Microscope Operation Platform]** Position Control: Move the XY stage to the previously recorded raw material pool position X=-1.82633 µm, Y=-14.82633 µm, and set the Z-axis focus directly to the raw material pool calibration value Z=4323 µm; keep brightness at 100 and exposure at 10.0 ms unchanged, with no automatic brightness adjustment or autofocus performed.
 
 ### Executor-Generated Restricted Python Code (Complete)
 
@@ -423,12 +429,12 @@ say("Robotic arm confirmed at safe height Z={} um; ready for stage movement".for
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Position Control: Move the XY stage to the previously recorded raw material pool position X=49981.73675 µm, Y=49981.73675 µm, and set the Z-axis focus directly to the raw material pool calibration value Z=4323 µm; keep brightness at 100 and exposure at 10.0 ms unchanged, with no automatic brightness adjustment or autofocus performed.
+> Step instruction: Position Control: Move the XY stage to the previously recorded raw material pool position X=-1.82633 µm, Y=-14.82633 µm, and set the Z-axis focus directly to the raw material pool calibration value Z=4323 µm; keep brightness at 100 and exposure at 10.0 ms unchanged, with no automatic brightness adjustment or autofocus performed.
 
 ```python
 say("[INFO] Starting position control: moving to previously recorded raw material pool position")
-target_x = 49981.73675
-target_y = 49981.73675
+target_x = -1.82633
+target_y = -14.82633
 target_z = 4323.0
 say(f"[INFO] Target position: X={target_x} μm, Y={target_y} μm, Z={target_z} μm")
 say("[INFO] Verifying motion parameters against hardware constraints")
@@ -467,7 +473,7 @@ There are no spheroids in the current field of view; move one field of view to t
 ### Planner-Generated Plan
 
 - **1. [mp285_controller]** Move the needle along the Z axis to the safe height Z=1400 µm, keeping X/Y unchanged at the field center, to ensure safe clearance before stage movement.
-- **2. [Microscope Operation Platform]** Position Control: Move the XY stage one field-of-view width to the right (positive X direction) under the current 40× objective, i.e., set the new X position to the current X (49981.73675 µm) plus one field-of-view width at 40× magnification, and keep Y at 49981.73675 µm unchanged; keep the Z-axis focus at the calibration value Z=4323 µm for the raw material pool, with brightness 100 and exposure 10.0 ms unchanged; do not perform autofocus or automatic brightness adjustment.
+- **2. [Microscope Operation Platform]** Position Control: Move the XY stage one field-of-view width to the right (positive X direction) under the current 4× objective, i.e., set the new X position to the current X (-1.82633 µm) plus one field-of-view width at 4× magnification, and keep Y at -14.82633 µm unchanged; keep the Z-axis focus at the calibration value Z=4323 µm for the raw material pool, with brightness 100 and exposure 10.0 ms unchanged; do not perform autofocus or automatic brightness adjustment.
 
 ### Executor-Generated Restricted Python Code (Complete)
 
@@ -491,14 +497,14 @@ say("Final needle position: x={} y={} z={}".format(position['x'], position['y'],
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Position Control: Move the XY stage one field-of-view width to the right (positive X direction) under the current 40× objective, i.e., set the new X position to the current X (49981.73675 µm) plus one field-of-view width at 40× magnification, and keep Y at 49981.73675 µm unchanged; keep the Z-axis focus at the calibration value Z=4323 µm for the raw material pool, with brightness 100 and exposure 10.0 ms unchanged; do not perform autofocus or automatic brightness adjustment.
+> Step instruction: Position Control: Move the XY stage one field-of-view width to the right (positive X direction) under the current 4× objective, i.e., set the new X position to the current X (-1.82633 µm) plus one field-of-view width at 4× magnification, and keep Y at -14.82633 µm unchanged; keep the Z-axis focus at the calibration value Z=4323 µm for the raw material pool, with brightness 100 and exposure 10.0 ms unchanged; do not perform autofocus or automatic brightness adjustment.
 
 ```python
-say("[INFO] Calculating field-of-view width under 40x objective")
-pixel_size_40x = 0.16234
+say("[INFO] Calculating field-of-view width under 4x objective")
+pixel_size_4x = 1.6234
 fov_pixels = 2048
-fov_width_um = pixel_size_40x * fov_pixels
-say(f"[INFO] Field-of-view width at 40x: {fov_width_um} μm ({fov_pixels} pixels × {pixel_size_40x} μm/pixel)")
+fov_width_um = pixel_size_4x * fov_pixels
+say(f"[INFO] Field-of-view width at 4x: {fov_width_um} μm ({fov_pixels} pixels × {pixel_size_4x} μm/pixel)")
 say("[INFO] Retrieving current stage position")
 current_x, current_y = get_x_y_position()
 current_z = get_z_position()
@@ -539,18 +545,18 @@ Refocus on the current field of view (keep the stage position unchanged).
 
 ### Planner-Generated Plan
 
-- **1. [Microscope Operation Platform]** Position Control: Keep the XY stage position unchanged at X=50314.20907 µm, Y=49981.73675 µm, and set the Z-axis focus directly to the calibration value Z=4323 µm for the raw material pool; keep brightness at 100 and exposure at 10.0 ms unchanged, with no auto-brightness adjustment or autofocus performed.
+- **1. [Microscope Operation Platform]** Position Control: Keep the XY stage position unchanged at X=3322.89687 µm, Y=-14.82633 µm, and set the Z-axis focus directly to the calibration value Z=4323 µm for the raw material pool; keep brightness at 100 and exposure at 10.0 ms unchanged, with no auto-brightness adjustment or autofocus performed.
 
 ### Executor-Generated Restricted Python Code (Complete)
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Position Control: Keep the XY stage position unchanged at X=50314.20907 µm, Y=49981.73675 µm, and set the Z-axis focus directly to the calibration value Z=4323 µm for the raw material pool; keep brightness at 100 and exposure at 10.0 ms unchanged, with no auto-brightness adjustment or autofocus performed.
+> Step instruction: Position Control: Keep the XY stage position unchanged at X=3322.89687 µm, Y=-14.82633 µm, and set the Z-axis focus directly to the calibration value Z=4323 µm for the raw material pool; keep brightness at 100 and exposure at 10.0 ms unchanged, with no auto-brightness adjustment or autofocus performed.
 
 ```python
 say("[INFO] Starting position control for the raw material pool")
-target_x = 50314.20907
-target_y = 49981.73675
+target_x = 3322.89687
+target_y = -14.82633
 target_z = 4323.0
 target_brightness = 100
 target_exposure = 10.0
@@ -600,7 +606,7 @@ First acquire an image and detect the current field of view, then pick up the le
 
 ### Planner-Generated Plan
 
-- **1. [Microscope Operation Platform]** Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (X=50314.20907 µm, Y=49981.73675 µm), with size requirements matching the current field of view; configure the filter set to brightfield mode with the corresponding exposure parameter set to 10.0 ms; keep brightness at 100 and focus at Z=4323 µm unchanged; do not configure Z-axis stack parameters; do not configure time parameters.
+- **1. [Microscope Operation Platform]** Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (X=3322.89687 µm, Y=-14.82633 µm), with size requirements matching the current field of view; configure the filter set to brightfield mode with the corresponding exposure parameter set to 10.0 ms; keep brightness at 100 and focus at Z=4323 µm unchanged; do not configure Z-axis stack parameters; do not configure time parameters.
 - **2. [Microscope Operation Platform]** Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the current field of view of the raw material pool.
 - **3. [Image Analysis Platform]** Image Import: Import the acquired image of the current field of view of the raw material pool; Target Detection: Detect all cell spheroids in the imported image and save the detection results as a JSON file.
 - **4. [Microscope Operation Platform]** Target Position Loading: Load the detected cell spheroid bounding boxes from the JSON file, select the leftmost cell spheroid, and move the XY stage to center it in the field of view directly below the needle, keeping brightness at 100 and focus at Z=4323 µm unchanged.
@@ -617,7 +623,7 @@ First acquire an image and detect the current field of view, then pick up the le
 
 **Module: Microscope Operation Platform**
 
-> Step instruction: Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (X=50314.20907 µm, Y=49981.73675 µm), with size requirements matching the current field of view; configure the filter set to brightfield mode with the corresponding exposure parameter set to 10.0 ms; keep brightness at 100 and focus at Z=4323 µm unchanged; do not configure Z-axis stack parameters; do not configure time parameters.;
+> Step instruction: Image Automatic Acquisition Parameter Setting: Configure the XY position parameter to the current stage position (X=3322.89687 µm, Y=-14.82633 µm), with size requirements matching the current field of view; configure the filter set to brightfield mode with the corresponding exposure parameter set to 10.0 ms; keep brightness at 100 and focus at Z=4323 µm unchanged; do not configure Z-axis stack parameters; do not configure time parameters.;
 #Image Automatic Acquisition: Perform automatic image acquisition using the configured parameters to capture the current field of view of the raw material pool.
 
 ```python
@@ -684,9 +690,15 @@ input_file = "raw_material_pool.ome.tif"
 say("[ACTION] Loading image of the current field of view of the raw material pool: " + input_file)
 image = load_image(input_file)
 say("[ACTION] Detecting all cell spheroids (organoids) in the imported image")
-detection_result = analysis_platform_find_target_positions(image, "organoid", "All cell spheroids scattered in the current field of view of the raw material pool")
+current_fov_detection_filename = "raw_pool_current_fov_organoid_locations.json"
+detection_result = analysis_platform_find_target_positions(
+    image,
+    "organoid",
+    "All cell spheroids scattered in the current field of view of the raw material pool after one 4x field-of-view shift",
+    output_filename=current_fov_detection_filename,
+)
 say("[INFO] Detected cell spheroid count: " + str(len(detection_result)))
-say("[ACTION] Detection results saved as JSON file")
+say(f"[ACTION] Detection results saved as JSON file: {current_fov_detection_filename}")
 fiji_shutdown()
 ```
 
@@ -697,13 +709,13 @@ fiji_shutdown()
 
 ```python
 say("[INFO] Starting to load detected cell spheroid bounding boxes from JSON file")
-target_filename = "organoid_locations_list.json"
+target_filename = "raw_pool_current_fov_organoid_locations.json"
 say(f"[ACTION] Loading target locations from file {target_filename}")
 spheroid_bounding_boxes = load_target_locations(target_filename)
 say(f"[INFO] Successfully loaded {len(spheroid_bounding_boxes)} cell spheroid bounding boxes")
 if len(spheroid_bounding_boxes) == 0:
     say("[ERROR] No cell spheroid targets found in the JSON file")
-    raise RuntimeError("No cell spheroid targets loaded from organoid_locations_list.json")
+    raise RuntimeError(f"No cell spheroid targets loaded from {target_filename}")
 say("[ACTION] Selecting the leftmost cell spheroid (minimum center X coordinate)")
 leftmost_spheroid = min(spheroid_bounding_boxes, key=lambda box: box[0])
 target_x, target_y, target_width, target_height = leftmost_spheroid

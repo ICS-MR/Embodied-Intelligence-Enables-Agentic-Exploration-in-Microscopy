@@ -102,6 +102,7 @@ async def get_config_status(runtime_manager=Depends(get_runtime_manager)) -> Con
         system_phase=runtime_manager.system_status.system_phase,
         preview_phase=preview_phase,
         failure_step=runtime_manager.system_status.failure_step,
+        restart_required=runtime_manager.system_status.restart_required,
         system=snapshot["system"],
         real_system_draft=persisted_snapshot["system"],
         real_startup_draft=persisted_snapshot["startup"],

@@ -4,9 +4,6 @@
 
 ```text
 [Round 1] Observation target: fluorescent section; use a high-magnification objective to acquire images of the blue and green fluorescence channels in the current field of view, and process the acquired images with an appropriate method.
-[Round 2] Neither 40× nor 60×; use the 20× objective.
-[Round 3] Just the individual DAPI and FITC fluorescence images, denoised separately; no merged composites or quantitative intensity/colocalization analysis.
-[Round 4] Acquire them sequentially, switching filters between DAPI and FITC acquisitions.
 ```
 
 ## 2. Biosample

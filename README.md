@@ -39,16 +39,17 @@ for inspection.
 
 ## What EIMS Can Do
 
-EIMS supports end-to-end microscopy workflows, from natural-language experiment requests
-to confirmed execution, image analysis, result checking, and traceable records. Depending
-on the configured runtime modes and available hardware, it can configure objectives and
-channels, adjust exposure and illumination, autofocus, move XY/Z stages, acquire single
-images, stitched regions, Z-stacks, time series, and plate-style scans, then hand images
-to Fiji/ImageJ, Cellpose, or MMDetection for processing, segmentation, and target
-detection. It can also revisit detected targets, run closed-loop quality checks, trigger
-replanning or code repair after failures, and coordinate optional user tools such as
-FRAP control or MP-285A micromanipulation while preserving plans, generated code,
-artifacts, diagnostics, and metadata for later inspection.
+EIMS turns natural-language microscopy requests into confirmed, traceable experimental
+workflows. Depending on the configured runtime modes and available hardware, it can:
+
+- Configure objectives, channels, exposure, illumination, autofocus, and XY/Z stage motion.
+- Acquire single images, stitched regions, Z-stacks, time series, and plate-style scans.
+- Route acquired images to Fiji/ImageJ, Cellpose, or MMDetection for processing,
+  segmentation, and target detection.
+- Revisit detected targets, run closed-loop quality checks, and trigger replanning or code
+  repair after failures.
+- Coordinate optional user tools such as FRAP control or MP-285A micromanipulation.
+- Preserve plans, generated code, artifacts, diagnostics, and metadata for later inspection.
 
 ## 🔬 How EIMS Works
 
@@ -124,6 +125,10 @@ powershell -ExecutionPolicy Bypass -File scripts/install_mmcv_with_fallback.ps1
 
 The installer first tries the official OpenMMLab `mmcv` wheel and automatically falls
 back to the project GitHub Release when needed.
+`uv venv` creates the project environment under `.venv/` by default, and the installer
+runs `uv sync --frozen` from the repository root before installing `mmcv` and `mmdet`
+into that environment. If the GitHub Release fallback is needed, the downloaded wheel is
+cached under `.runtime/downloads/` before installation.
 
 ### 4. Create Local Configuration
 
@@ -169,6 +174,15 @@ cleans and reinstalls them by default. To reuse the latest compatible local inst
 ```bash
 uv run python system_config_wizard.py --install-mmcore --reuse-existing
 ```
+
+By default, `--install-mmcore` uses `%LOCALAPPDATA%\EIMS\Micro-Manager` as the parent
+installation directory and writes the detected Micro-Manager install root back to
+`config/runtime_config.json` as `MM_DIR`. Use `--mmcore-dest` to choose a different parent
+directory, or `--skip-config-update` to install without updating the runtime config.
+
+For Micro-Manager's own interface, hardware configuration, and acquisition workflow, see
+the official [Micro-Manager 2.0 User Guide](https://micro-manager.org/Version_2.0_Users_Guide)
+and [documentation overview](https://micro-manager.org/Overview_of_the_documentation).
 
 For a step-by-step walkthrough of Micro-Manager installation and real-hardware
 configuration, refer to Supplementary Video 7.
@@ -522,6 +536,10 @@ detector_models/organoid/weights.pth
 detector_models/mitosis/weights.pth
 ```
 
+Downloads are staged under `.runtime/downloads/detector-weights/` and then copied into
+the final `detector_models/` paths above. Use the script's `-TargetRoot` parameter only if
+you intentionally want the final checkpoint files somewhere else.
+
 Only detector `config.py` files are intended to live in the repository. Checkpoint
 `weights.pth` files are local runtime assets, restored by the download script and ignored
 by git.
@@ -565,6 +583,10 @@ typically:
 C:\Users\<YourUserName>\AppData\Local\EIMS\Fiji
 ```
 
+The wizard downloads and extracts Fiji under that parent directory, then records the final
+Fiji root in `config/runtime_config.json` as `FIJI_PATH` unless `--skip-config-update` is
+used.
+
 ### Local Semantic Similarity Model
 
 This model is only needed when Clarifier / C3 semantic-consistency planning is
@@ -591,9 +613,10 @@ uv run python scripts/setup_models.py
 ```
 
 The source repository is <https://huggingface.co/BAAI/bge-m3>. `embedding_model/` is a
-local download directory, not a repository asset bundle. The helper downloads only the
-files used by the current semantic similarity path and skips optional ONNX/OpenVINO
-artifacts to reduce download size and timeout risk.
+local download directory, not a repository asset bundle. The helper writes the Hugging
+Face snapshot directly under `embedding_model/bge-m3`, downloads only the files used by
+the current semantic similarity path, and skips optional ONNX/OpenVINO artifacts to
+reduce download size and timeout risk.
 
 ## 📓 Hardware-Free Notebook
 
@@ -706,12 +729,15 @@ Reviewer-facing qualitative examples for all three presets are available in
 |-- app.py                         # FastAPI Web runtime
 |-- main.py                        # CLI runtime
 |-- api/                           # API routes and response models
+|-- front/                         # Web UI static assets
 |-- services/                      # runtime manager and task orchestration
 |-- runtime/                       # config, asset checks, tools, agents, context assembly
 |-- agent/                         # planner, executors, checkers, repair, clarification
 |-- core_tool/                     # real microscope, Fiji, and Cellpose tools
+|-- simulation/                    # mock microscope and image-analysis backends
 |-- tool/                          # user-defined BaseTool extensions
 |-- tooling/                       # tool manifest and user-tool prompt generation
+|-- scripts/                       # setup, packaging, and utility scripts
 |-- storage/                       # session history and artifact metadata
 |-- interfaces/                    # CLI interaction, logging, and local preview glue
 |-- skill_runtime/                 # skill parsing and prompt formatting

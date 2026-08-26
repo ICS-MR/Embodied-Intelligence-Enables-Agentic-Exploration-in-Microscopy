@@ -4,8 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. First use a 4× objective in brightfield mode to scan a 5 mm × 1 mm region and detect organoid positions; then move the stage to the first detected organoid and switch to a high-magnification objective to acquire a brightfield image.
-[Round 2] Use the 20× objective for the high-magnification brightfield image.
-[Round 3] Use simple 2D single-plane brightfield acquisition; no 3D Z-stack or extended-depth-of-field processing is needed.
 ```
 
 ## 2. Biosample

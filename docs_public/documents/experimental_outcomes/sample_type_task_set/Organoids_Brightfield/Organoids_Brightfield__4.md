@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a high-magnification objective in brightfield mode to capture the current field of view, image the organoids along the Z-axis, and generate one complete image.
-[Round 2] Use the 20× objective.
 ```
 
 ## 2. Biosample

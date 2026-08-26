@@ -67,11 +67,13 @@ class PreviewStreamService:
         is_system_initialized: Callable[[], bool],
         run_blocking_step: Callable[..., Any],
         emit_error: Callable[[str], None],
+        preview_start_timeout_seconds: float = PREVIEW_START_COMMAND_TIMEOUT_SEC,
     ) -> None:
         self._get_runtime_context = get_runtime_context
         self._is_system_initialized = is_system_initialized
         self._run_blocking_step = run_blocking_step
         self._emit_error = emit_error
+        self._preview_start_timeout_seconds = float(preview_start_timeout_seconds)
         self._last_preview_fallback_log_at = 0.0
         self._phase = "idle"
         self._start_requested_at: Optional[float] = None
@@ -116,14 +118,14 @@ class PreviewStreamService:
             await self._run_blocking_step(
                 lambda env: env.start_preview(),
                 env_olympus,
-                timeout=PREVIEW_START_COMMAND_TIMEOUT_SEC,
+                timeout=self._preview_start_timeout_seconds,
                 cancel_event=threading.Event(),
             )
             self._started_once = True
             message = "Preview start requested."
         except asyncio.TimeoutError:
             self._phase = "failed"
-            message = f"Preview start failed during preview_start: timed out after {PREVIEW_START_COMMAND_TIMEOUT_SEC:.0f}s"
+            message = f"Preview start failed during preview_start: timed out after {self._preview_start_timeout_seconds:.0f}s"
         except Exception as exc:
             self._phase = "failed"
             message = f"Preview start failed during preview_start: {exc}"

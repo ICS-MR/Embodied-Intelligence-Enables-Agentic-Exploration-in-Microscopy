@@ -78,11 +78,16 @@ class RuntimeManager:
                 build_failure_message=self._build_failure_message,
             )
         )
+        _preview_settings = load_runtime_settings()
+        _preview_start_timeout = float(getattr(_preview_settings.system, "preview_start_command_timeout_seconds", 10.0) or 10.0)
+        if _preview_start_timeout <= 0:
+            _preview_start_timeout = 10.0
         self.preview_stream = PreviewStreamService(
             get_runtime_context=lambda: self.runtime_context,
             is_system_initialized=lambda: self.system_status.initialized,
             run_blocking_step=self.runtime_lifecycle.run_initialization_step,
             emit_error=lambda message: self._send_message("error", message),
+            preview_start_timeout_seconds=_preview_start_timeout,
         )
         self._latest_task_progress: Optional[dict[str, Any]] = None
 
@@ -288,6 +293,7 @@ class RuntimeManager:
         initializing: Optional[bool] = None,
         error: Optional[str] = None,
         failure_step: str = "",
+        restart_required: Optional[bool] = None,
     ) -> None:
         if initialized is None:
             initialized = phase == "ready"
@@ -299,6 +305,8 @@ class RuntimeManager:
         self.system_status.message = message
         self.system_status.system_phase = phase
         self.system_status.failure_step = failure_step if error else ""
+        if restart_required is not None:
+            self.system_status.restart_required = restart_required
 
     def _reset_preview_state(self) -> None:
         self.preview_stream.reset()
@@ -328,6 +336,7 @@ class RuntimeManager:
                 initializing=False,
                 error=None,
                 message=message,
+                restart_required=False,
             )
         elif self.runtime_context is not None and self.orchestrator is not None and self.system_status.initialized:
             self._set_system_status(
@@ -336,6 +345,7 @@ class RuntimeManager:
                 initializing=False,
                 error=None,
                 message=f"Configuration saved. Reset and restart the system to apply changes. ({mode_summary})",
+                restart_required=True,
             )
         else:
             self._set_system_status(
@@ -344,6 +354,7 @@ class RuntimeManager:
                 initializing=False,
                 error=None,
                 message=f"Configuration saved. Start the system when ready. ({mode_summary})",
+                restart_required=False,
             )
         return self._make_init_response().model_dump()
 
@@ -649,6 +660,7 @@ class RuntimeManager:
                 initializing=True,
                 error=None,
                 message="Releasing system resources...",
+                restart_required=False,
             )
         try:
             await self.release_system()

@@ -10,6 +10,7 @@ class SystemStatus:
     message: str = "Waiting for configuration"
     system_phase: str = "unconfigured"
     failure_step: str = ""
+    restart_required: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

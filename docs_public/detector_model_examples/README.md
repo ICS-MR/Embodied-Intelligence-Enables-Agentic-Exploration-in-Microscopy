@@ -59,7 +59,7 @@ Outputs are written under `docs_public/detector_model_examples/outputs/`:
 
 ## Notes
 
-- The qualitative image data is self-contained under `testset/`; it does not depend on internal-only source folders.
+- The qualitative image data is self-contained under `testset/`; it does not depend on unpublished source folders.
 - `testset/2Dcell/` uses a small 2D fluorescence COCO-format qualitative subset.
 - `testset/organoid/` uses a small organoid brightfield COCO-format qualitative subset.
 - `testset/mitosis/` retains the original annotated mitosis qualitative subset.

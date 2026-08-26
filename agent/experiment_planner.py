@@ -18,7 +18,7 @@ from agent.utils import (
     merge_module_tasks,
 )
 from runtime.config import _has_transmitted_light_brightness_control
-from config.agent_config import cross_encoder_model_path, task_similarity_threshold, knowledge_base_path
+from config.agent_config import cross_encoder_model_path, task_similarity_threshold, domain_prior_path
 from interfaces.cli_logging import get_cli_logger
 
 
@@ -110,7 +110,7 @@ class ExperimentPlanAgent:
                     task_similarity_threshold,
                     historymanager=self._historyManager,
                     has_brightness_control=_has_transmitted_light_brightness_control(system_config),
-                    knowledge_base_path=knowledge_base_path,
+                    domain_prior_path=domain_prior_path,
                 )
             except Exception as e:
                 raise RuntimeError(f"Clarify initialization failed: {e}") from e

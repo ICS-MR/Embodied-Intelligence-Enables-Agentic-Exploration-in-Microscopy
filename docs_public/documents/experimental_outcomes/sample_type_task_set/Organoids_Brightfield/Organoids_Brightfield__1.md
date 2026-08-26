@@ -13,8 +13,8 @@
 
 ## 3. Expected Result
 
-- **Expected workflow:** Use the 4× objective to acquire a 5×1 mm overview, detect organoid locations, then switch to 20× for high-resolution organoid imaging with Z-stack acquisition.
-- **Expected outputs:** A 5×1 mm 4× brightfield overview, detected organoid locations, and 20× high-resolution brightfield Z-stack images of localized organoids.
+- **Expected workflow:** Use the 4× objective to acquire a 5×1 mm overview, detect organoid locations, then switch to 20× for high-resolution organoid imaging at the detected locations.
+- **Expected outputs:** A 5×1 mm 4× brightfield overview, detected organoid locations, and 20× high-resolution brightfield images of localized organoids.
 
 ## 4. Execution Result
 

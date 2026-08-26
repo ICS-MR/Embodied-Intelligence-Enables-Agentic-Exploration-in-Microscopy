@@ -1652,6 +1652,8 @@
             activeLlmStreams: new Map(),
             previewStatus: null,
             systemPhase: "unconfigured",
+            restartRequired: false,
+            formDirty: false,
             previewAutoRetried: false,
             isCfgImporting: false,
             configured: false,
@@ -1866,6 +1868,7 @@
             $("vlmApiKey").placeholder = agent.masked?.vlm_api_key || "your vlm key";
             syncMicroscopeModeUi();
             restoreMappingDraftCandidates();
+            uiState.formDirty = false;
         }
 
         function cloneJson(value) {
@@ -2765,10 +2768,26 @@
             if (typeof data?.configured === "boolean") {
                 uiState.configured = data.configured;
             }
+            if (typeof data?.restart_required === "boolean") {
+                uiState.restartRequired = data.restart_required;
+            }
             const configured = uiState.configured;
-            button.textContent = phase === "ready" ? "Reset & Restart System" : "Start System";
             button.disabled = uiState.isCfgImporting || !configured || ["initializing", "executing", "releasing"].includes(phase);
-            button.title = button.disabled ? (data?.status_message || "Configuration is incomplete.") : "";
+            if (phase === "ready") {
+                if (uiState.restartRequired) {
+                    button.textContent = "Reset & Restart System";
+                    button.title = "Configuration was saved; restart the runtime to apply changes.";
+                } else {
+                    button.textContent = "Return to Usage";
+                    button.title = "Return to the runtime page without restarting.";
+                }
+            } else {
+                button.textContent = "Start System";
+                button.title = "";
+            }
+            if (button.disabled) {
+                button.title = data?.status_message || "Configuration is incomplete.";
+            }
         }
 
         function setLifecycleControlsDisabled(disabled) {
@@ -3822,6 +3841,15 @@
 
         function bindConfigEvents() {
             bindStartupMappingRefreshEvents();
+            const isFormControl = (target) => target instanceof HTMLInputElement
+                || target instanceof HTMLSelectElement
+                || target instanceof HTMLTextAreaElement;
+            const markFormDirty = (event) => {
+                if (event.target.id === "cfgFile") return;
+                if (isFormControl(event.target)) uiState.formDirty = true;
+            };
+            $("configScreen").addEventListener("input", markFormDirty);
+            $("configScreen").addEventListener("change", markFormDirty);
             $("chooseCfgBtn").addEventListener("click", () => {
                 $("cfgFile").click();
             });
@@ -3866,6 +3894,15 @@
 
             $("startSystemBtn").addEventListener("click", async () => {
                 try {
+                    const phase = uiState.systemPhase || "ready_to_start";
+                    if (phase === "ready" && !uiState.restartRequired) {
+                        if (uiState.formDirty) {
+                            const proceed = window.confirm("You have unsaved configuration changes. Return to the runtime page without saving?");
+                            if (!proceed) return;
+                        }
+                        await enterRuntimeScreen();
+                        return;
+                    }
                     await startOrRestartSystem();
                 } catch (error) {
                     showFeedback(error.message || "System start failed", true);

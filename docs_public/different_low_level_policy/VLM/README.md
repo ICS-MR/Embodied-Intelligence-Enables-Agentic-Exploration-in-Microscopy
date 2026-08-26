@@ -11,7 +11,7 @@ planner/executor/checker workflow.
 | Path | Content |
 | --- | --- |
 | `vlm_location_comparison/` | VLM (Qwen-VL) vs local MMDetection localization comparison with COCO evaluation. |
-| `vlm_focus_and_brightness/` | VLM vs traditional image-quality metrics for autofocus and brightness adjustment. |
+| `vlm_focus_and_brightness/` | VLM vs traditional image-quality metrics for autofocus and brightness adjustment, with representative public test images. |
 
 ## vlm_location_comparison
 
@@ -35,22 +35,23 @@ autofocus and brightness adjustment:
 
 Both scripts share the same iterative candidate-search strategy so the only
 variable is the scoring method. See `vlm_focus_and_brightness/README.md` for
-configuration and run instructions.
+configuration, run instructions, and the bundled `test_dataset/` image examples.
 
 ## Relationship to EIMS
 
 Where EIMS decomposes natural-language instructions into tool-mediated plans
 executed by a checker-verified executor, the VLM baselines test direct
-visual-perception approaches—VLM as a detector or VLM as an image-quality
-judge—without a planning layer. The comparison between these paradigms is
-discussed in the manuscript.
+visual-perception approaches, using VLM either as a detector or as an
+image-quality judge, without a planning layer. The comparison between these
+paradigms is discussed in the manuscript.
 
 ## External Dependencies
 
 Both subdirectories require dependencies beyond the EIMS runtime:
 
 - `vlm_location_comparison`: MMDetection, MMCV (CUDA-compatible build), pycocotools, matplotlib.
-- `vlm_focus_and_brightness`: a connected microscope via the EIMS runtime, OpenCV, a configured VLM endpoint.
+- `vlm_focus_and_brightness`: OpenCV and, for online acquisition runs, a connected microscope via the EIMS runtime and a configured VLM endpoint.
 
-Model weights, checkpoints, input images, and COCO annotation files are external
-assets and are not stored in this repository.
+Model weights, checkpoints, generated outputs, and large localization assets are
+not stored in this repository. The focus/brightness directory includes a compact
+public image subset for qualitative inspection.

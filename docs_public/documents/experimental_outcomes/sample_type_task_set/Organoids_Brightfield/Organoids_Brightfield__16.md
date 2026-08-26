@@ -4,8 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a high-magnification objective to image organoids in a 96-well plate.
-[Round 2] None; image the organoids in brightfield only using the brightfield filter, not DAPI, FITC, or TRITC.
-[Round 3] Neither; use the 20× objective.
 ```
 
 ## 2. Biosample

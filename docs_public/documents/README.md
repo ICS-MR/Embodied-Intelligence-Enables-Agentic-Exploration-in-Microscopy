@@ -42,7 +42,7 @@ This folder contains organized dataset and experimental outcome files.
 
    Content: external human teleoperation dataset link and clone instructions.
 
-   Note: `Mircomanipulation_tool` is model inference code, not the dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/different_low_level_policy/ACT_VLA/ACT_for_microscopy/`.
+   Note: `Micromanipulation_tool` is the ACT/VLA micromanipulation code package, not the teleoperation dataset itself, so it is not included here. The `ACT_for_microscopy` VLA weight bundle is linked at `docs_public/different_low_level_policy/ACT_VLA/ACT_for_microscopy/`.
 
 ## Experimental Outcomes
 
@@ -50,57 +50,61 @@ This folder contains organized dataset and experimental outcome files.
 
    Table 1: model-type task outcomes.
 
-2. `long_horizon_task_evaluation/`
+2. `automated_experimental_workflows/`
+
+   Fig. 2: representative automated experimental workflows and multidimensional imaging records.
+
+3. `long_horizon_task_evaluation/`
 
    Fig. 3a: 12 model-comparison experiment records with per-task `Elapsed time (s)`.
 
-3. `function_call_usage_comparison/`
+4. `function_call_usage_comparison/`
 
    Fig. 3b: EIMS vs Function-Calling comparison.
 
-4. `planning_module_importance/`
+5. `planning_module_importance/`
 
    Fig. 3b: high-level planning module vs baseline in Function-Calling comparison.
 
-5. `ambiguity_task_comparison/`
+6. `ambiguity_task_comparison/`
 
    Fig. 3d: ambiguity detection task outcomes.
 
-6. `hierarchy_module_comparison/`
+7. `hierarchy_module_comparison/`
 
    Fig. 4a: hierarchical architecture ablation.
 
-7. `components_of_MPP_comparison/`
+8. `components_of_MPP_comparison/`
 
    Fig. 4b: tool-definition paradigm ablation.
 
-8. `prompt_component_ablation/`
+9. `prompt_component_ablation/`
 
    Fig. 4b: prompt component constraint ablation.
 
-9. `model_size_comparison/`
+10. `model_size_comparison/`
 
    Fig. 4b: model-size performance comparison.
 
-10. `model_comparison/`
+11. `model_comparison/`
 
     Fig. 4b, Fig. 4c: foundation-model performance comparison.
 
-11. `frap_and_micromanipulation/`
+12. `frap_and_micromanipulation/`
 
     Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`) and micromanipulation-system interaction records (`micromanipulation_system/`).
 
     Note: the FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) lives at `docs_public/frap/` and is not duplicated here.
 
-12. `different_disturbance_detection/`
+13. `different_disturbance_detection/`
 
     Fig. 7c: environmental/imaging perturbation detection outcomes.
 
-13. `sparse_organoid_scanning/`
+14. `sparse_organoid_scanning/`
 
     Fig. 7f: organoid collection workflow display dialogue.
 
-14. `mitotic_cell_collection/`
+15. `mitotic_cell_collection/`
 
     Fig. 8a: mitotic cell collection tasks dialogues with and without the use of a Skill.
 

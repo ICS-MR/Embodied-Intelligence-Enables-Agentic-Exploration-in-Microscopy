@@ -1,0 +1,29 @@
+[
+  {
+    "coordinate_system": "screen_absolute_physical_pixels",
+    "source_api": "Win32 GetCursorPos after per-monitor DPI awareness",
+    "x": 887,
+    "y": 1062,
+    "screen": {
+      "width": 1920,
+      "height": 1080,
+      "virtual_left": 0,
+      "virtual_top": 0,
+      "virtual_width": 1920,
+      "virtual_height": 1080
+    },
+    "pyautogui_screen": null,
+    "positions": {
+      "win32_get_cursor_pos": {
+        "x": 887,
+        "y": 1062
+      },
+      "pyautogui_position": null
+    },
+    "diagnostics": {
+      "window_title_keyword": "olympus",
+      "selected_window": null
+    },
+    "recorded_at": "2026-08-26T07:30:15"
+  }
+]

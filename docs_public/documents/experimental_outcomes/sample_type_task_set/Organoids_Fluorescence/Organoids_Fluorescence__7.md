@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. Use a 4× objective in brightfield mode to scan a 3 mm × 3 mm region, identify and record the center coordinates of all organoids, then switch to a 20× objective, move to the first organoid position, and acquire a multi-fluorescence multi-channel image.
-[Round 2] Use 3D Z-stack multi-channel fluorescence images.
 ```
 
 ## 2. Biosample

@@ -4,7 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids. First use a 4× objective with a brightfield filter, set the exposure time to 30 ms and enable auto-brightness, autofocus, scan a 2 mm × 2 mm region without Z-axis scanning, and detect organoid positions; then switch to a 20× objective, move to the first organoid, configure the DAPI filter, set brightness to 0, set the exposure time to 200 ms, autofocus, obtain the recommended Z-stack parameters for the current image, and acquire a multi-channel fluorescence stack containing DAPI, FITC, and TRITC images.
-[Round 2] The 200 ms exposure is specified for DAPI; no optimized exposure times for FITC or TRITC are specified.
 ```
 
 ## 2. Biosample

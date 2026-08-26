@@ -4,9 +4,6 @@
 
 ```text
 [Round 1] Observation target: organoids; use a low-magnification objective to perform region scanning on the organoid section, locate intact organoids, and then use a high-magnification objective to perform detailed data acquisition at the corresponding positions.
-[Round 2] Use 20× for the detailed high-magnification organoid imaging.
-[Round 3] Scan a 3 mm × 3 mm region during the initial low-magnification survey.
-[Round 4] Capture single 2D brightfield images for the initial 4× survey scan; Z-stacks are only acquired later at 20× for detailed data.
 ```
 
 ## 2. Biosample
