@@ -1,4 +1,4 @@
-# Human-readable Dialogue: mitosis_skill_test
+# Human-readable Dialogue: mitosis_with_skill
 
 > Only user inputs and system outputs are retained.
 

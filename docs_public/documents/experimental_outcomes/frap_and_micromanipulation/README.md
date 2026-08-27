@@ -18,7 +18,7 @@ FRAP + micromanipulation driving tasks and tools.
   - `micromanipulation_system/01_move_row_3_column_4.md` - stage movement to a specified grid position.
   - `micromanipulation_system/02_aspirate_and_dispense_10_ml.md` - pump aspiration and dispensing.
   - `micromanipulation_system/03_locate_microsphere.md` - microsphere localization.
-  - `micromanipulation_system/04_eims_mp285.md` - end-to-end EIMS spheroid-transfer workflow (MP285).
+  - `micromanipulation_system/04_spheroid_transfer.md` - end-to-end EIMS spheroid-transfer workflow (MP285).
   - `micromanipulation_system/05_release_three_balls_stage_alignment.md` - releasing three balls with stage alignment (MP285).
   - `micromanipulation_system/06_grasp_green_balls_pump_velocity_setup.md` - grasping green balls with pump velocity setup (MP285).
 
