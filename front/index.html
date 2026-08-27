@@ -3510,36 +3510,87 @@
             $("videoModeBadge").textContent = "Runtime Online";
         }
 
-        function showDecisionBar(mode) {
+        function decisionBarTextForMode(mode) {
+            if (mode === "plan_confirmation") {
+                return "Choose an action, or type a revision below. Press Enter with an empty input to confirm.";
+            }
+            if (mode === "clarification") {
+                return "Provide the missing details in the input below. Recommended optional settings are kept unless you override them.";
+            }
+            if (mode === "revision") {
+                return "The planner could not build a plan yet. Type your revision below, view the planner output, or cancel.";
+            }
+            return "Awaiting your input below.";
+        }
+
+        function isValidDecisionAction(action) {
+            return action && typeof action === "object"
+                && String(action.label || "").trim()
+                && String(action.value || "").trim();
+        }
+
+        function showDecisionBar(mode, decisionActions = []) {
             const bar = $("decisionBar");
-            const actions = $("decisionBarActions");
-            actions.innerHTML = "";
-            const addButton = (label, value, kind) => {
+            const actionsEl = $("decisionBarActions");
+            actionsEl.innerHTML = "";
+            const addButton = (label, value, kind, clientOnly = false) => {
                 const btn = document.createElement("button");
                 btn.type = "button";
                 btn.textContent = label;
                 btn.dataset.value = value;
-                if (kind) btn.classList.add(kind);
-                actions.appendChild(btn);
+                if (clientOnly) btn.dataset.clientOnly = "true";
+                if (kind === "primary" || kind === "danger") {
+                    btn.classList.add(kind);
+                } else if (kind) {
+                    console.warn("unknown decision action kind:", kind);
+                }
+                actionsEl.appendChild(btn);
             };
+
+            if (decisionActions !== undefined && decisionActions !== null && !Array.isArray(decisionActions)) {
+                console.error("ask_user actions must be an array:", decisionActions);
+            }
+            const providedActions = Array.isArray(decisionActions) ? decisionActions : [];
+            const validActions = providedActions.filter(isValidDecisionAction);
+            if (providedActions.length && !validActions.length) {
+                console.error("ask_user actions were provided but none were valid:", providedActions);
+            }
+            if (validActions.length) {
+                $("decisionBarText").textContent = decisionBarTextForMode(mode);
+                validActions.forEach((action) => {
+                    addButton(
+                        String(action.label || "").trim(),
+                        String(action.value || "").trim(),
+                        String(action.kind || "").trim(),
+                        action.client_only === true || action.clientOnly === true,
+                    );
+                });
+                bar.hidden = false;
+                return;
+            }
+
             if (mode === "plan_confirmation") {
-                $("decisionBarText").textContent = "Choose an action, or type a revision below. Press Enter with an empty input to confirm.";
+                $("decisionBarText").textContent = decisionBarTextForMode(mode);
                 addButton("Confirm", "confirm", "primary");
                 addButton("Edit", "edit");
                 addButton("View Planner Output", "debug_plan");
                 addButton("Cancel", "cancel", "danger");
             } else if (mode === "clarification") {
-                $("decisionBarText").textContent = "The planner needs one more detail. Answer in the input below, or cancel.";
+                $("decisionBarText").textContent = decisionBarTextForMode(mode);
+                addButton("Answer", "focus_input", "primary", true);
+                addButton("View Planner Output", "debug_plan");
                 addButton("Cancel", "cancel", "danger");
             } else if (mode === "revision") {
-                $("decisionBarText").textContent = "The planner could not build a plan yet. Type your revision below, view the planner output, or cancel.";
+                $("decisionBarText").textContent = decisionBarTextForMode(mode);
+                addButton("Revise", "focus_input", "primary", true);
                 addButton("View Planner Output", "debug_plan");
                 addButton("Cancel", "cancel", "danger");
             } else {
                 if (mode !== "general") {
                     console.warn("unknown ask_user mode:", mode);
                 }
-                $("decisionBarText").textContent = "Awaiting your input below.";
+                $("decisionBarText").textContent = decisionBarTextForMode(mode);
+                addButton("Answer", "focus_input", "primary", true);
                 addButton("Cancel", "cancel", "danger");
             }
             bar.hidden = false;
@@ -3562,13 +3613,13 @@
             await sendUserInputToBackend(normalized);
         }
 
-        function setAwaitingUserInput(mode = "general") {
+        function setAwaitingUserInput(mode = "general", actions = []) {
             uiState.awaitMode = mode;
             setLifecycleControlsDisabled(true);
             $("userInput").disabled = false;
             $("sendBtn").disabled = false;
             $("sendBtn").textContent = "Reply";
-            showDecisionBar(mode);
+            showDecisionBar(mode, actions);
             if (mode === "plan_confirmation") {
                 $("userInput").placeholder = "Type a revision, or press Enter to confirm";
                 $("consoleStatus").textContent = "Awaiting Confirmation/Edits";
@@ -3749,7 +3800,7 @@
             if (msg.type === "ask_user") {
                 await appendTypedMessage("robot", msg.text, shouldSkipAnimation);
                 uiState.isWaitingForUserInput = true;
-                setAwaitingUserInput(msg.mode || "general");
+                setAwaitingUserInput(msg.mode || "general", msg.actions || []);
                 return;
             }
             if (msg.type === "task_complete") {
@@ -3951,10 +4002,14 @@
                 const btn = event.target.closest("button[data-value]");
                 if (!btn || !uiState.isWaitingForUserInput) return;
                 const value = btn.dataset.value;
-                if (value === "edit") {
+                if (btn.dataset.clientOnly === "true" || value === "edit" || value === "focus_input") {
                     const input = $("userInput");
                     input.focus();
-                    input.placeholder = "Type your revision and press Enter";
+                    if (uiState.awaitMode === "clarification") {
+                        input.placeholder = "Answer the question and press Enter";
+                    } else {
+                        input.placeholder = "Type your revision and press Enter";
+                    }
                     return;
                 }
                 submitUserText(value);

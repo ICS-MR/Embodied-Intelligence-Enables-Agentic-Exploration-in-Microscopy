@@ -13,7 +13,7 @@ This directory contains only polished/published content.
 | `Demo_test/` | End-to-end Demo workflow showcases with display Markdown and generated image/detection artifacts. |
 | `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
 | `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
-| `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, and mitosis. |
+| `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, mitosis, 2Dcell_brightfield, and organoid_fluorescence. |
 
 ## Detector Model Examples
 
@@ -26,6 +26,8 @@ Primary index: [detector_model_examples/README.md](detector_model_examples/READM
 | `2Dcell` | 2D fluorescence COCO-format examples | Existing system checkpoint: `detector_models/cell2d/weights.pth` |
 | `organoid` | Organoid brightfield COCO-format examples | Existing system checkpoint: `detector_models/organoid/weights.pth` |
 | `mitosis` | Original annotated mitosis qualitative subset | Existing system checkpoint: `detector_models/mitosis/weights.pth` |
+| `2Dcell_brightfield` | 2D brightfield COCO-format examples | Existing system checkpoint: `detector_models/cell2d_brightfield/weights.pth` |
+| `organoid_fluorescence` | Organoid fluorescence COCO-format examples | Existing system checkpoint: `detector_models/organoid_fluorescence/weights.pth` |
 
 No detector weights are copied into `docs_public/`; inference uses the system-registered detector presets.
 
@@ -68,6 +70,7 @@ Primary index: [documents/README.md](documents/README.md).
 | Directory | Reference | Content / Status |
 | --- | --- | --- |
 | `sample_type_task_set/` | Table 1 | Model-type task outcomes. |
+| `automated_experimental_workflows/` | Fig. 2 | Representative automated experimental workflows and multidimensional imaging records. |
 | `long_horizon_task_evaluation/` | Fig. 3a | 12 model-comparison records with per-task `Elapsed time (s)`. |
 | `function_call_usage_comparison/` | Fig. 3b | EIMS vs Function-Calling comparison. |
 | `planning_module_importance/` | Fig. 3b | High-level planning module vs baseline. |

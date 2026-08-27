@@ -21,6 +21,20 @@
       "notes": "Small annotated mitosis image subset retained from the original qualitative detector evaluation folder.",
       "images_dir": "docs_public/detector_model_examples/testset/mitosis/images",
       "annotations": "docs_public/detector_model_examples/testset/mitosis/annotations.json"
+    },
+    "2Dcell_brightfield": {
+      "display_name": "2D brightfield cell detector",
+      "source_modality": "2D brightfield",
+      "notes": "Small COCO-format 2D brightfield qualitative subset used only to show the 2Dcell_brightfield preset behavior.",
+      "images_dir": "docs_public/detector_model_examples/testset/2Dcell_brightfield/images",
+      "annotations": "docs_public/detector_model_examples/testset/2Dcell_brightfield/annotations.json"
+    },
+    "organoid_fluorescence": {
+      "display_name": "Organoid fluorescence detector",
+      "source_modality": "organoid fluorescence",
+      "notes": "Small COCO-format organoid fluorescence qualitative subset used only to show the organoid_fluorescence preset behavior.",
+      "images_dir": "docs_public/detector_model_examples/testset/organoid_fluorescence/images",
+      "annotations": "docs_public/detector_model_examples/testset/organoid_fluorescence/annotations.json"
     }
   }
 }

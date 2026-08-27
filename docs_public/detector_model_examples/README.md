@@ -1,10 +1,10 @@
 # Preset Detector Qualitative Examples
 
-This folder provides reviewer-facing qualitative examples for the detector presets currently connected to the system: `2Dcell`, `organoid`, and `mitosis`.
+This folder provides reviewer-facing qualitative examples for the detector presets currently connected to the system: `2Dcell`, `organoid`, `mitosis`, `2Dcell_brightfield`, and `organoid_fluorescence`.
 
 These examples are not a held-out benchmark, not a statistically representative test set, and should not be used to report formal detection metrics such as mAP, precision, or recall.
 
-The uploadable qualitative image subsets live directly under `testset/<target>/`. They are intentionally modality-specific rather than equal-sized: `testset/2Dcell/` uses 2D fluorescence data, while `testset/organoid/` uses organoid brightfield data.
+The uploadable qualitative image subsets live directly under `testset/<target>/`. They are intentionally modality-specific rather than equal-sized: `testset/2Dcell/` uses 2D fluorescence data, `testset/2Dcell_brightfield/` uses 2D brightfield data, `testset/organoid/` uses organoid brightfield data, and `testset/organoid_fluorescence/` uses organoid fluorescence data.
 
 ## Preset Detectors
 
@@ -15,6 +15,8 @@ The example manifest only stores image/annotation paths. Model config and checkp
 | `2Dcell` | `2Dcell` | `detector_models/cell2d/config.py` | `detector_models/cell2d/weights.pth` |
 | `organoid` | `organoid` | `detector_models/organoid/config.py` | `detector_models/organoid/weights.pth` |
 | `mitosis` | `mitosis` | `detector_models/mitosis/config.py` | `detector_models/mitosis/weights.pth` |
+| `2Dcell_brightfield` | `2D_cell` | `detector_models/cell2d_brightfield/config.py` | `detector_models/cell2d_brightfield/weights.pth` |
+| `organoid_fluorescence` | `Organoids` | `detector_models/organoid_fluorescence/config.py` | `detector_models/organoid_fluorescence/weights.pth` |
 
 ## Run Examples
 
@@ -36,7 +38,7 @@ Run the retained mitosis example set:
 python docs_public/detector_model_examples/infer.py
 ```
 
-Run all three currently connected detector presets:
+Run all five currently connected detector presets:
 
 ```bash
 python docs_public/detector_model_examples/infer.py --all
@@ -48,6 +50,8 @@ Run one detector target:
 python docs_public/detector_model_examples/infer.py --target 2Dcell
 python docs_public/detector_model_examples/infer.py --target organoid
 python docs_public/detector_model_examples/infer.py --target mitosis
+python docs_public/detector_model_examples/infer.py --target 2Dcell_brightfield
+python docs_public/detector_model_examples/infer.py --target organoid_fluorescence
 ```
 
 Outputs are written under `docs_public/detector_model_examples/outputs/`:
@@ -63,5 +67,8 @@ Outputs are written under `docs_public/detector_model_examples/outputs/`:
 - `testset/2Dcell/` uses a small 2D fluorescence COCO-format qualitative subset.
 - `testset/organoid/` uses a small organoid brightfield COCO-format qualitative subset.
 - `testset/mitosis/` retains the original annotated mitosis qualitative subset.
+- `testset/2Dcell_brightfield/` uses a small 2D brightfield COCO-format qualitative subset.
+- `testset/organoid_fluorescence/` uses a small organoid fluorescence COCO-format qualitative subset.
 - Example counts are allowed to differ across targets; the folder is for qualitative inspection, not balanced evaluation.
 - Detector weights are not copied into this folder; inference uses the existing system-registered checkpoints.
+- Overlapping detections are deduplicated with class-agnostic NMS (IoU threshold 0.5, configurable via `--nms-thr`) before predictions and visualizations are saved.

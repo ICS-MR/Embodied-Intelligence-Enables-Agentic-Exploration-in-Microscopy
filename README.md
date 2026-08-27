@@ -536,6 +536,11 @@ detector_models/organoid/weights.pth
 detector_models/mitosis/weights.pth
 ```
 
+The `2Dcell_brightfield` and `organoid_fluorescence` presets expect checkpoints at
+`detector_models/cell2d_brightfield/weights.pth` and
+`detector_models/organoid_fluorescence/weights.pth`; their distribution is arranged
+separately and is not part of this download script yet.
+
 Downloads are staged under `.runtime/downloads/detector-weights/` and then copied into
 the final `detector_models/` paths above. Use the script's `-TargetRoot` parameter only if
 you intentionally want the final checkpoint files somewhere else.
@@ -681,7 +686,7 @@ Known legacy label values are normalized to their matching semantic keys when lo
 `system.Min_exposure` and `system.Max_exposure` define the exposure range enforced by the
 microscope controller, alongside the existing motion and brightness limits.
 
-EIMS currently registers three detector presets: `2Dcell`, `organoid`, and `mitosis`.
+EIMS currently registers five detector presets: `2Dcell`, `organoid`, `mitosis`, `2Dcell_brightfield`, and `organoid_fluorescence`.
 Their defaults are defined centrally in `bootstrap.config.DEFAULT_DETECTION_TARGETS`.
 `config/runtime_config.json` may override the class, confidence threshold, output
 filename, and local model paths for each registered target:
@@ -712,6 +717,22 @@ filename, and local model paths for each registered target:
       "output_filename": "mitosis_locations_list.json",
       "model_config": "detector_models/mitosis/config.py",
       "model_checkpoint": "detector_models/mitosis/weights.pth"
+    },
+    "2Dcell_brightfield": {
+      "target_class_id": 0,
+      "target_class_name": "2D_cell",
+      "score_thr": 0.2,
+      "output_filename": "2Dcell_brightfield_locations_list.json",
+      "model_config": "detector_models/cell2d_brightfield/config.py",
+      "model_checkpoint": "detector_models/cell2d_brightfield/weights.pth"
+    },
+    "organoid_fluorescence": {
+      "target_class_id": 0,
+      "target_class_name": "Organoids",
+      "score_thr": 0.2,
+      "output_filename": "organoid_fluorescence_locations_list.json",
+      "model_config": "detector_models/organoid_fluorescence/config.py",
+      "model_checkpoint": "detector_models/organoid_fluorescence/weights.pth"
     }
   }
 }
@@ -719,7 +740,7 @@ filename, and local model paths for each registered target:
 
 `model_checkpoint` is a local runtime path. Large detector checkpoints are distributed
 through GitHub Releases and must be downloaded to the referenced local path.
-Reviewer-facing qualitative examples for all three presets are available in
+Reviewer-facing qualitative examples for all five presets are available in
 `docs_public/detector_model_examples/`; they do not introduce additional detector weights.
 
 ## 🏗️ Architecture

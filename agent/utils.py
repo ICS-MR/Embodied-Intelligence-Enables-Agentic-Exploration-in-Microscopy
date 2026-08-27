@@ -50,18 +50,29 @@ SAFE_BUILTIN_CALLS = {
     "ImportError",
     "AssertionError",
 }
-SAFE_IMPORT_MODULES = {
-    "collections",
-    "csv",
-    "datetime",
-    "functools",
-    "itertools",
-    "json",
-    "math",
-    "matplotlib.patches",
-    "matplotlib.pyplot",
-    "statistics",
-    "time",
+FORBIDDEN_IMPORT_MODULES = {
+    "builtins",
+    "ctypes",
+    "dbm",
+    "ftplib",
+    "glob",
+    "http",
+    "httpx",
+    "importlib",
+    "multiprocessing",
+    "os",
+    "pathlib",
+    "pickle",
+    "requests",
+    "shelve",
+    "shutil",
+    "smtplib",
+    "socket",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "threading",
+    "urllib",
 }
 
 # Informational dunder attributes that are safe to read (no introspection/escape).
@@ -74,10 +85,13 @@ SAFE_DUNDER_ATTRIBUTES = {
 }
 FORBIDDEN_NAME_CALLS = {
     "__import__",
+    "breakpoint",
     "compile",
     "eval",
     "exec",
+    "exit",
     "open",
+    "quit",
     "input",
     "globals",
     "locals",
@@ -86,17 +100,31 @@ FORBIDDEN_NAME_CALLS = {
     "setattr",
     "delattr",
 }
+FORBIDDEN_NAME_LOADS = FORBIDDEN_NAME_CALLS | {"__builtins__"}
 FORBIDDEN_ROOT_NAMES = {
-    "os",
-    "sys",
-    "pathlib",
-    "subprocess",
-    "socket",
-    "shutil",
-    "requests",
-    "httpx",
-    "urllib",
+    "__builtins__",
     "builtins",
+    "ctypes",
+    "dbm",
+    "ftplib",
+    "glob",
+    "http",
+    "httpx",
+    "importlib",
+    "multiprocessing",
+    "os",
+    "pathlib",
+    "pickle",
+    "requests",
+    "shelve",
+    "shutil",
+    "smtplib",
+    "socket",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "threading",
+    "urllib",
 }
 
         
@@ -226,8 +254,37 @@ def _describe_import(node: ast.AST) -> str:
     return type(node).__name__
 
 
-def _is_allowed_import(module_name: str) -> bool:
-    return module_name in SAFE_IMPORT_MODULES
+def _module_root_name(module_name: str) -> str:
+    return str(module_name or "").split(".", 1)[0]
+
+
+def _is_forbidden_import(module_name: str) -> bool:
+    normalized_name = str(module_name or "").strip()
+    if not normalized_name:
+        return True
+    return (
+        normalized_name in FORBIDDEN_IMPORT_MODULES
+        or _module_root_name(normalized_name) in FORBIDDEN_IMPORT_MODULES
+    )
+
+
+def _is_forbidden_binding_name(name: str) -> bool:
+    normalized_name = str(name or "").strip()
+    return (
+        not normalized_name
+        or normalized_name in FORBIDDEN_NAME_LOADS
+        or normalized_name in FORBIDDEN_ROOT_NAMES
+        or (normalized_name.startswith("__") and normalized_name not in SAFE_DUNDER_ATTRIBUTES)
+    )
+
+
+def _is_forbidden_definition_name(name: str) -> bool:
+    normalized_name = str(name or "").strip()
+    return (
+        not normalized_name
+        or normalized_name in FORBIDDEN_NAME_LOADS
+        or normalized_name in FORBIDDEN_ROOT_NAMES
+    )
 
 
 def _validate_import_node(node: ast.AST) -> tuple[List[str], Set[str]]:
@@ -237,23 +294,31 @@ def _validate_import_node(node: ast.AST) -> tuple[List[str], Set[str]]:
     if isinstance(node, ast.Import):
         for alias in node.names:
             module_name = alias.name
-            if not _is_allowed_import(module_name):
+            binding_name = alias.asname or _module_root_name(module_name)
+            if _is_forbidden_import(module_name):
                 errors.append(f"Import prohibited: {module_name}")
                 continue
-            imported_names.add(alias.asname or module_name.split(".", 1)[0])
+            if _is_forbidden_binding_name(binding_name):
+                errors.append(f"Import alias prohibited: {binding_name}")
+                continue
+            imported_names.add(binding_name)
         return errors, imported_names
 
     if isinstance(node, ast.ImportFrom):
         if node.level:
             return [f"Import prohibited: {_describe_import(node)}"], imported_names
         module_name = node.module or ""
-        if not _is_allowed_import(module_name):
+        if _is_forbidden_import(module_name):
             return [f"Import prohibited: {_describe_import(node)}"], imported_names
         for alias in node.names:
             if alias.name == "*":
                 errors.append(f"Import prohibited: {_describe_import(node)}")
                 continue
-            imported_names.add(alias.asname or alias.name)
+            binding_name = alias.asname or alias.name
+            if _is_forbidden_binding_name(binding_name):
+                errors.append(f"Import alias prohibited: {binding_name}")
+                continue
+            imported_names.add(binding_name)
         return errors, imported_names
 
     return errors, imported_names
@@ -272,13 +337,6 @@ def _validate_call_target(
         func_name = node.func.id
         if func_name in FORBIDDEN_NAME_CALLS:
             return f"Dangerous function prohibited: {func_name}"
-        if (
-            func_name not in SAFE_BUILTIN_CALLS
-            and func_name not in allowed_call_names
-            and func_name not in local_function_names
-            and func_name not in imported_names
-        ):
-            return f"Call target is not whitelisted: {func_name}"
         return None
 
     if isinstance(node.func, ast.Attribute):
@@ -287,16 +345,9 @@ def _validate_call_target(
             return "Dunder attribute access is prohibited"
         if root_name in FORBIDDEN_ROOT_NAMES:
             return f"Forbidden module or object access: {root_name}"
-        if (
-            root_name
-            and root_name not in allowed_attribute_roots
-            and root_name not in assigned_names
-            and root_name not in imported_names
-        ):
-            return f"Attribute call root is not whitelisted: {root_name}"
         return None
 
-    return "Dynamic call targets are prohibited"
+    return None
 
 
 def _collect_unsafe_operations(
@@ -319,8 +370,16 @@ def _collect_unsafe_operations(
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
-        elif isinstance(node, (ast.AsyncWith, ast.ClassDef, ast.Nonlocal)):
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if _is_forbidden_definition_name(node.name):
+                banned_ops.append(f"Dangerous name binding prohibited: {node.name}")
+        elif isinstance(node, (ast.AsyncWith, ast.Nonlocal)):
             banned_ops.append(f"Unsupported syntax prohibited: {type(node).__name__}")
+        elif isinstance(node, ast.Name):
+            if isinstance(node.ctx, ast.Load) and _is_forbidden_binding_name(node.id):
+                banned_ops.append(f"Dangerous name access prohibited: {node.id}")
+            elif isinstance(node.ctx, (ast.Store, ast.Del)) and _is_forbidden_binding_name(node.id):
+                banned_ops.append(f"Dangerous name binding prohibited: {node.id}")
         elif isinstance(node, ast.Attribute):
             if node.attr.startswith("__") and node.attr not in SAFE_DUNDER_ATTRIBUTES:
                 banned_ops.append("Dunder attribute access is prohibited")
@@ -383,6 +442,8 @@ def exec_safe(
     original_import = __import__
 
     def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level or _is_forbidden_import(name):
+            raise ImportError(f"Import prohibited: {name}")
         module = original_import(name, globals, locals, fromlist, level)
         if name == "time" and "time" in custom_gvars:
             return custom_gvars["time"]

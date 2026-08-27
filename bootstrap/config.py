@@ -290,6 +290,22 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
         "model_config": "detector_models/mitosis/config.py",
         "model_checkpoint": "detector_models/mitosis/weights.pth",
     },
+    "2Dcell_brightfield": {
+        "target_class_id": 0,
+        "target_class_name": "2D_cell",
+        "score_thr": 0.2,
+        "output_filename": "2Dcell_brightfield_locations_list.json",
+        "model_config": "detector_models/cell2d_brightfield/config.py",
+        "model_checkpoint": "detector_models/cell2d_brightfield/weights.pth",
+    },
+    "organoid_fluorescence": {
+        "target_class_id": 0,
+        "target_class_name": "Organoids",
+        "score_thr": 0.2,
+        "output_filename": "organoid_fluorescence_locations_list.json",
+        "model_config": "detector_models/organoid_fluorescence/config.py",
+        "model_checkpoint": "detector_models/organoid_fluorescence/weights.pth",
+    },
 }
 
 

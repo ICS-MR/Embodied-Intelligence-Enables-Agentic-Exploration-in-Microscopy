@@ -14,9 +14,14 @@ from typing import Any, Callable, Iterable
 import numpy as np
 from PIL import Image, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+# Allow reusing the VLM API config loader from vlm_location_comparison.
+VLM_LOCATION_COMPARISON = Path(__file__).resolve().parents[1] / "vlm_location_comparison"
+if str(VLM_LOCATION_COMPARISON) not in sys.path:
+    sys.path.insert(0, str(VLM_LOCATION_COMPARISON))
 
 from bootstrap.config import load_runtime_settings
 from runtime.factory import initialize_system_components
@@ -33,10 +38,15 @@ except AttributeError:
 #   .venv\Scripts\python.exe scripts\run_vlm_focus_brightness_benchmark.py
 RUN_CONFIG: dict[str, Any] = {
     "enabled": True,
-    "mode": "both",  # "focus", "brightness", or "both"
+    "mode": "focus",  # "focus", "brightness", or "both"
     "trial_count": 1,
+    "source": "testset",  # "system" connects the microscope backend; "testset" uses the static test_dataset without any backend.
+    "testset_dir": "docs_public/different_low_level_policy/VLM/vlm_focus_and_brightness/test_dataset",
+    "max_testset_images": 0,  # 0 = use all images in the testset.
+    "testset_initial_z_um": None,        # None = midpoint of the testset Z range
+    "testset_initial_brightness": None,  # None = midpoint of the testset brightness range
     "show_preview_window": True,
-    "output_dir": "test_docx/vlm_focus_brightness",
+    "output_dir": "docs_public/different_low_level_policy/VLM/vlm_focus_and_brightness/outputs/vlm_focus_brightness",
     "channel": "brightfield",
     "exposure_ms": 10.0,
     "brightness": 100,
@@ -285,6 +295,163 @@ def build_candidates(center: float, step: float, offsets: list[int], lower: floa
     return values[:9]
 
 
+def parse_testset_value(filename: str, task: str) -> float:
+    """Extract the ground-truth value encoded in a testset filename."""
+    patterns = {
+        "focus": re.compile(r"pos(-?\d+(?:\.\d+)?)\.(?:png|jpe?g)$", re.IGNORECASE),
+        "brightness": re.compile(r"bri(-?\d+(?:\.\d+)?)\.(?:png|jpe?g)$", re.IGNORECASE),
+    }
+    match = patterns[task].search(str(filename))
+    if not match:
+        raise ValueError(f"Cannot parse {task} value from testset filename: {filename!r}")
+    return float(match.group(1))
+
+
+def load_testset_images(testset_dir: Path, task: str, max_images: int) -> list[Candidate]:
+    subdir = Path(testset_dir) / task
+    if not subdir.is_dir():
+        raise FileNotFoundError(f"Testset directory not found: {subdir}")
+    candidates: list[Candidate] = []
+    for path in sorted(subdir.iterdir()):
+        if not path.is_file() or path.suffix.lower() not in (".png", ".jpg", ".jpeg"):
+            continue
+        candidates.append(
+            Candidate(
+                filename=path.name,
+                value=parse_testset_value(path.name, task),
+                image_path=path,
+            )
+        )
+    candidates.sort(key=lambda item: item.value)
+    if int(max_images) > 0:
+        candidates = candidates[: int(max_images)]
+    if not candidates:
+        raise ValueError(f"No testset images found in {subdir}")
+    return candidates
+
+
+def read_testset_frame(candidate: Candidate) -> np.ndarray:
+    # Keep the raw array (testset PNGs are often 16-bit grayscale; convert("RGB")
+    # would clip them to a blank white image).
+    with Image.open(candidate.image_path) as opened:
+        return np.asarray(opened)
+
+
+def nearest_testset_candidate(candidates: list[Candidate], value: float) -> Candidate:
+    """Pick the testset image whose encoded value is closest to `value` (offline capture simulation)."""
+    return min(candidates, key=lambda item: abs(item.value - float(value)))
+
+
+def build_offline_vlm_client() -> tuple[Any, str]:
+    try:
+        from localization_toolkit.vlm_inference import _load_api_config
+        from openai import OpenAI
+    except Exception as exc:
+        raise RuntimeError(
+            "Offline VLM mode requires the localization_toolkit package and openai. "
+            "Install the vlm_location_comparison requirements or use source=system."
+        ) from exc
+    api_key, api_url, model_name = _load_api_config()
+    return OpenAI(api_key=api_key, base_url=api_url), model_name
+
+
+def run_testset_vlm_search(
+    *,
+    client: Any,
+    model_name: str,
+    output_dir: Path,
+    task: str,
+    testset_dir: Path,
+    max_images: int,
+    search_cfg: dict[str, Any],
+    mosaic_subimage_size_px: int,
+    vlm_temperature: float,
+    vlm_max_tokens: int,
+    initial_center: float | None = None,
+) -> dict[str, Any]:
+    """Iterative VLM search over the static testset, mirroring the online system path.
+
+    Captures are simulated by loading the testset image whose encoded value is
+    closest to each candidate value; the 3x3 mosaic + VLM selection is identical
+    to the online mode. No microscope backend is used.
+    """
+    candidates = load_testset_images(testset_dir, task, max_images)
+    lower = float(candidates[0].value)
+    upper = float(candidates[-1].value)
+    center = clamp(
+        float(initial_center) if initial_center is not None else (lower + upper) / 2.0,
+        lower,
+        upper,
+    )
+    step = float(search_cfg.get("initial_step_um" if task == "focus" else "initial_step"))
+    min_step = float(search_cfg.get("min_step_um" if task == "focus" else "min_step"))
+    max_iterations = int(search_cfg.get("max_iterations"))
+    candidate_offsets = list(search_cfg.get("candidate_offsets"))
+    iterations: list[dict[str, Any]] = []
+    best_value = center
+
+    say(f"[ACTION] testset {task} VLM search over {len(candidates)} static images (no microscope backend)")
+    for iteration in range(1, int(max_iterations) + 1):
+        iteration_dir = output_dir / f"{task}_iter_{iteration:02d}"
+        values = build_candidates(center, step, candidate_offsets, lower, upper)
+        cands: list[Candidate] = []
+        say(f"[ACTION] {task} iteration {iteration}: center={center:g}, step={step:g}")
+
+        for idx, value in enumerate(values):
+            source = nearest_testset_candidate(candidates, value)
+            frame = read_testset_frame(source)
+            filename = f"candidate_{idx + 1:02d}_value_{value:g}.jpg"
+            image_path = iteration_dir / filename
+            save_preview_frame(frame, image_path)
+            cands.append(Candidate(filename=filename, value=float(value), image_path=image_path))
+
+        mosaic_path = iteration_dir / "mosaic.jpg"
+        create_mosaic(cands, mosaic_path, mosaic_subimage_size_px)
+        selected_name, raw_response = query_vlm(
+            client,
+            model_name,
+            mosaic_path,
+            cands,
+            task,
+            vlm_temperature,
+            vlm_max_tokens,
+        )
+        selected = next(item for item in cands if item.filename == selected_name)
+        best_value = float(selected.value)
+        iterations.append(
+            {
+                "iteration": iteration,
+                "mode": "testset",
+                "center_before": center,
+                "step": step,
+                "selected_filename": selected.filename,
+                "selected_value": best_value,
+                "vlm_raw_response": raw_response,
+                "mosaic_path": str(mosaic_path),
+                "candidates": [
+                    {
+                        "filename": item.filename,
+                        "value": item.value,
+                        "image_path": str(item.image_path),
+                        "source": str(nearest_testset_candidate(candidates, item.value).image_path),
+                    }
+                    for item in cands
+                ],
+            }
+        )
+        say(f"[INFO] {task} VLM selected {selected.filename}, value={best_value:g}")
+
+        center_candidate = cands[len(cands) // 2]
+        if selected.filename == center_candidate.filename:
+            step /= 2.0
+        else:
+            center = best_value
+        if step < float(min_step):
+            break
+
+    return {"task": task, "mode": "testset", "selected_value": best_value, "iterations": iterations}
+
+
 def run_vlm_search(
     microscope: Any,
     *,
@@ -381,7 +548,95 @@ def append_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def run_testset_once(config: dict[str, Any]) -> Path:
+    """Offline VLM evaluation over the static test_dataset; no microscope backend is started."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = (
+        Path(config["output_dir"])
+        / f"{timestamp}__vlm_focus_brightness__testset__mode-{slugify(config.get('mode'))}"
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    summary_rows: list[dict[str, Any]] = []
+
+    testset_dir = Path(
+        config.get(
+            "testset_dir",
+            "docs_public/different_low_level_policy/VLM/vlm_focus_and_brightness/test_dataset",
+        )
+    )
+    if not testset_dir.is_absolute():
+        testset_dir = ROOT / testset_dir
+    max_images = int(config.get("max_testset_images", 0))
+
+    client, model_name = build_offline_vlm_client()
+
+    mode = str(config.get("mode", "both")).lower()
+    tasks: list[str] = []
+    if mode in ("focus", "both") and config["focus"].get("enabled", True):
+        tasks.append("focus")
+    if mode in ("brightness", "both") and config["brightness_search"].get("enabled", True):
+        tasks.append("brightness")
+
+    for trial in range(1, int(config.get("trial_count", 1)) + 1):
+        for task in tasks:
+            started_at = datetime.now().isoformat(timespec="seconds")
+            task_dir = run_dir / f"trial_{trial:02d}" / task
+            try:
+                result = run_testset_vlm_search(
+                    client=client,
+                    model_name=model_name,
+                    output_dir=task_dir,
+                    task=task,
+                    testset_dir=testset_dir,
+                    max_images=max_images,
+                    search_cfg=config["focus"] if task == "focus" else config["brightness_search"],
+                    mosaic_subimage_size_px=int(config["mosaic_subimage_size_px"]),
+                    vlm_temperature=float(config["vlm_temperature"]),
+                    vlm_max_tokens=int(config["vlm_max_tokens"]),
+                    initial_center=(
+                        config.get("testset_initial_z_um")
+                        if task == "focus"
+                        else config.get("testset_initial_brightness")
+                    ),
+                )
+                result_path = task_dir / "result.json"
+                result_path.parent.mkdir(parents=True, exist_ok=True)
+                result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+                summary_rows.append(
+                    {
+                        "trial": trial,
+                        "task": task,
+                        "selected_value": result["selected_value"],
+                        "iterations": len(result["iterations"]),
+                        "started_at": started_at,
+                        "finished_at": datetime.now().isoformat(timespec="seconds"),
+                        "status": "success",
+                        "error": "",
+                    }
+                )
+            except Exception as exc:
+                summary_rows.append(
+                    {
+                        "trial": trial,
+                        "task": task,
+                        "selected_value": "",
+                        "iterations": "",
+                        "started_at": started_at,
+                        "finished_at": datetime.now().isoformat(timespec="seconds"),
+                        "status": "failed",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+                raise
+
+    append_summary_csv(run_dir / "summary.csv", summary_rows)
+    (run_dir / "summary.json").write_text(json.dumps(summary_rows, ensure_ascii=False, indent=2), encoding="utf-8")
+    return run_dir
+
+
 def run_once(config: dict[str, Any]) -> Path:
+    if str(config.get("source", "system")).strip().lower() == "testset":
+        return run_testset_once(config)
     settings = load_runtime_settings()
     runtime_context = initialize_system_components()
     microscope = runtime_context.env_olympus

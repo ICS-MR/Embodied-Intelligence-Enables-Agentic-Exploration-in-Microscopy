@@ -93,7 +93,7 @@ def _configure_core_logging(core: Any) -> None:
 
 # ====== Detection helpers ======
 def _coerce_detection_image_to_2d(image: np.ndarray) -> np.ndarray:
-    """Accept a 2D image or a singleton multidimensional acquisition result."""
+    """Accept a 2D image or an unambiguous acquisition plane for detection."""
     image_array = np.asarray(image)
     if image_array.ndim == 2:
         return image_array
@@ -102,7 +102,21 @@ def _coerce_detection_image_to_2d(image: np.ndarray) -> np.ndarray:
     if squeezed.ndim == 2:
         return squeezed
 
-    raise ValueError("Only 2D grayscale image or singleton multidimensional image supported")
+    if image_array.ndim == 5:
+        time_count, channel_count, z_count, _height, _width = image_array.shape
+        if time_count == 1 and z_count == 1 and channel_count >= 1:
+            return image_array[0, 0, 0, :, :]
+        raise ValueError(
+            "Detection requires a single 2D image plane. "
+            f"Received acquisition image with shape {image_array.shape}, interpreted as (T, C, Z, H, W). "
+            "Only single-timepoint, single-Z acquisition tensors can be reduced automatically; "
+            "select the desired timepoint/channel/Z plane before detection."
+        )
+
+    raise ValueError(
+        "Only 2D grayscale image, singleton multidimensional image, or single-timepoint "
+        f"single-Z acquisition tensor supported; got shape {image_array.shape}."
+    )
 
 
 def _to_numpy_array(value: Any) -> np.ndarray:
@@ -158,6 +172,48 @@ def _extract_class_detections(det_results: Any, class_idx: int) -> np.ndarray:
         return class_dets.reshape(-1, 5)
 
     raise RuntimeError(f"Unsupported MMDetection result type: {type(det_results).__name__}")
+
+
+def _resolve_detection_target_spec(
+    target_class: str,
+    target_specs: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Resolve a detection target spec by registered target key (case-insensitive)."""
+    target_specs = {
+        str(key): dict(value)
+        for key, value in target_specs.items()
+        if isinstance(value, dict)
+    }
+    normalized = str(target_class or "").strip()
+    resolved_spec: Optional[Dict[str, Any]] = None
+    if normalized in target_specs:
+        resolved_spec = dict(target_specs[normalized])
+    if resolved_spec is None:
+        lowered = normalized.lower()
+        for key, spec in target_specs.items():
+            if key.lower() == lowered:
+                resolved_spec = dict(spec)
+                break
+    if resolved_spec is None:
+        raise ValueError(
+            f"Unsupported target class: {target_class}. "
+            f"Available targets: {', '.join(target_specs.keys())}"
+        )
+    return resolved_spec
+
+
+def _resolve_detection_class_index(classes: List[str], class_name: Optional[str]) -> int:
+    """Select the model class index by name, falling back to the only class."""
+    if class_name:
+        for index, candidate in enumerate(classes):
+            if str(candidate) == class_name:
+                return index
+    if len(classes) == 1:
+        return 0
+    raise RuntimeError(
+        f"Unable to resolve target class from model classes {list(classes)}; "
+        f"requested name={class_name!r}"
+    )
 
 
 def _validate_loaded_devices(loaded_devices: Any, required_devices: list[str]) -> None:
@@ -359,6 +415,7 @@ class MicroscopeController(BaseTool):
             )
             for target_name, spec in detection_targets.items()
         }
+        self.detection_targets = detection_targets
         self.system_config = system_config
         self.objective_labels = dict(getattr(system_config, "objective_labels", {}))
         self.dichroic_colors = dict(getattr(system_config, "dichroic_colors", {}))
@@ -3147,12 +3204,16 @@ class MicroscopeController(BaseTool):
         if device is None:
             device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+        spec = _resolve_detection_target_spec(target_name, self.detection_targets)
+        config_path = str(spec.get("model_config") or "")
+        ckpt_path = str(spec.get("model_checkpoint") or "")
+        target_class_name = str(spec.get("target_class_name") or target_name)
+        if not config_path or not ckpt_path:
+            raise ValueError(f"Target class '{target_name}' is not configured")
+
         try:
             model = self._detection_models.get(target_name)
             if model is None:
-                config_path, ckpt_path = self.target_model_map.get(target_name, ("", ""))
-                if not config_path or not ckpt_path:
-                    raise ValueError(f"Target class '{target_name}' is not configured")
                 model = init_detector(config_path, ckpt_path, device=device)
                 self._detection_models[target_name] = model
         except Exception as exc:
@@ -3174,10 +3235,7 @@ class MicroscopeController(BaseTool):
             raise RuntimeError(f"Failed to run MMDetection inference for '{target_name}': {exc}") from exc
 
         classes = _resolve_model_classes(model)
-        if target_name not in classes:
-            return []
-
-        class_idx = classes.index(target_name)
+        class_idx = _resolve_detection_class_index(classes, target_class_name)
         class_dets = _extract_class_detections(det_results, class_idx)
 
         if class_dets.size == 0:

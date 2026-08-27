@@ -15,12 +15,15 @@ wheels/
 # Local runtime configuration
 .env
 config/runtime_config.json
+docs_public/different_low_level_policy/VLM/vlm_api_config.json
 
 # Large local backups (not for repository)
 *.rar
 
 # Test and runtime artifacts
 .pytest_cache/
+test_docx/
+docs_public/different_low_level_policy/VLM/vlm_focus_and_brightness/outputs/
 history/
 uploaded_cfg/
 *.log

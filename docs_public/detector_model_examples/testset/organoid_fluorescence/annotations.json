@@ -1,0 +1,211 @@
+{
+  "info": {
+    "description": "Converted from YOLO format",
+    "url": "",
+    "version": "1.0",
+    "year": 2025,
+    "contributor": "User",
+    "date_created": "2025-10-24"
+  },
+  "licenses": [
+    {
+      "id": 1,
+      "name": "Unknown",
+      "url": ""
+    }
+  ],
+  "images": [
+    {
+      "id": 4,
+      "file_name": "Image_11917.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "id": 5,
+      "file_name": "Image_11918.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "id": 12,
+      "file_name": "Image_11926.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "id": 14,
+      "file_name": "Image_11929.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "id": 20,
+      "file_name": "Image_11935.jpg",
+      "width": 512,
+      "height": 512
+    }
+  ],
+  "annotations": [
+    {
+      "id": 6,
+      "image_id": 4,
+      "category_id": 1,
+      "bbox": [
+        74.000128,
+        132.999936,
+        114.999808,
+        95.000064
+      ],
+      "area": 10924.989119987711,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 7,
+      "image_id": 4,
+      "category_id": 1,
+      "bbox": [
+        130.999808,
+        204.99968,
+        126.000128,
+        101.000192
+      ],
+      "area": 12726.037120024575,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 8,
+      "image_id": 5,
+      "category_id": 1,
+      "bbox": [
+        34.000128000000004,
+        365.999872,
+        98.999808,
+        120.0
+      ],
+      "area": 11879.97696,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 9,
+      "image_id": 5,
+      "category_id": 1,
+      "bbox": [
+        282.99980800000003,
+        15.999744,
+        117.000192,
+        93.000192
+      ],
+      "area": 10881.040320036864,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 10,
+      "image_id": 5,
+      "category_id": 1,
+      "bbox": [
+        340.999936,
+        84.00025600000001,
+        121.999872,
+        104.999936
+      ],
+      "area": 12809.978752008192,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 19,
+      "image_id": 12,
+      "category_id": 1,
+      "bbox": [
+        109.000192,
+        89.999872,
+        99.999744,
+        122.999808
+      ],
+      "area": 12299.949312049153,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 21,
+      "image_id": 14,
+      "category_id": 1,
+      "bbox": [
+        316.999936,
+        105.99987200000001,
+        118.000128,
+        97.999872
+      ],
+      "area": 11563.997439983616,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 22,
+      "image_id": 14,
+      "category_id": 1,
+      "bbox": [
+        376.999936,
+        177.000192,
+        124.000256,
+        104.0
+      ],
+      "area": 12896.026624,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 23,
+      "image_id": 14,
+      "category_id": 1,
+      "bbox": [
+        72.99993599999999,
+        458.99980800000003,
+        92.000256,
+        53.000192
+      ],
+      "area": 4876.031232049151,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 33,
+      "image_id": 20,
+      "category_id": 1,
+      "bbox": [
+        162.00012800000002,
+        132.0,
+        121.999872,
+        104.0
+      ],
+      "area": 12687.986687999999,
+      "iscrowd": 0,
+      "segmentation": []
+    },
+    {
+      "id": 34,
+      "image_id": 20,
+      "category_id": 1,
+      "bbox": [
+        101.99987199999998,
+        59.000064,
+        118.000128,
+        96.999936
+      ],
+      "area": 11446.00486399181,
+      "iscrowd": 0,
+      "segmentation": []
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Organoids"
+    }
+  ]
+}

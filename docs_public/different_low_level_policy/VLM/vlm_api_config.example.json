@@ -1,0 +1,5 @@
+{
+  "api_key": "<your-vlm-api-key>",
+  "api_url": "<your-vlm-api-endpoint>",
+  "model_name": "<your-vlm-model-name>"
+}

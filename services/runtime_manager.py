@@ -171,6 +171,36 @@ class RuntimeManager:
         payload.update(extra)
         self.enqueue_output_message(payload)
 
+    @staticmethod
+    def _prompt_actions_for_mode(mode: str) -> list[dict[str, Any]]:
+        normalized_mode = str(mode or "general").strip().lower()
+        if normalized_mode == "plan_confirmation":
+            return [
+                {"label": "Confirm", "value": "confirm", "kind": "primary"},
+                {"label": "Edit", "value": "edit", "client_only": True},
+                {"label": "View Planner Output", "value": "debug_plan"},
+                {"label": "Cancel", "value": "cancel", "kind": "danger"},
+            ]
+        if normalized_mode == "clarification":
+            return [
+                {"label": "Answer", "value": "focus_input", "kind": "primary", "client_only": True},
+                {"label": "View Planner Output", "value": "debug_plan"},
+                {"label": "Cancel", "value": "cancel", "kind": "danger"},
+            ]
+        if normalized_mode == "revision":
+            return [
+                {"label": "Revise", "value": "focus_input", "kind": "primary", "client_only": True},
+                {"label": "View Planner Output", "value": "debug_plan"},
+                {"label": "Cancel", "value": "cancel", "kind": "danger"},
+            ]
+        if normalized_mode == "general":
+            return [
+                {"label": "Answer", "value": "focus_input", "kind": "primary", "client_only": True},
+                {"label": "Cancel", "value": "cancel", "kind": "danger"},
+            ]
+        logger.warning("Unknown prompt mode for ask_user actions: %s", mode)
+        return []
+
     def _record_user_input(
         self,
         text: str,
@@ -501,9 +531,10 @@ class RuntimeManager:
 
     async def _prompt_for_plan_feedback(self, prompt_text: str, mode: str = "plan_confirmation") -> str:
         session = self.app_state.session
+        actions = self._prompt_actions_for_mode(mode)
         session.is_asking_user = True
-        session.pending_user_prompt = {"type": "ask_user", "text": prompt_text, "mode": mode}
-        self._send_message("ask_user", prompt_text, mode=mode)
+        session.pending_user_prompt = {"type": "ask_user", "text": prompt_text, "mode": mode, "actions": actions}
+        self._send_message("ask_user", prompt_text, mode=mode, actions=actions)
         try:
             return await session.input_queue.get()
         finally:
@@ -1062,5 +1093,4 @@ class RuntimeManager:
     async def generate_mjpeg_frames(self) -> AsyncGenerator[bytes, None]:
         async for frame in self.preview_stream.generate_mjpeg_frames():
             yield frame
-
 

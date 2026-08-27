@@ -28,6 +28,11 @@ try:
 except Exception:
     torch = None
 
+try:
+    import cv2
+except Exception:
+    cv2 = None
+
 
 DEFAULT_MANIFEST = "docs_public/detector_model_examples/demo_manifest.json"
 DEFAULT_OUTPUT_DIR = "docs_public/detector_model_examples/outputs"
@@ -55,6 +60,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Directory where outputs will be written.")
     parser.add_argument("--score-thr", type=float, default=None, help="Override the registered detector score threshold.")
+    parser.add_argument(
+        "--nms-thr",
+        type=float,
+        default=None,
+        help="NMS IoU threshold used to deduplicate overlapping detections (default 0.5).",
+    )
     parser.add_argument("--device", default="auto", help="Inference device, for example cpu, cuda:0, or auto.")
     return parser.parse_args()
 
@@ -126,6 +137,33 @@ def _extract_class_detections(result: Any, class_idx: int) -> np.ndarray:
         return class_dets.reshape(-1, 5)
 
     raise RuntimeError(f"Unsupported MMDetection result type: {type(result).__name__}")
+
+
+def _apply_nms(detections: np.ndarray, iou_threshold: float) -> np.ndarray:
+    """Deduplicate overlapping detections with class-agnostic NMS (same as the Fiji path)."""
+    if cv2 is None:
+        raise RuntimeError(
+            "OpenCV is unavailable. Install a compatible opencv stack before using detection NMS."
+        )
+    if detections.size == 0:
+        return detections
+    boxes_xywh = np.asarray(detections[:, :4], dtype=np.float32).copy()
+    boxes_xywh[:, 2] = boxes_xywh[:, 2] - boxes_xywh[:, 0]
+    boxes_xywh[:, 3] = boxes_xywh[:, 3] - boxes_xywh[:, 1]
+    scores = np.asarray(detections[:, 4], dtype=np.float32).tolist()
+    indices = cv2.dnn.NMSBoxes(
+        bboxes=boxes_xywh.tolist(),
+        scores=scores,
+        score_threshold=0.0,
+        nms_threshold=float(iou_threshold),
+    )
+    if indices is None:
+        return np.empty((0, 5), dtype=np.float32)
+    indices_array = np.asarray(indices)
+    if indices_array.size == 0:
+        return np.empty((0, 5), dtype=np.float32)
+    keep = [int(index) for index in indices_array.reshape(-1).tolist()]
+    return detections[keep]
 
 
 def _resolve_device(device_arg: str) -> str:
@@ -251,13 +289,20 @@ def _validate_target(target: str, manifest: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _run_target(target_info: dict[str, Any], output_root: Path, device: str, score_thr_override: float | None) -> dict[str, Any]:
+def _run_target(
+    target_info: dict[str, Any],
+    output_root: Path,
+    device: str,
+    score_thr_override: float | None,
+    nms_thr_override: float | None,
+) -> dict[str, Any]:
     if init_detector is None or inference_detector is None:
         raise RuntimeError("MMDetection is unavailable. Please install a compatible mmdet/mmcv/torch stack.")
 
     target = target_info["target"]
     target_class = target_info["target_class_name"]
     score_thr = float(score_thr_override if score_thr_override is not None else target_info["score_thr"])
+    nms_thr = float(nms_thr_override if nms_thr_override is not None else 0.5)
     annotation_data = target_info["annotation_data"]
     image_entries = annotation_data["images"]
 
@@ -285,9 +330,11 @@ def _run_target(target_info: dict[str, Any], output_root: Path, device: str, sco
         else:
             valid_detections = detections[detections[:, 4] >= score_thr]
 
-        _draw_prediction_boxes(image_path, valid_detections, vis_dir / file_name, target_class)
+        deduped_detections = _apply_nms(valid_detections, nms_thr)
 
-        for x1, y1, x2, y2, score in valid_detections:
+        _draw_prediction_boxes(image_path, deduped_detections, vis_dir / file_name, target_class)
+
+        for x1, y1, x2, y2, score in deduped_detections:
             predictions.append(
                 {
                     "image_id": image_id,
@@ -311,6 +358,7 @@ def _run_target(target_info: dict[str, Any], output_root: Path, device: str, sco
         "display_name": target_info["display_name"],
         "target_class_name": target_class,
         "score_thr": score_thr,
+        "nms_thr": nms_thr,
         "device": device,
         "images_scanned": len(image_entries),
         "predictions_written": total_detections,
@@ -351,7 +399,7 @@ def main() -> int:
 
     device = _resolve_device(args.device)
     output_root = _resolve_path(args.output_dir)
-    summaries = [_run_target(target_info, output_root, device, args.score_thr) for target_info in target_infos]
+    summaries = [_run_target(target_info, output_root, device, args.score_thr, args.nms_thr) for target_info in target_infos]
 
     run_summary = {
         "purpose": manifest.get("purpose", ""),

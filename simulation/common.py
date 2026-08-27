@@ -44,7 +44,21 @@ def _coerce_detection_image_to_2d(image: np.ndarray) -> np.ndarray:
     if squeezed.ndim == 2:
         return squeezed
 
-    raise ValueError("Only 2D grayscale image or singleton multidimensional image supported")
+    if image_array.ndim == 5:
+        time_count, channel_count, z_count, _height, _width = image_array.shape
+        if time_count == 1 and z_count == 1 and channel_count >= 1:
+            return image_array[0, 0, 0, :, :]
+        raise ValueError(
+            "Detection requires a single 2D image plane. "
+            f"Received acquisition image with shape {image_array.shape}, interpreted as (T, C, Z, H, W). "
+            "Only single-timepoint, single-Z acquisition tensors can be reduced automatically; "
+            "select the desired timepoint/channel/Z plane before detection."
+        )
+
+    raise ValueError(
+        "Only 2D grayscale image, singleton multidimensional image, or single-timepoint "
+        f"single-Z acquisition tensor supported; got shape {image_array.shape}."
+    )
 
 # Channel to color mapping (RGB values)
 dichroic_colors = {

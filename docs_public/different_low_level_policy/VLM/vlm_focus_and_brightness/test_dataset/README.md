@@ -20,3 +20,7 @@ The benchmark scripts in the parent directory acquire fresh images from a connec
 microscope when run online. This dataset provides static image examples so the
 focus and brightness tasks can be reviewed without exposing any private path or
 local acquisition environment.
+
+The benchmark scripts also support offline evaluation over this dataset by setting
+`"source": "testset"` in their `RUN_CONFIG`; that path scores these images without
+connecting the microscope backend.
