@@ -35,13 +35,14 @@ environment using `record_frap_click_once.py`.
 ## Startup visual verification
 
 Before each FRAP session the tool verifies that cellSens is actually ready
-instead of trusting fixed sleeps alone. Two reference-image checks run in
+instead of trusting a fixed one-shot sleep. Two reference-image checks run in
 `tool/frap.py`:
 
-1. `pre_click`: after the settle wait, a stable region that does not depend on
-   the selected tab (by default the top toolbar) must match its reference
-   image. On mismatch, cellSens is considered not fully loaded and the FRAP
-   tab click is refused.
+1. `pre_click`: during readiness polling, a stable region that does not depend
+   on the selected tab (by default the top toolbar) must match its reference
+   image. The poll interval is controlled by `startup_poll_interval_sec`.
+   After the match, the tool waits an additional ready-settle period
+   before clicking the FRAP tab.
 2. `post_click`: after clicking the FRAP tab, the bottom tab strip (with the
    FRAP tab selected) must match its reference image. This confirms that the
    click actually opened the FRAP console.

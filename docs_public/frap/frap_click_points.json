@@ -25,5 +25,38 @@
       "selected_window": null
     },
     "recorded_at": "2026-08-26T07:30:15"
+  },
+  {
+    "coordinate_system": "screen_absolute_physical_pixels",
+    "source_api": "Win32 GetCursorPos after per-monitor DPI awareness",
+    "x": 3796,
+    "y": 14,
+    "screen": {
+      "width": 3840,
+      "height": 2160,
+      "virtual_left": 0,
+      "virtual_top": 0,
+      "virtual_width": 3840,
+      "virtual_height": 2160
+    },
+    "pyautogui_screen": {
+      "width": 3840,
+      "height": 2160
+    },
+    "positions": {
+      "win32_get_cursor_pos": {
+        "x": 3796,
+        "y": 14
+      },
+      "pyautogui_position": {
+        "x": 3796,
+        "y": 14
+      }
+    },
+    "diagnostics": {
+      "window_title_keyword": "olympus",
+      "selected_window": null
+    },
+    "recorded_at": "2026-08-28T23:46:58"
   }
 ]

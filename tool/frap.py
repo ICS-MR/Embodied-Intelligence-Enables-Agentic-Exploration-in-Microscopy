@@ -50,6 +50,22 @@ def _import_cellpose_2d():
     return Cellpose2D
 
 
+def _find_processes_by_name(process_name: str) -> list[Any]:
+    try:
+        import psutil
+    except Exception as exc:
+        raise RuntimeError("psutil is required for FRAP process verification.") from exc
+
+    normalized = str(process_name or "").strip().lower()
+    if not normalized:
+        return []
+    return [
+        proc
+        for proc in psutil.process_iter(["name"])
+        if str(proc.info.get("name", "") or "").strip().lower() == normalized
+    ]
+
+
 @dataclass(frozen=True)
 class _FrapCoordinateTransform:
     source_width: int
@@ -250,7 +266,7 @@ class Frap(BaseTool):
             return
         try:
             self._activate_window_if_needed(profile, window_info=window_info)
-            self._close_window(window_info)
+            self._close_window(window_info, profile=profile)
         except Exception as exc:
             raise RuntimeError("Failed to release the FRAP cellSens session.") from exc
         finally:
@@ -270,6 +286,10 @@ class Frap(BaseTool):
             profile=self._profile,
             control_names=("frap_start_button",),
         )
+        settle_seconds = float(self._profile["options"].get("frap_start_settle_seconds", 0.0))
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+        self._wait_for_state_reference("frap_start_state_check", "laser_on")
         self._laser_enabled = True
 
     @tool_func
@@ -294,6 +314,10 @@ class Frap(BaseTool):
             profile=self._profile,
             control_names=("frap_stop_button",),
         )
+        settle_seconds = float(self._profile["options"].get("frap_stop_settle_seconds", 0.0))
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+        self._wait_for_state_reference("frap_stop_state_check", "laser_off")
         self._laser_enabled = False
 
     @tool_func
@@ -477,9 +501,12 @@ class Frap(BaseTool):
             raise ValueError("Invalid FRAP profile structure")
 
         startup_window_timeout_sec = float(options.get("startup_window_timeout_sec", 60.0))
+        startup_poll_interval_sec = float(options.get("startup_poll_interval_sec", 1.0))
         startup_settle_seconds = float(options.get("startup_settle_seconds", 0.0))
         if startup_window_timeout_sec <= 0:
             raise ValueError("FRAP startup_window_timeout_sec must be greater than zero.")
+        if startup_poll_interval_sec <= 0:
+            raise ValueError("FRAP startup_poll_interval_sec must be greater than zero.")
         if startup_settle_seconds < 0:
             raise ValueError("FRAP startup_settle_seconds must be non-negative.")
 
@@ -530,8 +557,21 @@ class Frap(BaseTool):
             "options": {
                 "activate_before_action": bool(options.get("activate_before_action", True)),
                 "startup_window_timeout_sec": startup_window_timeout_sec,
+                "startup_poll_interval_sec": startup_poll_interval_sec,
                 "startup_settle_seconds": startup_settle_seconds,
+                "startup_ready_settle_seconds": float(options.get("startup_ready_settle_seconds", 15.0)),
                 "startup_match_threshold": startup_match_threshold,
+                "frap_start_settle_seconds": float(options.get("frap_start_settle_seconds", 1.0)),
+                "frap_stop_settle_seconds": float(options.get("frap_stop_settle_seconds", 1.5)),
+                "frap_start_state_check": self._parse_startup_reference_check(
+                    options.get("frap_start_state_check", {}), "frap_start_state_check"
+                ),
+                "frap_stop_state_check": self._parse_startup_reference_check(
+                    options.get("frap_stop_state_check", {}), "frap_stop_state_check"
+                ),
+                "close_settle_seconds": float(options.get("close_settle_seconds", 2.0)),
+                "close_window_timeout_sec": float(options.get("close_window_timeout_sec", 15.0)),
+                "close_process_timeout_sec": float(options.get("close_process_timeout_sec", 30.0)),
                 "startup_reference_checks": startup_reference_checks,
                 "click_interval_sec": float(options.get("click_interval_sec", 0.15)),
                 "move_duration_sec": float(options.get("move_duration_sec", 0.0)),
@@ -640,11 +680,7 @@ class Frap(BaseTool):
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile, window_info=self._window_info)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
-        settle_seconds = float(self._profile["options"]["startup_settle_seconds"])
-        if settle_seconds > 0:
-            time.sleep(settle_seconds)
-            self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
-        self._verify_startup_reference("pre_click")
+        self._wait_for_startup_readiness("pre_click")
         self._prepare_frap_console(self._profile, self._window_info)
         self._verify_startup_reference("post_click")
         self._session_prepared = True
@@ -681,6 +717,89 @@ class Frap(BaseTool):
             profile=profile,
             control_names=("bottom_frap_tab_button",),
         )
+
+    def _wait_for_startup_readiness(self, check_name: str) -> None:
+        options = self._profile["options"]
+        ready_settle_seconds = float(options.get("startup_ready_settle_seconds", 15.0))
+        timeout_sec = float(options.get("startup_window_timeout_sec", 60.0))
+        poll_interval_sec = float(options.get("startup_poll_interval_sec", 1.0))
+        deadline = time.time() + max(timeout_sec, 0.1)
+        while True:
+            try:
+                self._verify_startup_reference(check_name)
+                if ready_settle_seconds > 0:
+                    time.sleep(ready_settle_seconds)
+                return
+            except RuntimeError:
+                if time.time() >= deadline:
+                    raise
+                time.sleep(poll_interval_sec)
+
+    def _verify_state_reference(self, check_name: str, state_name: str) -> None:
+        options = self._profile["options"]
+        check = options.get(check_name, {})
+        reference_path_text = str(check.get("image", "")).strip()
+        if not reference_path_text:
+            logger.warning(
+                "FRAP %s reference image is not configured; skipping this state check.",
+                state_name,
+            )
+            return
+
+        region = check.get("region")
+        if not isinstance(region, dict):
+            raise RuntimeError(f"FRAP {state_name} state check region is invalid.")
+
+        reference_path = Path(reference_path_text).expanduser()
+        if not reference_path.is_absolute():
+            reference_path = Path(self._profile_path).parent / reference_path
+        reference_path = reference_path.resolve()
+        cv2 = _import_cv2()
+        reference = cv2.imread(str(reference_path), cv2.IMREAD_GRAYSCALE)
+        if reference is None:
+            raise RuntimeError(f"FRAP {state_name} reference image could not be read: {reference_path}")
+
+        capture = self._capture_screen_region(region)
+        capture_gray = cv2.cvtColor(capture, cv2.COLOR_RGB2GRAY) if capture.ndim == 3 else capture
+        if capture_gray.shape != reference.shape:
+            raise RuntimeError(
+                f"FRAP {state_name} reference image size does not match its region: "
+                f"reference=({reference.shape[1]}x{reference.shape[0]}) "
+                f"region=({capture_gray.shape[1]}x{capture_gray.shape[0]})."
+            )
+
+        match = cv2.matchTemplate(capture_gray, reference, cv2.TM_CCOEFF_NORMED)
+        score = float(np.max(match))
+        threshold = float(options.get("startup_match_threshold", 0.8))
+        if math.isfinite(score) and score >= threshold:
+            logger.info(
+                "FRAP %s visual verification passed. score=%.4f threshold=%.4f reference=%s",
+                state_name,
+                score,
+                threshold,
+                reference_path,
+            )
+            return
+
+        evidence_path = self._save_startup_evidence(f"{state_name}", capture)
+        raise RuntimeError(
+            f"FRAP {state_name} visual verification failed: similarity score "
+            f"{score:.4f} is below threshold {threshold:.4f}. Evidence screenshot saved to: {evidence_path}"
+        )
+
+    def _wait_for_state_reference(self, check_name: str, state_name: str) -> None:
+        options = self._profile["options"]
+        timeout_sec = float(options.get("startup_window_timeout_sec", 60.0))
+        poll_interval_sec = float(options.get("startup_poll_interval_sec", 1.0))
+        deadline = time.time() + max(timeout_sec, 0.1)
+        while True:
+            try:
+                self._verify_state_reference(check_name, state_name)
+                return
+            except RuntimeError:
+                if time.time() >= deadline:
+                    raise
+                time.sleep(poll_interval_sec)
 
     def _verify_startup_reference(self, check_name: str) -> None:
         options = self._profile["options"]
@@ -980,11 +1099,36 @@ class Frap(BaseTool):
             "candidate_count": len(candidates),
         }
 
-    def _close_window(self, window_info: dict) -> None:
+    def _close_window(self, window_info: dict, profile: dict | None = None) -> None:
         window_width = int(window_info["width"])
         window_height = int(window_info["height"])
         if window_width <= 0 or window_height <= 0:
             return
+        settle_seconds = 2.0
+        close_timeout_sec = 15.0
+        process_timeout_sec = 30.0
+        if profile is not None:
+            settle_seconds = float(profile.get("options", {}).get("close_settle_seconds", settle_seconds))
+            close_timeout_sec = float(profile.get("options", {}).get("close_window_timeout_sec", close_timeout_sec))
+            process_timeout_sec = float(profile.get("options", {}).get("close_process_timeout_sec", process_timeout_sec))
+            close_control = profile.get("controls", {}).get("cellsens_close_button")
+            if isinstance(close_control, dict) and str(close_control.get("type", "")).strip().lower() == "point":
+                try:
+                    self._click_screen_absolute(
+                        absolute_x=int(close_control["x"]),
+                        absolute_y=int(close_control["y"]),
+                        move_duration_sec=float(profile["options"].get("move_duration_sec", 0.0)),
+                        button=str(close_control.get("button", "left")),
+                    )
+                    if settle_seconds > 0:
+                        time.sleep(settle_seconds)
+                    try:
+                        self._wait_for_window(profile["window_title_keyword"], timeout_sec=max(close_timeout_sec, 0.1))
+                    except RuntimeError:
+                        self._wait_for_process_exit(process_name="SisXV.exe", timeout_sec=process_timeout_sec)
+                        return
+                except Exception:
+                    logger.warning("FRAP GUI close button click failed; falling back to Alt+F4.", exc_info=True)
         pyautogui = _import_pyautogui()
         original_pause = getattr(pyautogui, "PAUSE", 0.0)
         try:
@@ -992,6 +1136,18 @@ class Frap(BaseTool):
             pyautogui.hotkey("alt", "f4", interval=0.0)
         finally:
             pyautogui.PAUSE = original_pause
+        self._wait_for_process_exit(process_name="SisXV.exe", timeout_sec=process_timeout_sec)
+
+    def _wait_for_process_exit(self, process_name: str, timeout_sec: float = 30.0, poll_interval_sec: float = 0.5) -> None:
+        deadline = time.time() + float(timeout_sec)
+        while True:
+            if not _find_processes_by_name(process_name):
+                return
+            if time.time() >= deadline:
+                raise RuntimeError(
+                    f"Process still running after {timeout_sec:.2f}s: {process_name}"
+                )
+            time.sleep(float(poll_interval_sec))
 
     def _wait_for_window(self, title_keyword: str, timeout_sec: float = 15.0, poll_interval_sec: float = 0.2) -> dict:
         deadline = time.time() + float(timeout_sec)

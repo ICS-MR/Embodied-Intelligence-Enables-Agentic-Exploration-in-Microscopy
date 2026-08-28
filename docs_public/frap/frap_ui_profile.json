@@ -13,6 +13,11 @@
     "source_height": 2048
   },
   "controls": {
+    "cellsens_close_button": {
+      "type": "point",
+      "x": 3796,
+      "y": 14
+    },
     "bottom_frap_tab_button": {
       "type": "point",
       "x": 3684,
@@ -37,8 +42,32 @@
   "options": {
     "activate_before_action": true,
     "startup_window_timeout_sec": 600.0,
-    "startup_settle_seconds": 300.0,
+    "startup_poll_interval_sec": 5.0,
+    "startup_ready_settle_seconds": 15.0,
     "startup_match_threshold": 0.8,
+    "frap_start_settle_seconds": 1.0,
+    "frap_start_state_check": {
+      "image": "references/laser_on.png",
+      "region": {
+        "left": 3384,
+        "top": 70,
+        "right": 3834,
+        "bottom": 532
+      }
+    },
+    "frap_stop_settle_seconds": 1.5,
+    "frap_stop_state_check": {
+      "image": "references/laser_off.png",
+      "region": {
+        "left": 3384,
+        "top": 70,
+        "right": 3834,
+        "bottom": 339
+      }
+    },
+    "close_settle_seconds": 2.0,
+    "close_window_timeout_sec": 15.0,
+    "close_process_timeout_sec": 30.0,
     "startup_reference_checks": {
       "pre_click": {
         "image": "references/pre_click.png",
