@@ -4,9 +4,9 @@ Run this on the machine where cellSens is installed, after cellSens has fully
 loaded. The post_click reference must be captured with the FRAP tab open.
 
 Examples:
-    python scripts/capture_frap_startup_reference.py --check pre_click
-    python scripts/capture_frap_startup_reference.py --check post_click
-    python scripts/capture_frap_startup_reference.py --check both
+    python docs_public/frap/capture_frap_startup_reference.py --check pre_click
+    python docs_public/frap/capture_frap_startup_reference.py --check post_click
+    python docs_public/frap/capture_frap_startup_reference.py --check both
 """
 
 from __future__ import annotations
@@ -15,8 +15,7 @@ import argparse
 import json
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-PROFILE_PATH = ROOT_DIR / "docs_public" / "frap" / "frap_ui_profile.json"
+PROFILE_PATH = Path(__file__).resolve().parent / "frap_ui_profile.json"
 DEFAULT_OUT_DIR = PROFILE_PATH.parent / "references"
 
 

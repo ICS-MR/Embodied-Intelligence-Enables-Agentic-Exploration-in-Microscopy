@@ -36,8 +36,6 @@ scripts/*
 !scripts/download_detector_weights.ps1
 !scripts/package_vla_act_assets.ps1
 !scripts/run_generated_imagej_code.py
-!scripts/capture_frap_startup_reference.py
-!scripts/calibrate_frap_startup_reference.py
 embedding_model/
 third_party/wheels/
 third_party/mmcv_repack/

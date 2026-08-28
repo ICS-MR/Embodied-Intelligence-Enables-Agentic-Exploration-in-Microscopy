@@ -4,7 +4,7 @@ Candidate images may be region-sized captures or full screenshots; full
 screenshots are cropped to the configured region automatically.
 
 Example:
-    python scripts/calibrate_frap_startup_reference.py --check post_click ^
+    python docs_public/frap/calibrate_frap_startup_reference.py --check post_click ^
         --ready loaded_1.png loaded_2.png --not-ready splash_1.png
 """
 
@@ -17,8 +17,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-PROFILE_PATH = ROOT_DIR / "docs_public" / "frap" / "frap_ui_profile.json"
+PROFILE_PATH = Path(__file__).resolve().parent / "frap_ui_profile.json"
 
 
 def resolve_profile_relative(path_text: str) -> Path:
