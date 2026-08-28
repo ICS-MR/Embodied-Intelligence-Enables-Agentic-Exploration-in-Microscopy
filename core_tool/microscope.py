@@ -2417,27 +2417,45 @@ class MicroscopeController(BaseTool):
         center_roi_size = int(auto_params["center_roi_size"])
         settle_time_sec = float(auto_params["settle_time_sec"])
         scores: Dict[float, float] = {}
+        search_started_at = time.perf_counter()
+        phase_seconds = {"coarse": 0.0, "refine": 0.0}
         autofocus_completed = False
         autofocus_deadline = time.monotonic() + self.autofocus_timeout_seconds
-        lower_bound = max(effective_min_z, base_center_z - search_range)
-        upper_bound = min(effective_max_z, base_center_z + search_range)
-        coarse_positions_preview = np.arange(
-            lower_bound,
-            upper_bound + coarse_step * 0.5,
-            coarse_step,
-            dtype=float,
-        )
-        coarse_total = max(int(coarse_positions_preview.size), 1)
+
+        def unique_z_positions(values: np.ndarray) -> List[float]:
+            ordered: List[float] = []
+            seen = set()
+            for value in values:
+                key = round(float(value), 4)
+                if key not in seen:
+                    seen.add(key)
+                    ordered.append(key)
+            return ordered
+
+        def sparse_positions(
+            lower_z,
+            upper_z,
+            target_count: int,
+        ) -> List[float]:
+            """Sample the range sparsely first; local refinement converges focus."""
+            count = max(2, int(target_count))
+            return unique_z_positions(
+                np.linspace(lower_z, upper_z, count, dtype=float)
+            )
+
+        # A full-range dense grid dominates autofocus wall time on hardware.
+        sparse_candidate_count = 9 if not use_auto_params else 7
+        estimated_candidates = max(sparse_candidate_count * 3, sparse_candidate_count)
         logger.info(
-            "Autofocus started. objective=%s channel=%s base_z=%.3f search_range=%.3f coarse_step=%.3f tolerance=%.3f "
-            "estimated_candidates=%s",
+            "Autofocus started. objective=%s channel=%s base_z=%.3f search_range=%.3f "
+            "tolerance=%.3f initial_candidates=%s estimated_candidates=%s",
             current_objective,
             current_channel,
             base_center_z,
             search_range,
-            coarse_step,
             tolerance,
-            coarse_total,
+            sparse_candidate_count,
+            estimated_candidates,
         )
         self._emit_task_progress(
             task_kind="autofocus",
@@ -2447,7 +2465,7 @@ class MicroscopeController(BaseTool):
             stage_key="start",
             stage_label="Initialize autofocus",
             progress_current=0,
-            progress_total=coarse_total,
+            progress_total=estimated_candidates,
         )
 
         def score_at(z_position: float, lower_z: float, upper_z: float) -> float:
@@ -2462,7 +2480,7 @@ class MicroscopeController(BaseTool):
             if cache_key in scores:
                 return scores[cache_key]
             candidate_index = len(scores) + 1
-            logger.info(
+            logger.debug(
                 "Autofocus candidate start. index=%s z=%.3f range=[%.3f, %.3f]",
                 candidate_index,
                 z_position,
@@ -2477,12 +2495,12 @@ class MicroscopeController(BaseTool):
                 stage_key="move_z",
                 stage_label="Move focus",
                 progress_current=candidate_index,
-                progress_total=max(coarse_total, candidate_index),
+                progress_total=max(estimated_candidates, candidate_index),
             )
             try:
-                logger.info("Autofocus calling set_z_position for z=%.3f", z_position)
+                logger.debug("Autofocus calling set_z_position for z=%.3f", z_position)
                 self.set_z_position(z_position)
-                logger.info("Autofocus set_z_position completed for z=%.3f", z_position)
+                logger.debug("Autofocus set_z_position completed for z=%.3f", z_position)
             except (RuntimeError, ValueError) as exc:
                 logger.warning(
                     "Autofocus skipped rejected Z candidate %.3f within requested range [%.3f, %.3f]: %s",
@@ -2502,7 +2520,7 @@ class MicroscopeController(BaseTool):
                 stage_label="image capture",
                 detail=f"candidate z={z_position:.3f}",
             )
-            logger.info("Autofocus snap start for z=%.3f", z_position)
+            logger.debug("Autofocus snap start for z=%.3f", z_position)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="running",
@@ -2511,10 +2529,10 @@ class MicroscopeController(BaseTool):
                 stage_key="snap_image",
                 stage_label="Capture frame",
                 progress_current=candidate_index,
-                progress_total=max(coarse_total, candidate_index),
+                progress_total=max(estimated_candidates, candidate_index),
             )
             image = self._snap_image_preserving_preview()
-            logger.info("Autofocus snap completed for z=%.3f", z_position)
+            logger.debug("Autofocus snap completed for z=%.3f", z_position)
             self._raise_if_long_task_timed_out(
                 deadline=autofocus_deadline,
                 task_kind="autofocus",
@@ -2527,7 +2545,7 @@ class MicroscopeController(BaseTool):
                     center_roi_size=center_roi_size,
                 )
             )
-            logger.info("Autofocus score computed. z=%.3f score=%.6f", z_position, score)
+            logger.debug("Autofocus score computed. z=%.3f score=%.6f", z_position, score)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="running",
@@ -2536,10 +2554,24 @@ class MicroscopeController(BaseTool):
                 stage_key="score_candidate",
                 stage_label="Score sharpness",
                 progress_current=candidate_index,
-                progress_total=max(coarse_total, candidate_index),
+                progress_total=max(estimated_candidates, candidate_index),
             )
             scores[cache_key] = score
             return score
+
+        def evaluate_sorted_candidates(
+            candidate_positions: List[float],
+            lower_z: float,
+            upper_z: float,
+        ) -> Tuple[float, float]:
+            best_z = float(candidate_positions[0])
+            best_score = score_at(best_z, lower_z, upper_z)
+            for z_position in candidate_positions[1:]:
+                score = score_at(float(z_position), lower_z, upper_z)
+                if score > best_score:
+                    best_score = score
+                    best_z = float(z_position)
+            return best_z, best_score
 
         def search_once(
             search_center_z: float,
@@ -2549,22 +2581,21 @@ class MicroscopeController(BaseTool):
             search_center_z = float(max(effective_min_z, min(search_center_z, effective_max_z)))
             lower_z = max(effective_min_z, search_center_z - active_search_range)
             upper_z = min(effective_max_z, search_center_z + active_search_range)
-            coarse_positions = np.arange(
+            coarse_positions = sparse_positions(
                 lower_z,
-                upper_z + active_coarse_step * 0.5,
-                active_coarse_step,
-                dtype=float,
+                upper_z,
+                sparse_candidate_count,
             )
-            if coarse_positions.size == 0:
-                coarse_positions = np.array([search_center_z], dtype=float)
+            if not coarse_positions:
+                coarse_positions = [float(search_center_z)]
 
-            best_z = float(coarse_positions[0])
-            best_score = score_at(best_z, lower_z, upper_z)
-            for z_position in coarse_positions[1:]:
-                score = score_at(float(z_position), lower_z, upper_z)
-                if score > best_score:
-                    best_score = score
-                    best_z = float(z_position)
+            phase_started_at = time.perf_counter()
+            best_z, best_score = evaluate_sorted_candidates(
+                coarse_positions,
+                lower_z,
+                upper_z,
+            )
+            phase_seconds["coarse"] += time.perf_counter() - phase_started_at
 
             if not math.isfinite(best_score):
                 raise RuntimeError(
@@ -2572,7 +2603,8 @@ class MicroscopeController(BaseTool):
                     f"[{lower_z:.3f}, {upper_z:.3f}]. The MMCore focus device rejected all candidates."
                 )
 
-            step = active_coarse_step / 2.0
+            step = max(float(active_coarse_step) / 2.0, tolerance)
+            phase_started_at = time.perf_counter()
             iterations = 0
             while step >= tolerance and iterations < 50:
                 improved = False
@@ -2587,6 +2619,7 @@ class MicroscopeController(BaseTool):
                 if not improved:
                     step /= 2.0
                 iterations += 1
+            phase_seconds["refine"] += time.perf_counter() - phase_started_at
             return best_z, lower_z, upper_z
 
         def is_near_search_boundary(best_z: float, lower_z: float, upper_z: float, active_coarse_step: float) -> bool:
@@ -2656,12 +2689,18 @@ class MicroscopeController(BaseTool):
                 detail=f"best z={best_z:.3f}",
             )
             self.set_z_position(best_z)
+            elapsed_seconds = time.perf_counter() - search_started_at
             logger.info(
-                "Autofocus completed. best_z=%.3f searched_range=[%.3f, %.3f] near_boundary=%s",
+                "Autofocus completed. best_z=%.3f searched_range=[%.3f, %.3f] near_boundary=%s "
+                "sampled_candidates=%s elapsed_seconds=%.3f coarse_seconds=%.3f refine_seconds=%.3f",
                 best_z,
                 lower_z,
                 upper_z,
                 near_boundary,
+                len(scores),
+                elapsed_seconds,
+                phase_seconds["coarse"],
+                phase_seconds["refine"],
             )
             self._emit_task_progress(
                 task_kind="autofocus",
@@ -2670,14 +2709,14 @@ class MicroscopeController(BaseTool):
                 detail=f"Autofocus completed at Z={best_z:.2f} um",
                 stage_key="completed",
                 stage_label="Autofocus complete",
-                progress_current=max(len(scores), coarse_total),
-                progress_total=max(len(scores), coarse_total),
+                progress_current=max(len(scores), estimated_candidates),
+                progress_total=max(len(scores), estimated_candidates),
             )
             autofocus_completed = True
             return float(best_z)
         except TimeoutError as exc:
             logger.warning("Autofocus timed out: %s", exc)
-            failure_progress_total = max(len(scores), coarse_total)
+            failure_progress_total = max(len(scores), estimated_candidates)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="timeout",
@@ -2690,7 +2729,7 @@ class MicroscopeController(BaseTool):
             )
             raise
         except Exception as exc:
-            failure_progress_total = max(len(scores), coarse_total)
+            failure_progress_total = max(len(scores), estimated_candidates)
             self._emit_task_progress(
                 task_kind="autofocus",
                 status="failed",
