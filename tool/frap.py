@@ -1,6 +1,8 @@
 ﻿from __future__ import annotations
 
+import logging
 import json
+import math
 import os
 import shlex
 import subprocess
@@ -12,6 +14,8 @@ from typing import Any
 import numpy as np
 
 from tool.base import BaseTool, tool_func
+
+logger = logging.getLogger(__name__)
 
 
 def _import_pyautogui():
@@ -34,7 +38,7 @@ def _import_cv2():
     try:
         import cv2
     except Exception as exc:
-        raise RuntimeError("cv2 is required for FRAP cell detection and contour extraction.") from exc
+        raise RuntimeError("cv2 is required for FRAP GUI control and cell detection.") from exc
     return cv2
 
 
@@ -479,6 +483,29 @@ class Frap(BaseTool):
         if startup_settle_seconds < 0:
             raise ValueError("FRAP startup_settle_seconds must be non-negative.")
 
+        startup_match_threshold = float(options.get("startup_match_threshold", 0.8))
+        if not 0.0 < startup_match_threshold <= 1.0:
+            raise ValueError("FRAP startup_match_threshold must be within (0, 1].")
+        startup_reference_checks_raw = options.get("startup_reference_checks", {})
+        if not isinstance(startup_reference_checks_raw, dict):
+            raise ValueError("FRAP startup_reference_checks must be an object.")
+        unknown_check_keys = [
+            key for key in startup_reference_checks_raw if key not in ("pre_click", "post_click")
+        ]
+        if unknown_check_keys:
+            raise ValueError(
+                "FRAP startup_reference_checks has unknown keys: "
+                + ", ".join(sorted(unknown_check_keys))
+            )
+        startup_reference_checks = {
+            "pre_click": self._parse_startup_reference_check(
+                startup_reference_checks_raw.get("pre_click", {}), "pre_click"
+            ),
+            "post_click": self._parse_startup_reference_check(
+                startup_reference_checks_raw.get("post_click", {}), "post_click"
+            ),
+        }
+
         required_region_keys = ("left", "top", "right", "bottom", "source_width", "source_height")
         missing_region_keys = [key for key in required_region_keys if key not in image_region]
         if missing_region_keys:
@@ -504,6 +531,8 @@ class Frap(BaseTool):
                 "activate_before_action": bool(options.get("activate_before_action", True)),
                 "startup_window_timeout_sec": startup_window_timeout_sec,
                 "startup_settle_seconds": startup_settle_seconds,
+                "startup_match_threshold": startup_match_threshold,
+                "startup_reference_checks": startup_reference_checks,
                 "click_interval_sec": float(options.get("click_interval_sec", 0.15)),
                 "move_duration_sec": float(options.get("move_duration_sec", 0.0)),
                 "flip_x": bool(options.get("flip_x", False)),
@@ -539,6 +568,39 @@ class Frap(BaseTool):
             pixel_size_x_um=float(options["pixel_size_x_um"]),
             pixel_size_y_um=float(options["pixel_size_y_um"]),
         )
+
+    @staticmethod
+    def _parse_startup_reference_check(payload: Any, label: str) -> dict:
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"FRAP startup reference check {label!r} must be an object with image and region."
+            )
+        image = str(payload.get("image", "")).strip()
+        region: dict | None = None
+        region_raw = payload.get("region")
+        if image:
+            if not isinstance(region_raw, dict):
+                raise ValueError(
+                    f"FRAP startup reference check {label!r} requires region when image is configured."
+                )
+            missing_region_keys = [
+                key for key in ("left", "top", "right", "bottom") if key not in region_raw
+            ]
+            if missing_region_keys:
+                raise ValueError(
+                    f"FRAP startup reference check {label!r} region is missing required fields: "
+                    + ", ".join(missing_region_keys)
+                )
+            left = int(region_raw.get("left", 0))
+            top = int(region_raw.get("top", 0))
+            right = int(region_raw.get("right", 0))
+            bottom = int(region_raw.get("bottom", 0))
+            if right - left <= 0 or bottom - top <= 0:
+                raise ValueError(
+                    f"FRAP startup reference check {label!r} region must have positive width and height."
+                )
+            region = {"left": left, "top": top, "right": right, "bottom": bottom}
+        return {"image": image, "region": region}
 
     @staticmethod
     def _validate_captured_frame(frame: np.ndarray, transform: _FrapCoordinateTransform) -> None:
@@ -582,7 +644,9 @@ class Frap(BaseTool):
         if settle_seconds > 0:
             time.sleep(settle_seconds)
             self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        self._verify_startup_reference("pre_click")
         self._prepare_frap_console(self._profile, self._window_info)
+        self._verify_startup_reference("post_click")
         self._session_prepared = True
 
     def _ensure_window(self, profile: dict) -> dict:
@@ -618,14 +682,83 @@ class Frap(BaseTool):
             control_names=("bottom_frap_tab_button",),
         )
 
-    def _capture_image_region(self, profile: dict) -> np.ndarray:
-        region = profile["image_region"]
+    def _verify_startup_reference(self, check_name: str) -> None:
+        options = self._profile["options"]
+        check = options["startup_reference_checks"][check_name]
+        reference_path_text = str(check["image"]).strip()
+        if not reference_path_text:
+            logger.warning(
+                "FRAP startup %s reference image is not configured; skipping this startup check.",
+                check_name,
+            )
+            return
+
+        reference_path = Path(reference_path_text).expanduser()
+        if not reference_path.is_absolute():
+            reference_path = Path(self._profile_path).parent / reference_path
+        reference_path = reference_path.resolve()
+        cv2 = _import_cv2()
+        reference = cv2.imread(str(reference_path), cv2.IMREAD_GRAYSCALE)
+        if reference is None:
+            raise RuntimeError(
+                f"FRAP startup {check_name} reference image could not be read: {reference_path}"
+            )
+
+        capture = self._capture_screen_region(check["region"])
+        capture_gray = cv2.cvtColor(capture, cv2.COLOR_RGB2GRAY) if capture.ndim == 3 else capture
+        if capture_gray.shape != reference.shape:
+            raise RuntimeError(
+                f"FRAP startup {check_name} reference image size does not match its region: "
+                f"reference=({reference.shape[1]}x{reference.shape[0]}) "
+                f"region=({capture_gray.shape[1]}x{capture_gray.shape[0]}). "
+                "Recapture the reference image using the configured region."
+            )
+
+        match = cv2.matchTemplate(capture_gray, reference, cv2.TM_CCOEFF_NORMED)
+        score = float(np.max(match))
+        threshold = float(options["startup_match_threshold"])
+        if math.isfinite(score) and score >= threshold:
+            logger.info(
+                "FRAP startup %s visual verification passed. score=%.4f threshold=%.4f reference=%s",
+                check_name,
+                score,
+                threshold,
+                reference_path,
+            )
+            return
+
+        failure_hints = {
+            "pre_click": "cellSens does not appear fully loaded; refusing to click the FRAP tab.",
+            "post_click": (
+                "cellSens may not be fully loaded, or the FRAP tab click did not open the FRAP console."
+            ),
+        }
+        evidence_path = self._save_startup_evidence(check_name, capture)
+        raise RuntimeError(
+            f"FRAP startup {check_name} visual verification failed: similarity score "
+            f"{score:.4f} is below threshold {threshold:.4f}. cellSens may not be fully "
+            f"loaded. {failure_hints[check_name]} "
+            f"Evidence screenshot saved to: {evidence_path}"
+        )
+
+    def _save_startup_evidence(self, check_name: str, capture: np.ndarray) -> Path:
+        output_dir = Path(__file__).resolve().parents[1] / "logs"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        evidence_path = (
+            output_dir / f"frap_startup_mismatch_{check_name}_{time.strftime('%Y%m%d_%H%M%S')}.png"
+        )
+        saved = _import_cv2().imwrite(str(evidence_path), capture)
+        if not saved:
+            raise RuntimeError(f"Failed to write FRAP startup evidence screenshot: {evidence_path}")
+        return evidence_path
+
+    def _capture_screen_region(self, region: dict) -> np.ndarray:
         left = int(region["left"])
         top = int(region["top"])
         width = int(region["right"]) - left + 1
         height = int(region["bottom"]) - top + 1
         if width <= 0 or height <= 0:
-            raise ValueError("FRAP image_region must have positive width and height.")
+            raise ValueError("FRAP capture region must have positive width and height.")
 
         pyautogui = _import_pyautogui()
         screenshot = pyautogui.screenshot(region=(left, top, width, height))
@@ -635,6 +768,9 @@ class Frap(BaseTool):
         if frame.ndim == 3 and frame.shape[2] >= 3:
             return frame[:, :, :3]
         raise RuntimeError(f"Unsupported screenshot shape for FRAP detection: {frame.shape}")
+
+    def _capture_image_region(self, profile: dict) -> np.ndarray:
+        return self._capture_screen_region(profile["image_region"])
 
     def _get_cellpose(self):
         if self._cellpose is None:

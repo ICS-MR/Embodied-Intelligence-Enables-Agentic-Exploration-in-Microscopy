@@ -38,6 +38,27 @@
     "activate_before_action": true,
     "startup_window_timeout_sec": 600.0,
     "startup_settle_seconds": 300.0,
+    "startup_match_threshold": 0.8,
+    "startup_reference_checks": {
+      "pre_click": {
+        "image": "references/pre_click.png",
+        "region": {
+          "left": 1270,
+          "top": 70,
+          "right": 3720,
+          "bottom": 115
+        }
+      },
+      "post_click": {
+        "image": "references/post_click.png",
+        "region": {
+          "left": 3384,
+          "top": 1944,
+          "right": 3834,
+          "bottom": 2084
+        }
+      }
+    },
     "click_interval_sec": 1.5,
     "move_duration_sec": 0.1,
     "flip_x": false,
