@@ -16,7 +16,7 @@ def _remove_block(text: str, start_marker: str, end_marker: str) -> str:
 def _build_no_brightness_prompt(full_prompt: str) -> str:
     text = full_prompt
     text = _remove_block(text, "def set_brightness(brightness: int):", "def set_objective(objective_label: str):")
-    text = _remove_block(text, "def perform_autobrightness(", "# -------------------------- System Control --------------------------")
+    text = _remove_block(text, "def perform_autobrightness() -> int:", "# -------------------------- System Control --------------------------")
 
     replacements = {
         "# -------------------------- Auto Focus / Auto Brightness Adjustment --------------------------":
@@ -61,7 +61,6 @@ def _build_no_brightness_prompt(full_prompt: str) -> str:
     text = re.sub(r", brightness: \d+", "", text)
     text = re.sub(r'^\s*"brightness":\s*\d+,?\n', "", text, flags=re.MULTILINE)
     text = re.sub(r"^.*perform_autobrightness.*\n?", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^.*auto_quality.*\n?", "", text, flags=re.MULTILINE)
     text = re.sub(r"^.*set_brightness\(.*\n?", "", text, flags=re.MULTILINE)
     text = re.sub(r"^.*get_brightness\(.*\n?", "", text, flags=re.MULTILINE)
     text = re.sub(r"^.*halogen lamp brightness.*\n?", "", text, flags=re.MULTILINE)

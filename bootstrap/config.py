@@ -368,7 +368,6 @@ class SystemConfig:
     fiji_executor_timeout_seconds: float = 300.0
     autofocus_timeout_seconds: float = 300.0  # wall-clock cap for autofocus; <=0 falls back to the default
     autobrightness_timeout_seconds: float = 20.0  # wall-clock cap for autobrightness
-    autoexposure_timeout_seconds: float = 20.0  # wall-clock cap for the exposure search
     init_component_timeout_seconds: float = 90.0  # wall-clock cap for runtime component initialization
     microscope_setup_timeout_seconds: float = 30.0  # wall-clock cap for microscope init/startup state apply
     preview_start_command_timeout_seconds: float = 10.0  # wall-clock cap for preview start command
@@ -1056,7 +1055,6 @@ def _snapshot_payload(settings: RuntimeSettings, *, include_secrets: bool) -> Di
             "fiji_executor_timeout_seconds": settings.system.fiji_executor_timeout_seconds,
             "autofocus_timeout_seconds": settings.system.autofocus_timeout_seconds,
             "autobrightness_timeout_seconds": settings.system.autobrightness_timeout_seconds,
-            "autoexposure_timeout_seconds": settings.system.autoexposure_timeout_seconds,
             "init_component_timeout_seconds": settings.system.init_component_timeout_seconds,
             "microscope_setup_timeout_seconds": settings.system.microscope_setup_timeout_seconds,
             "preview_start_command_timeout_seconds": settings.system.preview_start_command_timeout_seconds,

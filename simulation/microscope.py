@@ -474,7 +474,6 @@ class MicroscopeController(BaseTool):
     @tool_func
     def perform_autobrightness(
         self,
-        components: str = "auto",
         tolerance: Optional[float] = None,
         target_high_percentile: float = 0.82,
         high_percentile: float = 99.5,
@@ -482,16 +481,8 @@ class MicroscopeController(BaseTool):
         min_median_ratio: float = 0.08,
         max_iterations: int = 8,
         settle_time_sec: float = 0.15,
-        exposure_target_low: float = 0.55,
-        exposure_target_high: float = 0.75,
-        exposure_max_saturation_ratio: float = 0.01,
-    ) -> Dict[str, Any]:
-        """Simulate automatic brightness/exposure optimization.
-
-        Mirrors the real controller contract and returns the same result keys
-        (mode/channel/brightness/exposure/p_high/saturation_ratio) so prompts and
-        agents behave identically in mock mode.
-        """
+    ) -> int:
+        """Simulate automatic brightness adjustment: set a mid-range value."""
         del (
             tolerance,
             target_high_percentile,
@@ -500,20 +491,10 @@ class MicroscopeController(BaseTool):
             min_median_ratio,
             max_iterations,
             settle_time_sec,
-            exposure_target_low,
-            exposure_target_high,
-            exposure_max_saturation_ratio,
         )
         result = max(self.Min_brightness, min(self.Max_brightness, int(self.current_brightness) + 5))
         self.set_brightness(result)
-        return {
-            "mode": "brightfield",
-            "channel": self.get_channel(),
-            "brightness": int(result),
-            "exposure": float(self.get_exposure()),
-            "p_high": 0.0,
-            "saturation_ratio": 0.0,
-        }
+        return int(result)
 
     # ------------------------------------------------------------------
     # Targets and wells

@@ -177,24 +177,13 @@ def perform_autofocus(tolerance: float = 0.5, use_auto_params: bool = False, sea
         Optimal Z-axis position (μm)
     """
 
-def perform_autobrightness(components: str = "auto") -> dict:
+def perform_autobrightness() -> int:
     """
-    Automatically optimizes image brightness/quality for the current channel mode.
-
-    - Brightfield: searches halogen lamp brightness first, then fine-tunes the
-      camera exposure within its configured range.
-    - Fluorescence / non-brightfield: halogen lamp is turned off (brightness 0)
-      and only the camera exposure is optimized.
-
-    Args:
-        components: 'auto' (full mode-aware optimization, default), 'brightness'
-            (lamp illumination only, brightfield only), or 'exposure' (camera
-            exposure only).
+    Automatically searches for a suitable halogen lamp brightness in brightfield mode only.
+    Do not use for fluorescence or camera exposure.
 
     Returns:
-        Dict with keys: mode, channel, brightness, exposure, p_high,
-        saturation_ratio. Feed result['brightness'] to set_brightness() and
-        result['exposure'] to set_exposure().
+        Halogen lamp brightness value for set_brightness().
     """
 # -------------------------- System Control --------------------------
 def shutdown():
@@ -363,10 +352,9 @@ add_acquisition_position(name="tumor_section", x=current_x, y=current_y, width=w
 say("[INFO] Acquisition position parameters added")
 add_channels(channel='{{channel.brightfield.label}}', exposure=current_exposure)
 say("[INFO] Brightfield channel and exposure parameters configured")
-auto_quality = perform_autobrightness()
-set_brightness(auto_quality["brightness"])
-set_exposure(auto_quality["exposure"])
-say(f"[INFO] Auto brightness/exposure adjustment complete, lamp={auto_quality['brightness']}, exposure={auto_quality['exposure']} ms")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Auto-brightness adjustment complete, halogen lamp brightness set to optimal value: {optimal_brightness}")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Auto-focus complete, Z position set to optimal value: {optimal_z} μm")
@@ -430,10 +418,9 @@ if current_channel != target_channel_bright:
 else:
     say(f"[INFO] Filter is already in brightfield mode (channel: {target_channel_bright}), no change needed")
 say("[INFO] Automatically adjusting brightness for brightfield imaging")
-auto_quality_bright = perform_autobrightness()
-set_brightness(auto_quality_bright["brightness"])
-set_exposure(auto_quality_bright["exposure"])
-say(f"[INFO] Brightfield auto brightness/exposure adjustment complete, lamp={auto_quality_bright['brightness']}, exposure={auto_quality_bright['exposure']} ms")
+optimal_brightness_bright = perform_autobrightness()
+set_brightness(optimal_brightness_bright)
+say(f"[INFO] Brightfield halogen lamp brightness set to optimal value: {optimal_brightness_bright}")
 say("[INFO] Performing autofocus")
 optimal_z_bright = perform_autofocus()
 set_z_position(optimal_z_bright)
@@ -515,10 +502,9 @@ first_well_x, first_well_y = wells_positions[0]
 say(f"[ACTION] Moving to first well position: X={first_well_x} μm, Y={first_well_y} μm")
 set_x_y_position(first_well_x, first_well_y)
 say("[INFO] Performing auxiliary operations for optimal imaging")
-auto_quality_aux = perform_autobrightness()
-set_brightness(auto_quality_aux["brightness"])
-set_exposure(auto_quality_aux["exposure"])
-say(f"[INFO] Auto brightness/exposure adjustment complete, lamp={auto_quality_aux['brightness']}, exposure={auto_quality_aux['exposure']} ms")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Auto-brightness adjustment completed, halogen lamp brightness set to {optimal_brightness}")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
 say(f"[INFO] Auto-focus completed, Z position set to optimal value: {optimal_z} μm")
@@ -574,10 +560,9 @@ if current_objective != target_objective:
 else:
     say(f"[INFO] Objective lens is already 10x (label: {target_objective}), no change needed")
 say("[INFO] Performing automatic brightness adjustment for brightfield")
-auto_quality_organoid = perform_autobrightness()
-set_brightness(auto_quality_organoid["brightness"])
-set_exposure(auto_quality_organoid["exposure"])
-say(f"[INFO] Auto brightness/exposure adjustment complete, lamp={auto_quality_organoid['brightness']}, exposure={auto_quality_organoid['exposure']} ms")
+optimal_brightness = perform_autobrightness()
+set_brightness(optimal_brightness)
+say(f"[INFO] Halogen lamp brightness automatically adjusted to {optimal_brightness}")
 say("[INFO] Performing autofocus on organoid field of view")
 optimal_z = perform_autofocus()
 set_z_position(optimal_z)
