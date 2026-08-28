@@ -36,10 +36,12 @@ except Exception:
 from bootstrap.microscope_semantics import objective_pixel_size_um
 logger = logging.getLogger(__name__)
 
-# Wall-clock caps for autofocus/autobrightness. Defaults only; overridden by the
-# runtime config fields autofocus_timeout_seconds / autobrightness_timeout_seconds.
+# Wall-clock caps for autofocus/autobrightness/autoexposure. Defaults only;
+# overridden by the runtime config fields autofocus_timeout_seconds /
+# autobrightness_timeout_seconds / autoexposure_timeout_seconds.
 AUTOFOCUS_TIMEOUT_SEC = 300.0
 AUTOBRIGHTNESS_TIMEOUT_SEC = 20.0
+AUTOEXPOSURE_TIMEOUT_SEC = 20.0
 
 
 # ====== MMCore console noise suppression ======
@@ -484,6 +486,15 @@ class MicroscopeController(BaseTool):
                 AUTOBRIGHTNESS_TIMEOUT_SEC,
             )
             self.autobrightness_timeout_seconds = AUTOBRIGHTNESS_TIMEOUT_SEC
+        self.autoexposure_timeout_seconds = _optional_float_config(
+            system_config, "autoexposure_timeout_seconds", AUTOEXPOSURE_TIMEOUT_SEC
+        )
+        if self.autoexposure_timeout_seconds <= 0:
+            logger.warning(
+                "autoexposure_timeout_seconds must be positive; falling back to default %.1fs",
+                AUTOEXPOSURE_TIMEOUT_SEC,
+            )
+            self.autoexposure_timeout_seconds = AUTOEXPOSURE_TIMEOUT_SEC
 
         # Current state
         self.current_channel = ''
@@ -2751,6 +2762,7 @@ class MicroscopeController(BaseTool):
     @tool_func
     def perform_autobrightness(
         self,
+        components: str = "auto",
         tolerance: Optional[float] = None,
         target_high_percentile: float = 0.82,
         high_percentile: float = 99.5,
@@ -2758,7 +2770,102 @@ class MicroscopeController(BaseTool):
         min_median_ratio: float = 0.08,
         max_iterations: int = 8,
         settle_time_sec: float = 0.15,
-    ) -> int:
+        exposure_target_low: float = 0.55,
+        exposure_target_high: float = 0.75,
+        exposure_max_saturation_ratio: float = 0.01,
+    ) -> Dict[str, Any]:
+        """Automatically optimize image brightness/quality for the current channel.
+
+        Brightfield: searches transmitted-light brightness first, then fine-tunes
+        the camera exposure. Non-brightfield (e.g. fluorescence): transmitted-light
+        brightness is forced off and only the camera exposure is optimized.
+
+        Args:
+            components: 'auto' runs the full mode-aware optimization; 'brightness'
+                restricts the search to lamp illumination (brightfield only);
+                'exposure' restricts the search to camera exposure only.
+
+        Returns:
+            Dict with keys: mode, channel, brightness, exposure, p_high,
+            saturation_ratio. Feed result['brightness'] to set_brightness() and
+            result['exposure'] to set_exposure().
+        """
+        component = str(components or "auto").strip().lower()
+        if component not in {"auto", "brightness", "exposure"}:
+            raise ValueError(
+                f"Unsupported components value {components!r}; "
+                "expected one of 'auto', 'brightness', 'exposure'."
+            )
+        if not (0.0 < exposure_target_low < exposure_target_high <= 1.0):
+            raise ValueError(
+                "Exposure target band must satisfy 0 < low < high <= 1, got "
+                f"({exposure_target_low}, {exposure_target_high})."
+            )
+        current_channel = self.get_channel()
+        if not self._is_brightfield_channel(current_channel):
+            if component == "brightness":
+                raise ValueError(
+                    "Brightness search requires a brightfield channel; "
+                    f"current channel {current_channel!r} is non-brightfield."
+                )
+            if self._supports_transmitted_brightness():
+                self.set_brightness(0)
+            exposure_value, exposure_metrics = self._autoexposure_search(
+                deadline=time.monotonic() + self.autoexposure_timeout_seconds,
+                target_low=exposure_target_low,
+                target_high=exposure_target_high,
+                max_saturation_ratio=exposure_max_saturation_ratio,
+            )
+            return {
+                "mode": "non-brightfield",
+                "channel": current_channel,
+                "brightness": 0,
+                "exposure": exposure_value,
+                "p_high": exposure_metrics["p_high"],
+                "saturation_ratio": exposure_metrics["saturation_ratio"],
+            }
+
+        brightness_value = self._clamp_brightness(self.get_brightness())
+        brightness_metrics_result: Optional[Dict[str, float]] = None
+        if component in ("auto", "brightness"):
+            brightness_value, brightness_metrics_result = self._brightfield_brightness_search(
+                tolerance=tolerance,
+                target_high_percentile=target_high_percentile,
+                high_percentile=high_percentile,
+                max_saturation_ratio=max_saturation_ratio,
+                min_median_ratio=min_median_ratio,
+                max_iterations=max_iterations,
+                settle_time_sec=settle_time_sec,
+            )
+        exposure_value = float(self.get_exposure())
+        exposure_metrics_result: Optional[Dict[str, float]] = None
+        if component in ("auto", "exposure"):
+            exposure_value, exposure_metrics_result = self._autoexposure_search(
+                deadline=time.monotonic() + self.autoexposure_timeout_seconds,
+                target_low=exposure_target_low,
+                target_high=exposure_target_high,
+                max_saturation_ratio=exposure_max_saturation_ratio,
+            )
+        metrics_source = exposure_metrics_result or brightness_metrics_result or {}
+        return {
+            "mode": "brightfield",
+            "channel": current_channel,
+            "brightness": int(brightness_value),
+            "exposure": float(exposure_value),
+            "p_high": float(metrics_source.get("p_high", 0.0)),
+            "saturation_ratio": float(metrics_source.get("saturation_ratio", 0.0)),
+        }
+
+    def _brightfield_brightness_search(
+        self,
+        tolerance: Optional[float] = None,
+        target_high_percentile: float = 0.82,
+        high_percentile: float = 99.5,
+        max_saturation_ratio: float = 0.002,
+        min_median_ratio: float = 0.08,
+        max_iterations: int = 8,
+        settle_time_sec: float = 0.15,
+    ) -> Tuple[int, Dict[str, float]]:
         del tolerance  # Kept for compatibility with older prompt signatures.
         autobrightness_deadline = time.monotonic() + self.autobrightness_timeout_seconds
         if not self._supports_transmitted_brightness():
@@ -2768,7 +2875,7 @@ class MicroscopeController(BaseTool):
                 self.brightness_device,
                 self.brightness_property,
             )
-            return 0
+            return 0, {}
         current_channel = self.get_channel()
         if not self._is_brightfield_channel(current_channel):
             logger.info(
@@ -2777,7 +2884,7 @@ class MicroscopeController(BaseTool):
                 current_channel,
             )
             self.set_brightness(0)
-            return 0
+            return 0, {}
 
         min_br = int(self.Min_brightness)
         max_br = int(self.Max_brightness)
@@ -2916,7 +3023,7 @@ class MicroscopeController(BaseTool):
                 progress_total=max_iterations,
             )
             self.set_brightness(best_brightness)
-            return int(best_brightness)
+            return int(best_brightness), best_metrics
         except TimeoutError as exc:
             self._emit_task_progress(
                 task_kind="autobrightness",
@@ -2938,6 +3045,166 @@ class MicroscopeController(BaseTool):
                 stage_key="failed",
                 stage_label="Brightness search failed",
                 progress_current=min(len(samples), max_iterations),
+                progress_total=max_iterations,
+            )
+            raise
+
+    def _autoexposure_search(
+        self,
+        *,
+        deadline: float,
+        target_low: float = 0.55,
+        target_high: float = 0.75,
+        high_percentile: float = 99.5,
+        max_saturation_ratio: float = 0.01,
+        max_iterations: int = 8,
+        settle_time_sec: float = 0.15,
+    ) -> Tuple[float, Dict[str, float]]:
+        """Search the camera exposure so a high percentile lands in the target band."""
+        lower_bound = max(float(self.Min_exposure), 0.1)
+        upper_bound = max(float(self.Max_exposure), lower_bound)
+        target_mid = (target_low + target_high) / 2.0
+        original_exposure = self.get_exposure()
+        samples: Dict[float, Dict[str, float]] = {}
+
+        def violation_key(item: Tuple[float, Dict[str, float]]) -> Tuple[int, float, float]:
+            exposure, metrics = item
+            overexposed = (
+                metrics["saturation_ratio"] > max_saturation_ratio
+                or metrics["p_high"] >= 0.98
+            )
+            distance_to_original = abs(exposure - original_exposure)
+            if overexposed:
+                return (
+                    1,
+                    metrics["saturation_ratio"] + abs(metrics["p_high"] - target_mid),
+                    distance_to_original,
+                )
+            return (0, abs(metrics["p_high"] - target_mid), distance_to_original)
+
+        def capture(exposure: float) -> Dict[str, float]:
+            value = float(min(max(exposure, lower_bound), upper_bound))
+            key = round(value, 4)
+            if key in samples:
+                return samples[key]
+            self._raise_if_long_task_timed_out(
+                deadline=deadline,
+                task_kind="autobrightness",
+                stage_label="exposure sampling",
+                detail=f"exposure={value}",
+            )
+            self.set_exposure(value)
+            if settle_time_sec > 0:
+                time.sleep(settle_time_sec)
+            image = self._snap_image_preserving_preview()
+            metrics = brightness_metrics(
+                image,
+                intensity_max=self._get_image_intensity_max(image),
+                high_percentile=high_percentile,
+            )
+            samples[key] = metrics
+            logger.info(
+                "Autoexposure sample exposure=%.3f p%s=%.3f saturation=%.4f",
+                value,
+                high_percentile,
+                metrics["p_high"],
+                metrics["saturation_ratio"],
+            )
+            return metrics
+
+        def is_in_target_band(metrics: Dict[str, float]) -> bool:
+            return (
+                metrics["saturation_ratio"] <= max_saturation_ratio
+                and target_low <= metrics["p_high"] <= target_high
+            )
+
+        self._emit_task_progress(
+            task_kind="autobrightness",
+            status="started",
+            title="Auto Brightness",
+            detail=f"Searching exposure between {lower_bound} and {upper_bound} ms",
+            stage_key="exposure_start",
+            stage_label="Initialize exposure search",
+            progress_current=0,
+            progress_total=max_iterations,
+        )
+        try:
+            current = float(min(max(self.get_exposure(), lower_bound), upper_bound))
+            metrics = capture(current)
+            iterations = 0
+            while not is_in_target_band(metrics) and iterations < max_iterations:
+                self._emit_task_progress(
+                    task_kind="autobrightness",
+                    status="running",
+                    title="Auto Brightness",
+                    detail=(
+                        f"Exposure {current:.3f} ms "
+                        f"p{high_percentile:g}={metrics['p_high']:.3f}"
+                    ),
+                    stage_key="exposure_sample",
+                    stage_label="Search camera exposure",
+                    progress_current=min(iterations + 1, max_iterations),
+                    progress_total=max_iterations,
+                )
+                if (
+                    metrics["saturation_ratio"] > max_saturation_ratio
+                    or metrics["p_high"] > target_high
+                ):
+                    upper_bound = min(upper_bound, current)
+                elif metrics["p_high"] < target_low:
+                    lower_bound = max(lower_bound, current)
+                proposed = current * (target_mid / max(metrics["p_high"], 1e-6))
+                proposed = float(min(max(proposed, lower_bound), upper_bound))
+                if abs(proposed - current) <= max(1e-6, current * 1e-3):
+                    break
+                current = proposed
+                metrics = capture(current)
+                iterations += 1
+            best_exposure, best_metrics = min(samples.items(), key=violation_key)
+            if not is_in_target_band(best_metrics):
+                logger.warning(
+                    "Autoexposure finished at boundary without entering target band: "
+                    "exposure=%.3f p%s=%.3f saturation=%.4f",
+                    best_exposure,
+                    high_percentile,
+                    best_metrics["p_high"],
+                    best_metrics["saturation_ratio"],
+                )
+            self.set_exposure(best_exposure)
+            logger.info(
+                "Autoexposure selected exposure=%.3f p%s=%.3f saturation=%.4f",
+                best_exposure,
+                high_percentile,
+                best_metrics["p_high"],
+                best_metrics["saturation_ratio"],
+            )
+            self._emit_task_progress(
+                task_kind="autobrightness",
+                status="completed",
+                title="Auto Brightness",
+                detail=f"Selected exposure {best_exposure:.3f} ms",
+                stage_key="exposure_completed",
+                stage_label="Exposure search complete",
+                progress_current=max(len(samples), 1),
+                progress_total=max_iterations,
+            )
+            return float(best_exposure), best_metrics
+        except Exception as exc:
+            try:
+                self.set_exposure(original_exposure)
+            except Exception:
+                logger.exception(
+                    "Failed to restore original exposure %.3f after autoexposure failure",
+                    original_exposure,
+                )
+            self._emit_task_progress(
+                task_kind="autobrightness",
+                status="failed",
+                title="Auto Brightness",
+                detail=str(exc) or type(exc).__name__,
+                stage_key="exposure_failed",
+                stage_label="Exposure search failed",
+                progress_current=len(samples),
                 progress_total=max_iterations,
             )
             raise

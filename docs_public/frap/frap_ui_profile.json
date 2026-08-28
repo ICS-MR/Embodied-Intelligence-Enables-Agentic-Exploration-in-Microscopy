@@ -36,6 +36,8 @@
   },
   "options": {
     "activate_before_action": true,
+    "startup_window_timeout_sec": 600.0,
+    "startup_settle_seconds": 300.0,
     "click_interval_sec": 1.5,
     "move_duration_sec": 0.1,
     "flip_x": false,

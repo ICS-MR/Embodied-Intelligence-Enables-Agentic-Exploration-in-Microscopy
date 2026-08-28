@@ -472,6 +472,13 @@ class Frap(BaseTool):
         if not isinstance(image_region, dict) or not isinstance(options, dict):
             raise ValueError("Invalid FRAP profile structure")
 
+        startup_window_timeout_sec = float(options.get("startup_window_timeout_sec", 60.0))
+        startup_settle_seconds = float(options.get("startup_settle_seconds", 0.0))
+        if startup_window_timeout_sec <= 0:
+            raise ValueError("FRAP startup_window_timeout_sec must be greater than zero.")
+        if startup_settle_seconds < 0:
+            raise ValueError("FRAP startup_settle_seconds must be non-negative.")
+
         required_region_keys = ("left", "top", "right", "bottom", "source_width", "source_height")
         missing_region_keys = [key for key in required_region_keys if key not in image_region]
         if missing_region_keys:
@@ -495,6 +502,8 @@ class Frap(BaseTool):
             "controls": dict(payload.get("controls", {})),
             "options": {
                 "activate_before_action": bool(options.get("activate_before_action", True)),
+                "startup_window_timeout_sec": startup_window_timeout_sec,
+                "startup_settle_seconds": startup_settle_seconds,
                 "click_interval_sec": float(options.get("click_interval_sec", 0.15)),
                 "move_duration_sec": float(options.get("move_duration_sec", 0.0)),
                 "flip_x": bool(options.get("flip_x", False)),
@@ -569,6 +578,10 @@ class Frap(BaseTool):
         self._window_info = self._ensure_window(self._profile)
         self._activate_window_if_needed(self._profile, window_info=self._window_info)
         self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
+        settle_seconds = float(self._profile["options"]["startup_settle_seconds"])
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+            self._window_info = self._wait_for_window(self._profile["window_title_keyword"])
         self._prepare_frap_console(self._profile, self._window_info)
         self._session_prepared = True
 
@@ -578,7 +591,10 @@ class Frap(BaseTool):
             return self._wait_for_window(keyword)
         except RuntimeError:
             self._launch_cell_sens()
-            return self._wait_for_window(keyword, timeout_sec=60.0)
+            return self._wait_for_window(
+                keyword,
+                timeout_sec=float(profile["options"]["startup_window_timeout_sec"]),
+            )
 
     def _launch_cell_sens(self) -> None:
         launch_command = list(self._launch_command)
