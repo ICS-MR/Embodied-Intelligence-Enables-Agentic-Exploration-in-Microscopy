@@ -4,8 +4,8 @@ param(
     [string]$AssetBaseUrl = $env:EIMS_DETECTOR_WEIGHTS_BASE_URL,
     [string]$TargetRoot,
     [string]$AssetDir,
-    [ValidateSet("2Dcell", "organoid", "mitosis")]
-    [string[]]$Models = @("2Dcell", "organoid", "mitosis"),
+    [ValidateSet("2Dcell", "organoid", "mitosis", "2Dcell_brightfield", "organoid_fluorescence")]
+    [string[]]$Models = @("2Dcell", "organoid", "mitosis", "2Dcell_brightfield", "organoid_fluorescence"),
     [switch]$Force
 )
 
@@ -30,6 +30,14 @@ $modelAssets = @{
     "mitosis" = @{
         AssetName = "mitosis_best.pth"
         RelativePath = "mitosis\\weights.pth"
+    }
+    "2Dcell_brightfield" = @{
+        AssetName = "2Dcell_brightfield.pth"
+        RelativePath = "cell2d_brightfield\\weights.pth"
+    }
+    "organoid_fluorescence" = @{
+        AssetName = "organoid_fluorescence.pth"
+        RelativePath = "organoid_fluorescence\\weights.pth"
     }
 }
 

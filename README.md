@@ -534,12 +534,9 @@ The script installs:
 detector_models/cell2d/weights.pth
 detector_models/organoid/weights.pth
 detector_models/mitosis/weights.pth
+detector_models/cell2d_brightfield/weights.pth
+detector_models/organoid_fluorescence/weights.pth
 ```
-
-The `2Dcell_brightfield` and `organoid_fluorescence` presets expect checkpoints at
-`detector_models/cell2d_brightfield/weights.pth` and
-`detector_models/organoid_fluorescence/weights.pth`; their distribution is arranged
-separately and is not part of this download script yet.
 
 Downloads are staged under `.runtime/downloads/detector-weights/` and then copied into
 the final `detector_models/` paths above. Use the script's `-TargetRoot` parameter only if
