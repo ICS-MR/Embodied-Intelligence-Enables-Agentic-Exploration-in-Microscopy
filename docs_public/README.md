@@ -11,7 +11,7 @@ This directory contains only polished/published content.
 | `c3_domain_prior/` | C3 Domain Prior: reviewed exemplar set (`domain_prior_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
 | `documents/` | Organized dataset and experimental-outcome release: 5 task datasets + 15 experimental outcome collections (detailed below). |
 | `Demo_test/` | End-to-end Demo workflow showcases with display Markdown and generated image/detection artifacts. |
-| `frap/` | FRAP runtime dependency: `frap_ui_profile.json` (read by `tool/frap.py`) and `record_frap_click_once.py`. |
+| `frap/` | FRAP runtime dependency: UI profile `frap_ui_profile.json` (read by `tool/frap.py`), click-coordinate recorder, startup verification helpers (`capture_frap_startup_reference.py`, `calibrate_frap_startup_reference.py`), reference screenshots, and `README.md` documenting the startup visual verification workflow. |
 | `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
 | `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, mitosis, 2Dcell_brightfield, and organoid_fluorescence. |
 
