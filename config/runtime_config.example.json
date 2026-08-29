@@ -97,6 +97,7 @@
     "fiji_executor_timeout_seconds": 300.0,
     "autofocus_timeout_seconds": 300.0,
     "autobrightness_timeout_seconds": 20.0,
+    "autoexposure_timeout_seconds": 60.0,
     "init_component_timeout_seconds": 90.0,
     "microscope_setup_timeout_seconds": 30.0,
     "preview_start_command_timeout_seconds": 10.0

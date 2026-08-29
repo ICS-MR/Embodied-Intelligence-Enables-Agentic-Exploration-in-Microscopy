@@ -36,10 +36,11 @@ except Exception:
 from bootstrap.microscope_semantics import objective_pixel_size_um
 logger = logging.getLogger(__name__)
 
-# Wall-clock caps for autofocus/autobrightness. Defaults only; overridden by the
-# runtime config fields autofocus_timeout_seconds / autobrightness_timeout_seconds.
+# Wall-clock caps for autofocus/autobrightness/autoexposure. Defaults only;
+# overridden by the corresponding runtime config fields.
 AUTOFOCUS_TIMEOUT_SEC = 300.0
 AUTOBRIGHTNESS_TIMEOUT_SEC = 20.0
+AUTOEXPOSURE_TIMEOUT_SEC = 60.0
 
 
 # ====== MMCore console noise suppression ======
@@ -472,6 +473,9 @@ class MicroscopeController(BaseTool):
         self.autobrightness_timeout_seconds = _optional_float_config(
             system_config, "autobrightness_timeout_seconds", AUTOBRIGHTNESS_TIMEOUT_SEC
         )
+        self.autoexposure_timeout_seconds = _optional_float_config(
+            system_config, "autoexposure_timeout_seconds", AUTOEXPOSURE_TIMEOUT_SEC
+        )
         if self.autofocus_timeout_seconds <= 0:
             logger.warning(
                 "autofocus_timeout_seconds must be positive; falling back to default %.1fs",
@@ -484,6 +488,12 @@ class MicroscopeController(BaseTool):
                 AUTOBRIGHTNESS_TIMEOUT_SEC,
             )
             self.autobrightness_timeout_seconds = AUTOBRIGHTNESS_TIMEOUT_SEC
+        if self.autoexposure_timeout_seconds <= 0:
+            logger.warning(
+                "autoexposure_timeout_seconds must be positive; falling back to default %.1fs",
+                AUTOEXPOSURE_TIMEOUT_SEC,
+            )
+            self.autoexposure_timeout_seconds = AUTOEXPOSURE_TIMEOUT_SEC
 
         # Current state
         self.current_channel = ''
@@ -3039,25 +3049,25 @@ class MicroscopeController(BaseTool):
 
         try:
             original_metrics = capture_metrics(original_exposure)
-            if (
+            is_overexposed = (
                 original_metrics["saturation_ratio"] > max_saturation_ratio
                 or original_metrics["p_high"] > target_high_percentile
-            ):
+            )
+            if is_overexposed:
                 low, high = min_exp, original_exposure
             else:
                 low, high = original_exposure, max_exp
+            probe_exposure = original_exposure
+            probe_metrics = original_metrics
 
-            capture_metrics(low)
-            capture_metrics(high)
-            sample_count = len(samples)
             self._emit_task_progress(
                 task_kind="autoexposure",
                 status="running",
                 title="Auto Exposure",
-                detail=f"Collected {sample_count} exposure samples",
+                detail=f"Initial exposure sample={original_exposure:.3f}",
                 stage_key="initial_samples",
-                stage_label="Capture initial samples",
-                progress_current=min(sample_count, max_iterations),
+                stage_label="Capture initial sample",
+                progress_current=min(len(samples), max_iterations),
                 progress_total=max_iterations,
             )
 
@@ -3070,25 +3080,45 @@ class MicroscopeController(BaseTool):
                 )
                 if high - low <= 1:
                     break
-                mid = float(round((low + high) / 2))
-                mid_key = round(mid, 4)
-                if mid_key in samples:
+
+                # Exposure and image brightness are approximately proportional.
+                # Use that relationship for a fast first estimate, then fall back
+                # to the midpoint when the estimate is unusable or repeats a sample.
+                measured_high = float(probe_metrics["p_high"])
+                if measured_high > 1e-6:
+                    predicted = probe_exposure * target_high_percentile / measured_high
+                else:
+                    predicted = (low + high) / 2.0
+                candidate = min(max(predicted, low), high)
+                if candidate <= low or candidate >= high:
+                    candidate = (low + high) / 2.0
+                candidate = float(round(candidate))
+                if candidate <= low or candidate >= high:
+                    candidate = float(round((low + high) / 2.0))
+                candidate_key_value = round(candidate, 4)
+                if candidate_key_value in samples:
                     break
                 self._emit_task_progress(
                     task_kind="autoexposure",
                     status="running",
                     title="Auto Exposure",
-                    detail=f"Sampling exposure {mid:.3f}",
+                    detail=f"Sampling exposure {candidate:.3f}",
                     stage_key="sample",
                     stage_label="Sample exposure",
                     progress_current=min(len(samples) + 1, max_iterations),
                     progress_total=max_iterations,
                 )
-                metrics = capture_metrics(mid)
-                if metrics["saturation_ratio"] > max_saturation_ratio or metrics["p_high"] > target_high_percentile:
-                    high = mid
+                metrics = capture_metrics(candidate)
+                candidate_is_overexposed = (
+                    metrics["saturation_ratio"] > max_saturation_ratio
+                    or metrics["p_high"] > target_high_percentile
+                )
+                if candidate_is_overexposed:
+                    high = candidate
                 else:
-                    low = mid
+                    low = candidate
+                probe_exposure = candidate
+                probe_metrics = metrics
 
             best_exposure, best_metrics = min(samples.items(), key=candidate_key)
             logger.info(
@@ -3154,7 +3184,7 @@ class MicroscopeController(BaseTool):
         settle_time_sec: float = 0.15,
     ) -> float:
         del tolerance  # Kept for compatibility with older prompt signatures.
-        autoexposure_deadline = time.monotonic() + self.autobrightness_timeout_seconds
+        autoexposure_deadline = time.monotonic() + self.autoexposure_timeout_seconds
         exposure, _metrics = self._autoexposure_search(
             deadline=autoexposure_deadline,
             target_high_percentile=target_high_percentile,
