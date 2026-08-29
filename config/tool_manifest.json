@@ -22,20 +22,5 @@
       "validate_real_stack": true
     }
   },
-  "user_tools": [
-    {
-      "tool_id": "mp285_controller",
-      "class_path": "simulation.mp285:MP285Tool",
-      "enabled": true,
-      "planning_hint": "Controls the micromanipulator system. To capture/grasp a target, the microscope stage first moves to align the target directly below the needle (at the field center); the needle then moves along the Z axis to the working height and the pump aspirates to complete the grasp; release is the reverse (dispense at the working height). After completing aspiration/dispensing at the working height, lift the robotic arm Z axis back to the safe height before the next stage movement. The safe height and working height are given by the task instruction. When the task does not specify an aspiration/dispensing volume, the tool defaults to 80 µL at 20 µL/s. Unless explicitly stated otherwise, all XY positioning is performed by moving the microscope stage, not the needle. The needle moves mainly along the Z axis (safe height / working height). At system startup, the needle is in its initial state: the initial Z-axis is at the safe height, and the X/Y coordinates are at the center of the field of view.",
-      "execution_hint": "Establish the connection before any motion. The needle moves mainly in Z (safe height / working height), and the pump performs aspiration/dispensing. When the task does not specify a volume, aspiration/dispensing defaults to 80 µL at 20 µL/s, and say() records that the default parameters were used."
-    },
-    {
-      "tool_id": "frap",
-      "class_path": "tool.frap:Frap",
-      "enabled": true,
-      "planning_hint": "Use for FRAP workflows that start and stop FRAP, detect cells, extract contours, and photobleach selected field-centered micron coordinates. Spatial patterns can be executed as sampled coordinate trajectories derived from fitted contours or generated paths. Bleaching intensity is controlled by sampling point spacing.",
-      "execution_hint": "Call laser_on before cell_detection, cell_contour_extraction, or laser_position; call laser_off after the full bleaching sequence is complete. Treat laser_position x and y as microns relative to the field center. Use detected cell centers, fitted contour points, or sampled trajectories as laser_position targets. Adjust relative bleaching dose by changing point spacing: increase point spacing to lower the dose; decrease point spacing to raise the dose."
-    }
-  ]
+  "user_tools": []
 }

@@ -48,7 +48,7 @@ workflows. Depending on the configured runtime modes and available hardware, it 
   segmentation, and target detection.
 - Revisit detected targets, run closed-loop quality checks, and trigger replanning or code
   repair after failures.
-- Coordinate optional user tools such as FRAP control or MP-285A micromanipulation.
+- Review recorded baseline workflows in `docs_public/` for FRAP or MP-285A comparisons.
 - Preserve plans, generated code, artifacts, diagnostics, and metadata for later inspection.
 
 ## 🔬 How EIMS Works
