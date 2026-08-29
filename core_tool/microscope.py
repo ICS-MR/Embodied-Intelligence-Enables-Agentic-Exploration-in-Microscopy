@@ -1199,6 +1199,18 @@ class MicroscopeController(BaseTool):
             return brightness
         return self._read_transmitted_brightness()
 
+    def _turn_off_transmitted_brightness_for_channel_switch(self) -> None:
+        if self._supports_transmitted_brightness():
+            self._write_transmitted_brightness(0, require_supported=True)
+            return
+        logger.warning(
+            "Transmitted-light brightness control is unavailable (device=%r, property=%r); "
+            "skipping the switch-off step while changing the channel. If this microscope has a "
+            "manual brightfield illuminator, turn it off before fluorescence imaging.",
+            self.brightness_device,
+            self.brightness_property,
+        )
+
     @tool_func
     def set_brightness(self, brightness: int):
         current_channel = self.get_channel()
@@ -1533,7 +1545,7 @@ class MicroscopeController(BaseTool):
             )
         target_is_brightfield = self._is_brightfield_channel(target_label)
         if not target_is_brightfield:
-            self._write_transmitted_brightness(0, require_supported=True)
+            self._turn_off_transmitted_brightness_for_channel_switch()
         if target_label == previous_channel:
             with self.device_lock:
                 self.current_channel = target_label
@@ -1547,7 +1559,7 @@ class MicroscopeController(BaseTool):
         if target_is_brightfield:
             self._write_transmitted_brightness(self._user_brightness)
         else:
-            self._write_transmitted_brightness(0, require_supported=True)
+            self._turn_off_transmitted_brightness_for_channel_switch()
     @tool_func
     def get_channel(self) -> str:
         with self.device_lock:
@@ -2338,15 +2350,15 @@ class MicroscopeController(BaseTool):
         is_fluorescence: bool,
     ) -> Dict[str, float]:
         if magnification < 5:
-            params = {"search_range": 400.0, "coarse_step": 40.0, "tolerance": 2.0, "max_search_range": 800.0}
+            params = {"search_range": 400.0, "coarse_step": 50.0, "tolerance": 2.0, "max_search_range": 800.0}
         elif magnification < 15:
-            params = {"search_range": 220.0, "coarse_step": 25.0, "tolerance": 1.0, "max_search_range": 600.0}
+            params = {"search_range": 220.0, "coarse_step": 30.0, "tolerance": 1.0, "max_search_range": 600.0}
         elif magnification < 30:
-            params = {"search_range": 180.0, "coarse_step": 12.0, "tolerance": 0.5, "max_search_range": 500.0}
+            params = {"search_range": 180.0, "coarse_step": 15.0, "tolerance": 0.5, "max_search_range": 500.0}
         elif magnification < 50:
-            params = {"search_range": 90.0, "coarse_step": 8.0, "tolerance": 0.5, "max_search_range": 300.0}
+            params = {"search_range": 90.0, "coarse_step": 10.0, "tolerance": 0.5, "max_search_range": 300.0}
         else:
-            params = {"search_range": 60.0, "coarse_step": 5.0, "tolerance": 0.5, "max_search_range": 180.0}
+            params = {"search_range": 60.0, "coarse_step": 6.0, "tolerance": 0.5, "max_search_range": 180.0}
 
         if not is_fluorescence and magnification < 15:
             params["center_roi_size"] = 768.0
@@ -2411,7 +2423,7 @@ class MicroscopeController(BaseTool):
             expansion_cap = max(requested_search_range, auto_params["max_search_range"], search_range)
         else:
             search_range = requested_search_range
-            coarse_step = max(tolerance * 4.0, min(50.0, search_range))
+            coarse_step = max(tolerance * 4.0, min(60.0, search_range))
             expansion_cap = search_range
 
         center_roi_size = int(auto_params["center_roi_size"])
@@ -2421,40 +2433,28 @@ class MicroscopeController(BaseTool):
         phase_seconds = {"coarse": 0.0, "refine": 0.0}
         autofocus_completed = False
         autofocus_deadline = time.monotonic() + self.autofocus_timeout_seconds
-
-        def unique_z_positions(values: np.ndarray) -> List[float]:
-            ordered: List[float] = []
-            seen = set()
-            for value in values:
-                key = round(float(value), 4)
-                if key not in seen:
-                    seen.add(key)
-                    ordered.append(key)
-            return ordered
-
-        def sparse_positions(
-            lower_z,
-            upper_z,
-            target_count: int,
-        ) -> List[float]:
-            """Sample the range sparsely first; local refinement converges focus."""
-            count = max(2, int(target_count))
-            return unique_z_positions(
-                np.linspace(lower_z, upper_z, count, dtype=float)
-            )
-
-        # A full-range dense grid dominates autofocus wall time on hardware.
-        sparse_candidate_count = 9 if not use_auto_params else 7
-        estimated_candidates = max(sparse_candidate_count * 3, sparse_candidate_count)
+        lower_bound = max(effective_min_z, base_center_z - search_range)
+        upper_bound = min(effective_max_z, base_center_z + search_range)
+        coarse_positions_preview = np.arange(
+            lower_bound,
+            upper_bound + coarse_step * 0.5,
+            coarse_step,
+            dtype=float,
+        )
+        if coarse_positions_preview.size == 0:
+            coarse_positions_preview = np.array([base_center_z], dtype=float)
+        coarse_candidate_count = max(int(coarse_positions_preview.size), 1)
+        estimated_candidates = max(coarse_candidate_count * 3, coarse_candidate_count)
         logger.info(
             "Autofocus started. objective=%s channel=%s base_z=%.3f search_range=%.3f "
-            "tolerance=%.3f initial_candidates=%s estimated_candidates=%s",
+            "coarse_step=%.3f tolerance=%.3f initial_candidates=%s estimated_candidates=%s",
             current_objective,
             current_channel,
             base_center_z,
             search_range,
+            coarse_step,
             tolerance,
-            sparse_candidate_count,
+            coarse_candidate_count,
             estimated_candidates,
         )
         self._emit_task_progress(
@@ -2581,17 +2581,27 @@ class MicroscopeController(BaseTool):
             search_center_z = float(max(effective_min_z, min(search_center_z, effective_max_z)))
             lower_z = max(effective_min_z, search_center_z - active_search_range)
             upper_z = min(effective_max_z, search_center_z + active_search_range)
-            coarse_positions = sparse_positions(
+            coarse_positions = np.arange(
                 lower_z,
-                upper_z,
-                sparse_candidate_count,
+                upper_z + active_coarse_step * 0.5,
+                active_coarse_step,
+                dtype=float,
             )
-            if not coarse_positions:
-                coarse_positions = [float(search_center_z)]
+            if coarse_positions.size == 0:
+                coarse_positions = np.array([search_center_z], dtype=float)
+            else:
+                coarse_positions = np.unique(
+                    np.concatenate(
+                        [
+                            coarse_positions,
+                            np.array([search_center_z, lower_z, upper_z], dtype=float),
+                        ]
+                    )
+                )
 
             phase_started_at = time.perf_counter()
             best_z, best_score = evaluate_sorted_candidates(
-                coarse_positions,
+                [float(z) for z in coarse_positions],
                 lower_z,
                 upper_z,
             )
