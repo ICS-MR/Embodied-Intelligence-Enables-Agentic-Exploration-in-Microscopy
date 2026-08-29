@@ -12,7 +12,7 @@ def count_files(path):
         return 0
 
 if __name__ == "__main__":
-    base_path = '/home/nova/mir/task/task_Splicing_3_language_correction_v2'
+    base_path = '/home/nova/mir/task/task_Push_to_target_language_correction_v2'
     
     # Iterate over all epoch directories.
     total_files = 0

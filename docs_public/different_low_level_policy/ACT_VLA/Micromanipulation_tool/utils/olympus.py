@@ -9,7 +9,7 @@ from pynput import keyboard
 from utils.image_processing import image_process
 
 mm_dir = os.environ.get("MICRO_MANAGER_DIR", r"C:\Program Files\Micro-Manager-2.0")
-config_path = os.environ.get("MICRO_MANAGER_CONFIG", "")
+config_path = os.environ.get("MICRO_MANAGER_CONFIG", r"E:\ZZY\MMConfig_demo2.cfg")
 
 Max_Z_position = 10000
 Min_Z_position = 0
@@ -79,6 +79,7 @@ class Olympus_api:
         self.get_pos_Flag = True
         self.should_exit = False
         self.activate = False
+        self.stop_reset_z_position = None
         self.live_running = threading.Event()
 
         self.Lock = threading.RLock()
@@ -96,12 +97,6 @@ class Olympus_api:
             if self.app_dir and self.app_dir not in current_path.split(os.pathsep):
                 os.environ["PATH"] += os.pathsep + self.app_dir
                 print(f"Added {self.app_dir} to PATH.")
-
-            if not self.config_file:
-                raise RuntimeError(
-                    "MICRO_MANAGER_CONFIG is not set. Set the MICRO_MANAGER_CONFIG environment "
-                    "variable to your Micro-Manager .cfg path (see Micromanipulation_tool/README.md)."
-                )
 
             self.core.loadSystemConfiguration(self.config_file)
             print(f"Loaded Micro-Manager config: {self.config_file}")
@@ -433,7 +428,8 @@ class Olympus_api:
             elif key_name == "n":
                 self.recording_Flag = False
                 time.sleep(1)
-                self.set_z_position(5000)
+                if self.stop_reset_z_position is not None:
+                    self.set_z_position(self.stop_reset_z_position)
                 print('no')
             elif key_name == 'q':
                 self.live_stop()

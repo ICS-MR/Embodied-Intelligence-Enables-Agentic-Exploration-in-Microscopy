@@ -1,12 +1,10 @@
 import time
 import pickle
 import os
-import cv2
 import shutil
-import numpy as np
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from utils.task_interfaces import create_task_agent
+from utils.task_interfaces import create_task_agent, list_supported_tasks
 
 
 def create_folder(path):
@@ -21,7 +19,9 @@ def get_next_epoch(root_folder):
     ]
     return max(existing_epochs) + 1 if existing_epochs else 0
 
-def save_step(img, qpos, stage_num, save_count, action_folder, image_folder, qpos_folder, stage_folder):
+def save_step(img, qpos, save_count, action_folder, image_folder, qpos_folder):
+    import cv2
+
     if img is not None:
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(image_folder, f'img_{save_count}.png'), img_bgr)
@@ -31,20 +31,25 @@ def save_step(img, qpos, stage_num, save_count, action_folder, image_folder, qpo
 
     with open(os.path.join(qpos_folder, f'{save_count}.pkl'), 'wb') as f:
         pickle.dump(qpos, f)
-
-    with open(os.path.join(stage_folder, f'{save_count}.pkl'), 'wb') as f:
-        pickle.dump([stage_num], f)
     
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task_name', type=str, default='task_Splicing_3', help='task name')
+    parser.add_argument('--task_name', type=str, default='task_Push_to_target', help='task name')
     parser.add_argument('--root_folder', type=str, default='/home/nova/mir/task', help='dataset root')
     parser.add_argument('--backend', type=str, default='auto', choices=['auto', 'robot', 'microscope'], help='hardware backend')
     parser.add_argument('--control_mode', type=str, default='auto', choices=['auto', 'xy', 'z', 'brightness', 'exposure'], help='controlled state')
     parser.add_argument('--port', type=str, default='/dev/ttyUSB0', help='robot serial port')
     parser.add_argument('--baudrate', type=int, default=115200, help='robot serial baudrate')
     parser.add_argument('--timeout', type=float, default=0.1, help='I/O timeout')
+    parser.add_argument('--list_tasks', action='store_true', help='list supported tasks and exit')
     args = parser.parse_args()
+
+    if args.list_tasks:
+        for supported_task in list_supported_tasks():
+            print(supported_task)
+        raise SystemExit(0)
+
+    import numpy as np
 
     task_name = args.task_name
     root_folder = args.root_folder
@@ -85,9 +90,8 @@ if __name__ =="__main__":
                 action_folder = os.path.join(epoch_folder, 'Action')
                 image_folder = os.path.join(epoch_folder, 'Observations', 'img')
                 qpos_folder = os.path.join(epoch_folder, 'Observations', 'qpos')
-                stage_folder = os.path.join(epoch_folder, 'Observations', 'stage')
 
-                for folder in [action_folder, image_folder, qpos_folder, stage_folder]:
+                for folder in [action_folder, image_folder, qpos_folder]:
                     create_folder(folder)
 
                 print(f'Starting epoch {epoch}, saving to: {epoch_folder}')
@@ -109,24 +113,21 @@ if __name__ =="__main__":
                             time.sleep(max(0.0, next_time - time.perf_counter()))
                             continue
 
-                        stage_num = agent.get_current_stage()
                         future = save_pool.submit(
                             save_step,
                             img,
                             qpos,
-                            stage_num,
                             save_count,
                             action_folder,
                             image_folder,
                             qpos_folder,
-                            stage_folder,
                         )
                         futures.append(future)
 
                         if len(futures) > 128:
                             futures = [item for item in futures if not item.done()]
 
-                        print(f"step_{save_count}, qpos={np.round(qpos, 2)}, stage={stage_num}")
+                        print(f"step_{save_count}, qpos={np.round(qpos, 2)}")
 
                         save_count += 1
                         next_time += interval

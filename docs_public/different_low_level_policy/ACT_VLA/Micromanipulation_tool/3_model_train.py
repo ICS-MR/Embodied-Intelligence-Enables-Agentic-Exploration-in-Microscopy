@@ -26,8 +26,6 @@ def main(args):
     dataset_dir = args.dataset_dir           # Dataset directory containing episodes
 
     task_config = TASK_CONFIGS
-    # dataset_dir = task_config['dataset_dir']    # Dataset directory containing episodes
-    num_episodes = task_config['num_episodes']  # Number of samples
     camera_names = task_config['camera_names']  # Camera names
 
     #****************************************** ACT policy parameters ************************************************************
@@ -64,7 +62,7 @@ def main(args):
     }
 
     # Load data and split it into training and validation sets.
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val, chunk_size)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, chunk_size)
     # Save dataset statistics.
     if not os.path.isdir(ckpt_dir):
         os.makedirs(ckpt_dir)
@@ -206,7 +204,7 @@ def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
     print(f'Saved plots to {ckpt_dir}')
 
 if __name__ == '__main__':
-    task = 'Splicing_2'
+    task = 'Push_to_target'
     parser = argparse.ArgumentParser()
     # parser.add_argument('--eval', action='store_true')
     parser.add_argument('--dataset_dir', action='store', type=str, default=f'/home/nova/mir/dataset/dataset_{task}', help='dataset_dir')   # Dataset path; update for each run

@@ -10,11 +10,10 @@ through simulated mouse clicks.
 | File | Purpose |
 | --- | --- |
 | `frap_ui_profile.json` | UI coordinate profile for the cellSens FRAP interface. Loaded by `tool/frap.py` at runtime. |
-| `frap_click_points.json` | Click coordinates recorded by `record_frap_click_once.py`, used to update the profile. |
 | `record_frap_click_once.py` | Calibration script for recording screen click coordinates to update the UI profile. |
 | `capture_frap_startup_reference.py` | Captures startup verification reference images from the configured regions. |
 | `calibrate_frap_startup_reference.py` | Scores ready/not-ready screenshots against a reference and suggests `startup_match_threshold`. |
-| `screenshots/` | Reference screenshots of the cellSens loaded and loading (splash) states. |
+| `references/` | Runtime verification reference images (`pre_click.png`, `post_click.png`, `laser_on.png`, `laser_off.png`) referenced by `frap_ui_profile.json`. |
 
 ## frap_ui_profile.json
 
@@ -23,10 +22,17 @@ Defines the screen layout of the cellSens FRAP control panel:
 - `window_title_keyword`: keyword used to locate the cellSens window.
 - `launch_command` / `launch_workdir`: cellSens executable path and working directory.
 - `image_region`: pixel coordinates of the microscope image area within the cellSens window.
-- `controls`: absolute screen pixel coordinates for FRAP UI buttons (FRAP tab, single-click bleaching, start, stop).
-- `options`: pixel size, Cellpose segmentation parameters, and click timing settings,
-  startup waits (`startup_window_timeout_sec`, `startup_settle_seconds`), and startup
-  visual verification settings (`startup_match_threshold`, `startup_reference_checks`).
+- `controls`: absolute screen pixel coordinates for FRAP UI buttons (FRAP tab,
+  single-click bleaching, start, stop) and the cellSens close button
+  (`cellsens_close_button`).
+- `options`: pixel size, Cellpose segmentation parameters, and click timing settings;
+  startup waits (`startup_window_timeout_sec`, `startup_poll_interval_sec`,
+  `startup_settle_seconds`, `startup_ready_settle_seconds`); startup visual
+  verification settings (`startup_match_threshold`, `startup_reference_checks`);
+  start/stop state checks (`frap_start_state_check` / `frap_stop_state_check` with
+  `frap_start_settle_seconds` / `frap_stop_settle_seconds`); and close verification
+  settings (`close_settle_seconds`, `close_window_timeout_sec`,
+  `close_process_timeout_sec`).
 
 All coordinates are **machine-specific** and depend on the display resolution,
 DPI scaling, and cellSens window layout. Users must recalibrate for their own
@@ -67,9 +73,32 @@ python docs_public\frap\calibrate_frap_startup_reference.py --check post_click ^
     --ready loaded_1.png loaded_2.png --not-ready splash_1.png
 ```
 
-The `screenshots/` directory documents the two states: `cellSens_loaded_...`
-shows the ready interface, and `cellSens_loading_...` shows the startup splash
-during which no verification can pass.
+The `references/` images above are machine-specific captures: regenerate them
+with `capture_frap_startup_reference.py` after recalibrating the profile on a
+new display or cellSens layout.
+
+## Lifecycle state verification
+
+Beyond startup readiness, `tool/frap.py` verifies each lifecycle transition
+against a reference image:
+
+- **Start**: after clicking `frap_start_button`, the tool waits
+  `frap_start_settle_seconds` and then polls the `frap_start_state_check` region
+  until it matches `references/laser_on.png`.
+- **Stop**: after clicking `frap_stop_button`, the tool waits
+  `frap_stop_settle_seconds` and then polls the `frap_stop_state_check` region
+  until it matches `references/laser_off.png`.
+
+Both checks reuse `startup_poll_interval_sec` for polling and
+`startup_window_timeout_sec` as the timeout. A check with an empty `image` path
+is skipped with a warning.
+
+Session close verifies that cellSens actually exits:
+
+1. Click the configured `cellsens_close_button` and wait `close_settle_seconds`.
+2. Wait up to `close_window_timeout_sec` for the cellSens window to disappear;
+   if the window is still present, fall back to `Alt+F4`.
+3. Wait for the `SisXV.exe` process to exit within `close_process_timeout_sec`.
 
 ## record_frap_click_once.py
 
@@ -81,7 +110,8 @@ Usage:
 2. Run the script and keep the cellSens window focused.
 3. Press the `y` key to arm recording mode.
 4. Click a target UI button. The script records the absolute screen coordinates
-   and appends them to `frap_click_points.json` in the same directory.
+   and appends them to `frap_click_points.json` (created on first use) in the
+   same directory.
 
 Diagnostic mode:
 

@@ -6,14 +6,14 @@ This project provides a hardware-in-the-loop micromanipulation workflow for data
 
 - High-frequency image and state acquisition from a Daheng camera and serial robot arm.
 - Unified task adapter for robot-arm and Olympus microscope workflows.
-- Keyboard-driven demonstration recording with synchronized image, action, stage, and state data.
+- Keyboard-driven demonstration recording with synchronized image, action, and state data.
 - Dataset conversion from recorded episodes to HDF5 training files.
 - ACT policy training based on the DETR/CVAE model stack.
 - Closed-loop inference with video recording and action logging.
 
 ## Pretrained Models and Datasets
 
-The policies used in this project are ACT action-chunking models. The supported tasks include micromanipulator operations, such as splicing, and Olympus microscope-control tasks, such as focusing, stage movement, and brightness adjustment. The weights for these tasks were trained with ACT, and the corresponding training parameters are saved with each set of weights.
+The policies used in this project are ACT action-chunking models. The supported tasks include micromanipulator operations, such as push-to-target, and Olympus microscope-control tasks, such as focusing, stage movement, and brightness adjustment. The weights for these tasks were trained with ACT, and the corresponding training parameters are saved with each set of weights.
 
 The pretrained weights and their training configurations are available on Hugging Face:
 
@@ -31,29 +31,29 @@ git clone https://huggingface.co/datasets/404lzh/Data_of_Micromanipulation
 
 ```text
 .
-|-- 1_recorde.py              # Record demonstrations from hardware
-|-- 2_data_processing.py      # Convert recorded episodes to HDF5 datasets
-|-- 3_model_train.py          # Train ACT policy checkpoints
-|-- 4_model_inference.py      # Run policy inference on hardware
-|-- model/                    # Policy, dataset utilities, and DETR/CVAE model code
-|-- utils/                    # Hardware interfaces and task adapters
-|   |-- agent.py              # Robot-arm runtime and synchronization logic
-|   |-- camera.py             # Daheng camera interface
-|   |-- robot.py              # Serial robot-arm interface
-|   |-- olympus.py            # Olympus microscope interface
-|   |-- task_interfaces.py    # Unified robot/microscope task selection layer
-|   `-- image_processing.py   # Microscope image-processing helpers
-|-- configs/                  # Tracked training configuration examples
-|-- scripts/                  # Legacy batch helper; requires user-provided YAML files
-|-- test/                     # Utility scripts for data inspection and conversion checks
-|-- requirements.txt          # Pip dependencies
-|-- environment.yml           # Conda environment definition
-`-- .gitignore                # Open-source ignore rules for caches, data, logs, and outputs
+├── 1_recorde.py              # Record demonstrations from hardware
+├── 2_data_processing.py      # Convert recorded episodes to HDF5 datasets
+├── 3_model_train.py          # Train ACT policy checkpoints
+├── 4_model_inference.py      # Run policy inference on hardware
+├── model/                    # Policy, dataset utilities, and DETR/CVAE model code
+├── utils/                    # Hardware interfaces and task adapters
+│   ├── agent.py              # Robot-arm runtime and synchronization logic
+│   ├── camera.py             # Daheng camera interface
+│   ├── robot.py              # Serial robot-arm interface
+│   ├── olympus.py            # Olympus microscope interface
+│   ├── task_interfaces.py    # Unified robot/microscope task selection layer
+│   └── image_processing.py   # Microscope image-processing helpers
+├── configs/                  # Tracked training configuration examples
+├── scripts/                  # Legacy batch helper; requires user-provided YAML files
+├── test/                     # Utility scripts for data inspection and conversion checks
+├── requirements.txt          # Pip dependencies
+├── environment.yml           # Conda environment definition
+└── .gitignore                # Open-source ignore rules for caches, data, logs, and outputs
 ```
 
 ## Environment Setup
 
-The recommended runtime is Python 3.8 in a conda environment.
+The recommended runtime is Python 3.10 in a conda environment.
 
 ```bash
 conda env create -f environment.yml
@@ -63,7 +63,7 @@ conda activate micromanipulation
 Or install manually:
 
 ```bash
-conda create -n micromanipulation python=3.8
+conda create -n micromanipulation python=3.10
 conda activate micromanipulation
 pip install -r requirements.txt
 ```
@@ -71,12 +71,24 @@ pip install -r requirements.txt
 Hardware-specific dependencies may require separate installation:
 
 - Daheng camera SDK: install the vendor SDK and make sure `gxipy` is importable.
-- Olympus/Micro-Manager: install Micro-Manager and configure:
+- Olympus/Micro-Manager: install Micro-Manager and configure the environment variables before starting Python.
+- The microscope/API 75 package set in `requirements.txt` pins `pymmcore==11.14.0.75.0` and `pymmcore-plus==0.16.0`.
+
+Linux/macOS:
 
 ```bash
 export MICRO_MANAGER_DIR=/path/to/Micro-Manager
 export MICRO_MANAGER_CONFIG=/path/to/config.cfg
 ```
+
+Windows PowerShell:
+
+```powershell
+$env:MICRO_MANAGER_DIR = "C:\path\to\Micro-Manager"
+$env:MICRO_MANAGER_CONFIG = "C:\path\to\config.cfg"
+```
+
+Before running Python, open the same Micro-Manager configuration in the GUI and confirm that the camera and stage initialize on the expected COM ports.
 
 ## Basic Workflow
 
@@ -84,13 +96,19 @@ Paths beginning with `/path/to/` in the commands below are placeholders, not dir
 
 ### 1. Record Demonstrations
 
-Use `1_recorde.py` to collect synchronized action, image, stage, and state data.
+Use `1_recorde.py` to collect synchronized action, image, and state data.
+
+List the tasks that the recording entry point can resolve without opening hardware:
+
+```bash
+python 1_recorde.py --list_tasks
+```
 
 Robot-arm task:
 
 ```bash
 python 1_recorde.py \
-  --task_name task_Splicing_3 \
+  --task_name task_Push_to_target \
   --backend robot \
   --control_mode xy \
   --root_folder /path/to/recordings
@@ -112,9 +130,10 @@ Keyboard controls during recording:
 
 - `y`: start recording
 - `n`: stop recording
-- `space`: switch stage label
 - `delete`: mark current episode for deletion
 - `esc` or `q`: exit, depending on the active backend
+
+For microscope `set_z` tasks, stopping recording with `n` returns Z to the task's configured stop position. Other microscope tasks do not reset Z on stop.
 
 Recorded data is saved under:
 
@@ -123,26 +142,43 @@ Recorded data is saved under:
 ├── Action/
 ├── Observations/
 │   ├── img/
-│   ├── qpos/
-│   └── stage/
+│   └── qpos/
 └── ...
 ```
 
 ### 2. Convert Episodes to Dataset
 
-Edit the task and path variables near the top of `2_data_processing.py`, then run:
+Convert a recorded task folder to ACT HDF5 episodes:
 
 ```bash
-python 2_data_processing.py
+python 2_data_processing.py \
+  --task Push_to_target \
+  --root_folder /path/to/recordings_root \
+  --dataset_folder /path/to/hdf5_dataset
 ```
+
+By default, image frames are stored as raw HDF5 arrays. To create ACT/ALOHA-style compressed HDF5 files, store each frame as padded JPEG bytes and write `/compress_len`:
+
+```bash
+python 2_data_processing.py \
+  --task Cell_set_z_none \
+  --root_folder /path/to/recordings_root \
+  --dataset_folder /path/to/hdf5_dataset \
+  --compress \
+  --jpeg_quality 50
+```
+
+`model/utils.py` automatically detects `attrs["compress"]` when loading HDF5 episodes, so training can read both raw and compressed datasets.
+
+`--root_folder` must point to the parent directory that contains the recorded task folder. For example, if recordings live in `/run/media/nova26/LuZhihui/task/task_Cell_set_z_none/epoch_0/...`, then set `--root_folder /run/media/nova26/LuZhihui/task` and `--task_name task_Cell_set_z_none`.
 
 The script converts recorded episode folders into HDF5 files with the following structure:
 
 ```text
 /action
 /observations/qpos
-/observations/stage
 /observations/images/top
+/compress_len              # compressed datasets only
 ```
 
 Before running conversion, check:
@@ -151,6 +187,8 @@ Before running conversion, check:
 - `root_folder`
 - `task_name`
 - `dataset_folder`
+- `compress`
+- `jpeg_quality`
 - episode image/action/state lengths
 
 ### 3. Train the Policy
@@ -190,9 +228,10 @@ python 3_model_train.py --config configs/training_config.example.yaml
 
 The `.example` suffix indicates that the file is a task-neutral template. In particular, `/path/to/hdf5_dataset` and `/path/to/output_directory` are not real directories and must be replaced with paths on your system. The example groups the same command-line settings into path, training, and ACT model sections.
 
-Configuration values are applied after command-line parsing, so a YAML value overrides a command-line argument with the same name. Avoid specifying the same setting in both places. Only arguments declared in `3_model_train.py` can be loaded from this YAML file. The task-level values `num_episodes`, `episode_len`, and `camera_names` remain configured in `model/constants.py`.
+Configuration values are applied after command-line parsing, so a YAML value overrides a command-line argument with the same name. Avoid specifying the same setting in both places. Only arguments declared in `3_model_train.py` can be loaded from this YAML file. The task-level values `episode_len` and `camera_names` remain configured in `model/constants.py`.
 
 Training outputs checkpoints, policy statistics, the resolved run configuration, and training plots into the directory supplied through `--ckpt_dir`.
+The saved `config.yaml` in that directory is also used by inference when it is present.
 
 ### 4. Run Model Inference
 
@@ -200,11 +239,11 @@ Robot-arm inference:
 
 ```bash
 python 4_model_inference.py \
-  --task_name Splicing_2 \
+  --task_name Push_to_target \
   --backend robot \
   --control_mode xy \
   --ckpt_dir /path/to/checkpoint_directory \
-  --record_epoch 09 \
+  --run_id 09 \
   --video_filename /path/to/output/robot_inference.mp4
 ```
 
@@ -216,20 +255,44 @@ python 4_model_inference.py \
   --backend microscope \
   --control_mode z \
   --ckpt_dir /path/to/checkpoint_directory \
+  --run_id 09 \
   --video_filename /path/to/output/microscope_inference.mp4
 ```
 
 Use `--video_filename` to select the video output path. If it is omitted, the script uses a local development default that may not exist on another system.
+`--run_id` is used as an inference run label for default video/log paths. It applies to both robot-arm and microscope inference. `--record_epoch` remains available as a deprecated compatibility alias.
+When `--ckpt_dir/config.yaml` exists, `4_model_inference.py` reads the saved training values and uses the checkpoint's `chunk_size`, `kl_weight`, `hidden_dim`, and `dim_feedforward` automatically.
+The checkpoint directory must contain at least `policy_best.ckpt` and `dataset_stats.pkl`; `config.yaml` is preferred.
+
+For repeated training runs, `scripts/run_loop_train.sh` loads configuration files matching `configs/Push_to_target*.yaml` and writes logs to `logs/`. The tracked `training_config.example.yaml` is a template and is not matched by this script.
 
 ## Task and Interface Selection
 
-The task-routing logic is implemented in `utils/task_interfaces.py`.
+The task-routing logic is implemented in `utils/task_interfaces.py`. Task names are resolved through an explicit registry, not by open-ended string guessing. The resolver accepts recording names such as `task_Cell_set_z_none` and dataset artifact names such as `dataset_Cell_set_z_none_compressed.zip`.
+
+Supported collection tasks:
+
+| Task key | Backend | Control mode |
+| --- | --- | --- |
+| `2d_move_none` | `microscope` | `xy` |
+| `2d_set_brightness_none` | `microscope` | `brightness` |
+| `2d_set_z_none` | `microscope` | `z` |
+| `cell_move_none` | `microscope` | `xy` |
+| `cell_set_brightness_none` | `microscope` | `brightness` |
+| `cell_set_z_none` | `microscope` | `z` |
+| `slice_move_none` | `microscope` | `xy` |
+| `slice_set_brightness_none` | `microscope` | `brightness` |
+| `slice_set_z_none` | `microscope` | `z` |
+| `push_to_target` | `robot` | `xy` |
+| `cell_move_funa` | `microscope` | `xy` |
+
+If `--backend` or `--control_mode` conflicts with the registered task profile, the script raises a clear error before opening the hardware.
 
 Common modes:
 
 | Backend | Control mode | Typical task |
 | --- | --- | --- |
-| `robot` | `xy` | Arm-based manipulation or splicing |
+| `robot` | `xy` | Arm-based push-to-target manipulation |
 | `microscope` | `z` | Focus or vertical-stage control |
 | `microscope` | `brightness` | Illumination adjustment |
 | `microscope` | `exposure` | Camera exposure adjustment |
@@ -238,12 +301,12 @@ Common modes:
 Examples:
 
 ```bash
-python 1_recorde.py --task_name task_Splicing_3 --backend auto
+python 1_recorde.py --task_name task_Push_to_target --backend auto
 python 1_recorde.py --task_name task_Cell_set_brightness_none --backend auto
 python 1_recorde.py --task_name task_Cell_move_funa --backend auto
 ```
 
-To add a new task, update `resolve_task_profile()` in `utils/task_interfaces.py`. Keep the task name, backend, control mode, interval, and hardware presets in one profile so recording and inference use the same interface.
+To add a new task, update `SUPPORTED_TASK_PROFILES` in `utils/task_interfaces.py`. Keep the task name, backend, control mode, interval, and hardware presets in one profile so recording and inference use the same interface.
 
 ## Important Files to Modify
 
@@ -331,7 +394,6 @@ Olympus microscope interface. Modify this file when changing:
 Task-level model constants. Update this file when changing:
 
 - `episode_len`
-- `num_episodes`
 - `camera_names`
 - default dataset configuration
 

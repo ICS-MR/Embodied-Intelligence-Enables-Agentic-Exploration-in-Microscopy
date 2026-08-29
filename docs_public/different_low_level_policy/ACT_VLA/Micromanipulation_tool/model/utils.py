@@ -2,7 +2,26 @@ import torch
 import numpy as np
 import os
 import h5py
+from pathlib import Path
 from torch.utils.data import TensorDataset, DataLoader
+
+
+def _read_image(root, camera_name, start_ts, camera_index):
+    image_data = root[f'/observations/images/{camera_name}']
+    if not bool(root.attrs.get('compress', False)):
+        return image_data[start_ts]
+
+    import cv2
+
+    compressed_lengths = root['/compress_len'][camera_index]
+    compressed_len = int(compressed_lengths[start_ts])
+    encoded_image = image_data[start_ts, :compressed_len]
+    image = cv2.imdecode(encoded_image, cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(
+            f"Failed to decode compressed image for camera '{camera_name}' at timestep {start_ts}"
+        )
+    return image
 
 class EpisodicDataset(torch.utils.data.Dataset):
     def __init__(self, episode_ids, dataset_dir, camera_names, norm_stats, chunk_size):
@@ -36,10 +55,9 @@ class EpisodicDataset(torch.utils.data.Dataset):
                 start_ts = np.random.randint(0, max_start + 1)
 
             qpos = root['/observations/qpos'][start_ts]
-            image_dict = {
-                cam_name: root[f'/observations/images/{cam_name}'][start_ts]
-                for cam_name in self.camera_names
-            }
+            image_dict = {}
+            for camera_index, cam_name in enumerate(self.camera_names):
+                image_dict[cam_name] = _read_image(root, cam_name, start_ts, camera_index)
 
             action = root['/action'][start_ts + 1 : start_ts + 1 + chunk_size]
             is_pad = np.zeros(chunk_size, dtype=np.bool_)
@@ -59,10 +77,27 @@ class EpisodicDataset(torch.utils.data.Dataset):
         return image_data, qpos_data, action_data, is_pad
 
 
-def get_norm_stats(dataset_dir, num_episodes):
+def list_episode_ids(dataset_dir):
+    episode_ids = []
+    for path in Path(dataset_dir).glob("episode_*.hdf5"):
+        try:
+            episode_ids.append(int(path.stem.split("_")[1]))
+        except (IndexError, ValueError):
+            continue
+    episode_ids.sort()
+    return episode_ids
+
+
+def get_norm_stats(dataset_dir, episode_ids=None):
+    if episode_ids is None:
+        episode_ids = list_episode_ids(dataset_dir)
+
+    if not episode_ids:
+        raise FileNotFoundError(f"No episode_*.hdf5 files found in {dataset_dir}")
+
     all_qpos_data = []
     all_action_data = []
-    for episode_idx in range(num_episodes):
+    for episode_idx in episode_ids:
         dataset_path = os.path.join(dataset_dir, f'episode_{episode_idx}.hdf5')
         with h5py.File(dataset_path, 'r') as root:
             qpos = root['/observations/qpos'][()]
@@ -87,14 +122,19 @@ def get_norm_stats(dataset_dir, num_episodes):
     return stats
 
 
-def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val, chunk_size):
+def load_data(dataset_dir, camera_names, batch_size_train, batch_size_val, chunk_size):
     print(f'\nData from: {dataset_dir}\n')
+    episode_ids = list_episode_ids(dataset_dir)
+    if not episode_ids:
+        raise FileNotFoundError(f"No episode_*.hdf5 files found in {dataset_dir}")
+
     train_ratio = 0.8
-    shuffled_indices = np.random.permutation(num_episodes)
+    shuffled_indices = np.random.permutation(episode_ids)
+    num_episodes = len(episode_ids)
     train_indices = shuffled_indices[:int(train_ratio * num_episodes)]
     val_indices = shuffled_indices[int(train_ratio * num_episodes):]
 
-    norm_stats = get_norm_stats(dataset_dir, num_episodes)
+    norm_stats = get_norm_stats(dataset_dir, episode_ids)
 
     train_dataset = EpisodicDataset(train_indices, dataset_dir, camera_names, norm_stats, chunk_size)
     val_dataset = EpisodicDataset(val_indices, dataset_dir, camera_names, norm_stats, chunk_size)

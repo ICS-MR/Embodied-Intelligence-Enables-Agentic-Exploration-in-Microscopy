@@ -7,6 +7,7 @@ from model.constants import TASK_CONFIGS
 import argparse
 import os
 import pickle
+import yaml
 from utils.task_interfaces import create_task_agent
 from model.policy import ACTPolicy
 import cv2
@@ -15,6 +16,8 @@ import logging
 def main(args, agent):
     set_seed(1)
     ckpt_dir = args['ckpt_dir']
+    checkpoint_overrides = load_checkpoint_overrides(ckpt_dir)
+    args = {**args, **checkpoint_overrides}
     task_config = TASK_CONFIGS
     episode_len = task_config['episode_len']
     camera_names = task_config['camera_names']
@@ -60,6 +63,25 @@ def get_image(img, camera_names):
     curr_image = np.stack(curr_images, axis=0)
     curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
     return curr_image
+
+
+def load_checkpoint_overrides(ckpt_dir):
+    config_path = os.path.join(ckpt_dir, "config.yaml")
+    if not os.path.isfile(config_path):
+        print(f"[INFO] No config.yaml found in {ckpt_dir}; using CLI defaults.")
+        return {}
+
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f) or {}
+
+    overrides = {}
+    for key in ("lr", "chunk_size", "kl_weight", "hidden_dim", "dim_feedforward"):
+        if key in config and config[key] is not None:
+            overrides[key] = config[key]
+
+    if overrides:
+        print(f"[INFO] Loaded checkpoint config from {config_path}: {overrides}")
+    return overrides
 
 def eval_bc(config, ckpt_name, agent):
     video_writer = None
@@ -152,8 +174,8 @@ def eval_bc(config, ckpt_name, agent):
         video_writer.release()
         print(f"Video saved to: {video_filename}")
 
-def start_log(task_name):
-    log_dir = f'/home/nova/videos/{task_name}/{task_name}_{record_epoch}'
+def start_log(task_name, run_id):
+    log_dir = f'/home/nova/videos/{task_name}/{task_name}_{run_id}'
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"record.log")
 
@@ -167,8 +189,8 @@ def start_log(task_name):
     )
 
 if __name__ == '__main__':
-    task_name = 'Splicing_2'
-    record_epoch = '09'
+    task_name = 'Push_to_target'
+    default_run_id = '09'
     parser = argparse.ArgumentParser()
     parser.add_argument('--task_name', action='store', type=str, default=task_name, help='task_name')
     parser.add_argument('--backend', type=str, default='auto', choices=['auto', 'robot', 'microscope'], help='hardware backend')
@@ -176,7 +198,8 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=str, default='/dev/ttyUSB0', help='robot serial port')
     parser.add_argument('--baudrate', type=int, default=115200, help='robot serial baudrate')
     parser.add_argument('--timeout', type=float, default=0.1, help='I/O timeout')
-    parser.add_argument('--record_epoch', action='store', type=str, default=record_epoch, help='record_epoch')
+    parser.add_argument('--run_id', action='store', type=str, default=default_run_id, help='inference run label for default video and log paths')
+    parser.add_argument('--record_epoch', action='store', type=str, default=None, help='deprecated alias for --run_id')
     parser.add_argument('--video_filename', action='store', type=str, default=None, help='video_filename')
     parser.add_argument('--ckpt_dir', action='store', type=str, default=None, help='ckpt_dir')
     parser.add_argument('--batch_size', action='store', type=int, default=64, help='batch_size', required=False)
@@ -191,9 +214,12 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     task_name = args['task_name']
-    record_epoch = args['record_epoch']
+    if args['record_epoch'] is not None:
+        print("[WARNING] --record_epoch is deprecated; use --run_id instead.")
+        args['run_id'] = args['record_epoch']
+    run_id = args['run_id']
     if args['video_filename'] is None:
-        args['video_filename'] = f'/home/nova/videos/{task_name}/{task_name}_{record_epoch}/video.avi'
+        args['video_filename'] = f'/home/nova/videos/{task_name}/{task_name}_{run_id}/video.avi'
     if args['ckpt_dir'] is None:
         args['ckpt_dir'] = f'/home/nova/mir/result/{task_name}/cs30_1e-04'
 
@@ -206,7 +232,7 @@ if __name__ == '__main__':
         control_mode=args['control_mode'],
     )
     try:
-        start_log(task_name)
+        start_log(task_name, run_id)
         agent.open()
         main(args, agent)
     except Exception as e:

@@ -48,7 +48,7 @@ def modify_z_axis(file_path):
         print(f"[ERROR] Failed to process {file_path}: {e}")
 
 def main():
-    base_path = "/home/nova/mir/task/task_Splicing_3"
+    base_path = "/home/nova/mir/task/task_Push_to_target"
     
     # --- Path matching rules ---
     

@@ -21,7 +21,7 @@ dim_feedforward: 800    # Feedforward layer dimension
 # Parameter combinations
 chunk_sizes = [10, 15, 20, 25, 30, 50]
 learning_rates = [1e-4]
-task = 'Splicing_2'
+task = 'Push_to_target'
 # Generate all configurations.
 output_dir = "configs"
 os.makedirs(output_dir, exist_ok=True)

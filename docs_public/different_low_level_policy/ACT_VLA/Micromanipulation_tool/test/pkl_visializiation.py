@@ -43,5 +43,5 @@ def plot_xy_trajectory(action_folder, i):
 
 # Usage example; replace the path with the actual Action folder.
 for i in range(0, 63):
-    plot_xy_trajectory(f'/home/nova/mir/task/task_Splicing_3/epoch_{i}/Action', i)
+    plot_xy_trajectory(f'/home/nova/mir/task/task_Push_to_target/epoch_{i}/Action', i)
 # plot_xy_trajectory('/home/nova/mir/task_111/epochs/epoch_0/Action', i = 0)

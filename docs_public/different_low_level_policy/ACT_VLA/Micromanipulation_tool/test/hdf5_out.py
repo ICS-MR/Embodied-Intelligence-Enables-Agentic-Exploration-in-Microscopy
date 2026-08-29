@@ -1,6 +1,6 @@
 # import h5py
 
-# with h5py.File('/home/nova/mir/dataset/dataset_Splicing_2/episode_124.hdf5', 'r') as f:
+# with h5py.File('/home/nova/mir/dataset/dataset_Push_to_target/episode_124.hdf5', 'r') as f:
 #     actions = f['/action'][:200]  # Take the first 20 frames.
 #     print("Example actions:")
 #     for i, a in enumerate(actions):
@@ -10,7 +10,7 @@ import numpy as np
 import os
 
 # Set the dataset directory path.
-dataset_dir = '/home/nova/mir/dataset/dataset_Splicing_2/'
+dataset_dir = '/home/nova/mir/dataset/dataset_Push_to_target/'
 
 # Get all HDF5 files in the directory.
 episode_files = [f for f in os.listdir(dataset_dir) if f.endswith('.hdf5')]

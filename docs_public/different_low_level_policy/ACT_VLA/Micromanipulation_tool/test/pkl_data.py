@@ -3,7 +3,7 @@ import pickle
 import pprint
 
 # ✅ Set the target folder path.
-folder_path = "/home/nova/mir/task/task_Splicing_3/epoch_0/Observations/stage"
+folder_path = "/home/nova/mir/task/task_Push_to_target/epoch_0/Observations/stage"
 
 def load_and_print_pkl(file_path):
     try:

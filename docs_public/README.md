@@ -11,7 +11,7 @@ This directory contains only polished/published content.
 | `c3_domain_prior/` | C3 Domain Prior: reviewed exemplar set (`domain_prior_reviewed.json`, 22 cases), used by the Clarifier via local bge-m3 retrieval. |
 | `documents/` | Organized dataset and experimental-outcome release: 5 task datasets + 15 experimental outcome collections (detailed below). |
 | `Demo_test/` | End-to-end Demo workflow showcases with display Markdown and generated image/detection artifacts. |
-| `frap/` | FRAP runtime dependency: UI profile `frap_ui_profile.json` (read by `tool/frap.py`), click-coordinate recorder, startup verification helpers (`capture_frap_startup_reference.py`, `calibrate_frap_startup_reference.py`), reference screenshots, and `README.md` documenting the startup visual verification workflow. |
+| `frap/` | FRAP runtime dependency: UI profile `frap_ui_profile.json` (read by `tool/frap.py`), click-coordinate recorder, startup verification helpers (`capture_frap_startup_reference.py`, `calibrate_frap_startup_reference.py`), verification reference images (`references/`), and `README.md` documenting the startup visual verification and lifecycle state verification workflows. |
 | `different_low_level_policy/` | Standalone low-level execution policy baselines: VLM localization/focus/brightness comparisons and ACT/VLA micromanipulation source package. |
 | `detector_model_examples/` | Reviewer-facing qualitative examples for currently connected preset detector models: 2Dcell, organoid, mitosis, 2Dcell_brightfield, and organoid_fluorescence. |
 
@@ -36,6 +36,12 @@ No detector weights are copied into `docs_public/`; inference uses the system-re
 Primary index: [Demo_test/README.md](Demo_test/README.md).
 
 `Demo_test/` contains self-contained, reviewer-facing execution showcases for bright-spot detection with 60x follow-up acquisition and multi-channel fluorescence merging. These are illustrative workflow records and generated artifacts, not benchmark datasets.
+
+## FRAP Runtime Dependency
+
+Primary index: [frap/README.md](frap/README.md).
+
+`frap/` contains the runtime configuration that `tool/frap.py` loads to drive the Olympus cellSens FRAP interface through simulated mouse clicks. The UI profile (`frap_ui_profile.json`) and verification reference images (`references/`) are machine-specific captures and must be recalibrated on each workstation using the bundled recorder and reference-capture helpers. Verified lifecycle stages cover startup readiness, laser-on after start, laser-off after stop, and actual process exit on close.
 
 ## Low-Level Policy Baselines
 

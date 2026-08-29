@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 
 # Base path
-base_path = "/home/nova/mir/task/task_Splicing_3"
+base_path = "/home/nova/mir/task/task_Push_to_target"
 
 # Iterate over each epoch folder.
 for epoch_dir in sorted(os.listdir(base_path)):

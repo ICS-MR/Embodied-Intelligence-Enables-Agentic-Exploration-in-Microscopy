@@ -128,7 +128,7 @@ def main(root_dir):
         print("No results were produced")
 
 if __name__ == "__main__":
-    root_dir = "/home/nova/videos/Push_to_target_none"
+    root_dir = "/home/nova/videos/Push_to_target"
     main(root_dir)
 # import cv2
 # import numpy as np
@@ -269,6 +269,6 @@ if __name__ == "__main__":
 
 # if __name__ == "__main__":
 #     if len(sys.argv) < 2:
-#         print("Usage: /bin/python ~/Micromanipulation_ws/test/S_compute.py ~/Micromanipulation_ws/xx.png")
+#         print("Usage: /bin/python ~/Mircomanipulation_ws/test/S_compute.py ~/Mircomanipulation_ws/xx.png")
 #     else:
 #         interactive_polygon(sys.argv[1])

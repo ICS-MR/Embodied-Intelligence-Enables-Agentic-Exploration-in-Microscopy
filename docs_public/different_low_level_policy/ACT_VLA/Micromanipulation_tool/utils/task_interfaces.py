@@ -1,9 +1,6 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional, Tuple
-
-import cv2
-import numpy as np
 
 
 @dataclass(frozen=True)
@@ -14,52 +11,118 @@ class TaskProfile:
     brightness: Optional[float] = None
     exposure: Optional[float] = None
     z_position: Optional[float] = None
+    reset_z_position_on_stop: Optional[float] = None
     xy_position: Optional[Tuple[float, float]] = None
     relative_xy: bool = False
     interval: float = 0.033
 
 
-def resolve_task_profile(task_name: str, backend: str = "auto", control_mode: str = "auto") -> TaskProfile:
-    normalized = task_name.lower().replace("task_", "")
+def _brightness_microscope_profile(brightness: float) -> TaskProfile:
+    return TaskProfile(
+        backend="microscope",
+        control_mode="brightness",
+        dichroic="1-NONE",
+        brightness=brightness,
+        z_position=6550.0,
+        reset_z_position_on_stop=None,
+        relative_xy=False,
+        interval=0.1,
+    )
 
-    if backend == "robot" or (
-        backend == "auto"
-        and not any(token in normalized for token in ("cell_", "set_z", "set_brightness", "set_exposure", "move_none", "move_funa"))
-    ):
-        return TaskProfile(backend="robot", control_mode="xy", interval=0.033)
 
-    if control_mode == "auto":
-        if "set_brightness" in normalized:
-            control_mode = "brightness"
-        elif "set_exposure" in normalized:
-            control_mode = "exposure"
-        elif "move" in normalized:
-            control_mode = "xy"
-        else:
-            control_mode = "z"
+def _xy_microscope_profile(brightness: float) -> TaskProfile:
+    return TaskProfile(
+        backend="microscope",
+        control_mode="xy",
+        dichroic="1-NONE",
+        brightness=brightness,
+        z_position=6550.0,
+        reset_z_position_on_stop=None,
+        relative_xy=True,
+        interval=0.1,
+    )
 
-    is_funa = "funa" in normalized
-    if is_funa:
-        return TaskProfile(
-            backend="microscope",
-            control_mode=control_mode,
-            dichroic="2-U-FUNA",
-            brightness=0,
-            exposure=30,
-            z_position=6550.0 if control_mode in ("brightness", "xy") else None,
-            relative_xy=control_mode == "xy",
-            interval=0.1,
-        )
 
+def _z_microscope_profile(brightness: float) -> TaskProfile:
+    return TaskProfile(
+        backend="microscope",
+        control_mode="z",
+        dichroic="1-NONE",
+        brightness=brightness,
+        z_position=None,
+        reset_z_position_on_stop=5000,
+        relative_xy=False,
+        interval=0.1,
+    )
+
+
+def _funa_microscope_profile(control_mode: str) -> TaskProfile:
     return TaskProfile(
         backend="microscope",
         control_mode=control_mode,
-        dichroic="1-NONE",
-        brightness=235 if control_mode in ("brightness", "xy") else 250,
+        dichroic="2-U-FUNA",
+        brightness=0,
+        exposure=30,
         z_position=6550.0 if control_mode in ("brightness", "xy") else None,
+        reset_z_position_on_stop=None,
         relative_xy=control_mode == "xy",
         interval=0.1,
     )
+
+
+SUPPORTED_TASK_PROFILES = {
+    "2d_move_none": _xy_microscope_profile(235),
+    "2d_set_brightness_none": _brightness_microscope_profile(125),
+    "2d_set_z_none": _z_microscope_profile(250),
+    "cell_move_none": _xy_microscope_profile(235),
+    "cell_set_brightness_none": _brightness_microscope_profile(125),
+    "cell_set_z_none": _z_microscope_profile(250),
+    "slice_move_none": _xy_microscope_profile(235),
+    "slice_set_brightness_none": _brightness_microscope_profile(125),
+    "slice_set_z_none": _z_microscope_profile(250),
+    "push_to_target": TaskProfile(backend="robot", control_mode="xy", interval=0.033),
+    "cell_move_funa": _funa_microscope_profile("xy"),
+}
+
+
+def normalize_task_name(task_name: str) -> str:
+    """Normalize task, dataset, and compressed artifact names to one registry key."""
+    normalized = task_name.strip().split("/")[-1].split("\\")[-1].lower().replace(" ", "_")
+    if normalized.endswith(".zip"):
+        normalized = normalized[:-4]
+    for prefix in ("dataset_", "task_"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+    if normalized.endswith("_compressed"):
+        normalized = normalized[: -len("_compressed")]
+    return normalized
+
+
+def list_supported_tasks():
+    return sorted(SUPPORTED_TASK_PROFILES)
+
+
+def resolve_task_profile(task_name: str, backend: str = "auto", control_mode: str = "auto") -> TaskProfile:
+    normalized = normalize_task_name(task_name)
+    if normalized not in SUPPORTED_TASK_PROFILES:
+        supported = ", ".join(list_supported_tasks())
+        raise ValueError(
+            f"Unsupported task '{task_name}' normalized as '{normalized}'. "
+            f"Supported tasks: {supported}"
+        )
+
+    profile = SUPPORTED_TASK_PROFILES[normalized]
+    if backend != "auto" and backend != profile.backend:
+        raise ValueError(
+            f"Task '{task_name}' uses backend '{profile.backend}', "
+            f"but backend '{backend}' was requested."
+        )
+    if control_mode != "auto" and control_mode != profile.control_mode:
+        raise ValueError(
+            f"Task '{task_name}' uses control_mode '{profile.control_mode}', "
+            f"but control_mode '{control_mode}' was requested."
+        )
+    return replace(profile)
 
 
 def create_task_agent(
@@ -119,6 +182,8 @@ class RobotTaskAdapter:
         return self.agent.get_ee_pos()
 
     def get_qpos_vec(self):
+        import numpy as np
+
         qpos = self.get_ee_pos()
         vec = np.zeros(14, dtype=np.float32)
         if qpos is not None:
@@ -126,6 +191,8 @@ class RobotTaskAdapter:
         return vec
 
     def execute_action(self, action, current_qpos=None, offsets=None):
+        import numpy as np
+
         action = np.asarray(action, dtype=np.float32)
         current_qpos = current_qpos if current_qpos is not None else self.get_ee_pos()
         if current_qpos is None:
@@ -164,6 +231,7 @@ class MicroscopeTaskAdapter:
             self.microscope.set_z_position(self.profile.z_position)
         if self.profile.xy_position is not None:
             self.microscope.set_xy_position(*self.profile.xy_position)
+        self.microscope.stop_reset_z_position = self.profile.reset_z_position_on_stop
         if self.profile.relative_xy:
             self.xy_origin = self.microscope.get_xy_position()
 
@@ -199,6 +267,8 @@ class MicroscopeTaskAdapter:
         return 0
 
     def get_img(self):
+        import cv2
+
         img = self.microscope.get_current_img()
         if img is None:
             return None
@@ -224,12 +294,16 @@ class MicroscopeTaskAdapter:
         raise ValueError(f"Unsupported microscope control mode: {mode}")
 
     def get_qpos_vec(self):
+        import numpy as np
+
         qpos = self.get_ee_pos()
         vec = np.zeros(14, dtype=np.float32)
         vec[: min(len(qpos), 14)] = np.asarray(qpos[:14], dtype=np.float32)
         return vec
 
     def execute_action(self, action, current_qpos=None, offsets=None):
+        import numpy as np
+
         action = np.asarray(action, dtype=np.float32)
         mode = self.profile.control_mode
 

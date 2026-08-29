@@ -4,7 +4,7 @@ CONFIG_DIR="configs"
 LOG_DIR="logs"
 mkdir -p "$LOG_DIR"
 
-for cfg in "$CONFIG_DIR"/Splicing_2*.yaml; do
+for cfg in "$CONFIG_DIR"/Push_to_target*.yaml; do
     cfg_name=$(basename "$cfg" .yaml)
     timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
     log_file="$LOG_DIR/${cfg_name}_${timestamp}.log"
