@@ -34,6 +34,14 @@ def _import_pygetwindow():
     return pygetwindow
 
 
+def _import_win32gui():
+    try:
+        import win32gui
+    except Exception:
+        return None
+    return win32gui
+
+
 def _import_cv2():
     try:
         import cv2
@@ -282,6 +290,7 @@ class Frap(BaseTool):
 
         """
         self._ensure_prepared_once()
+        self._run_pre_laser_on_sequence(self._profile)
         self._run_control_sequence(
             profile=self._profile,
             control_names=("frap_start_button",),
@@ -291,6 +300,31 @@ class Frap(BaseTool):
             time.sleep(settle_seconds)
         self._wait_for_state_reference("frap_start_state_check", "laser_on")
         self._laser_enabled = True
+
+    def _run_pre_laser_on_sequence(self, profile: dict) -> None:
+        options = profile.get("options", {})
+        settle_seconds = float(options.get("pre_laser_on_step_settle_seconds", 10.0))
+        control_names = (
+            "live_preview_button",
+            "auto_contrast_button",
+            "cf488_button",
+            "live_preview_button",
+        )
+        for control_name in control_names:
+            if control_name not in profile.get("controls", {}):
+                raise RuntimeError(
+                    f"FRAP profile is missing required control for pre-laser sequence: {control_name}"
+                )
+            action = self._get_point_control(profile["controls"], control_name)
+            self._click_screen_absolute(
+                absolute_x=int(action["x"]),
+                absolute_y=int(action["y"]),
+                move_duration_sec=float(options.get("move_duration_sec", 0.0)),
+                button=str(action.get("button", "left")),
+                clicks=int(action.get("clicks", 1)),
+            )
+            if settle_seconds > 0:
+                time.sleep(settle_seconds)
 
     @tool_func
     def laser_off(self) -> None:
@@ -574,6 +608,9 @@ class Frap(BaseTool):
                 "close_process_timeout_sec": float(options.get("close_process_timeout_sec", 30.0)),
                 "startup_reference_checks": startup_reference_checks,
                 "click_interval_sec": float(options.get("click_interval_sec", 0.15)),
+                "pre_laser_on_step_settle_seconds": float(
+                    options.get("pre_laser_on_step_settle_seconds", 10.0)
+                ),
                 "move_duration_sec": float(options.get("move_duration_sec", 0.0)),
                 "flip_x": bool(options.get("flip_x", False)),
                 "flip_y": bool(options.get("flip_y", False)),
@@ -1184,6 +1221,7 @@ class Frap(BaseTool):
                 )
                 window = visible[0]
                 return {
+                    "hwnd": self._window_handle(window),
                     "title": str(getattr(window, "title", "")),
                     "left": int(getattr(window, "left", 0)),
                     "top": int(getattr(window, "top", 0)),
@@ -1194,22 +1232,63 @@ class Frap(BaseTool):
                 raise RuntimeError(f"No visible window matched title keyword within {timeout_sec:.2f}s: {title_keyword}")
             time.sleep(float(poll_interval_sec))
 
+    @staticmethod
+    def _window_handle(window: Any) -> int | None:
+        for attr_name in ("_hWnd", "_hwnd", "hwnd", "handle"):
+            hwnd = getattr(window, attr_name, None)
+            if hwnd is not None:
+                try:
+                    return int(hwnd)
+                except Exception:
+                    continue
+        return None
+
     def _activate_window_if_needed(self, profile: dict, window_info: dict | None = None) -> None:
         if not bool(profile["options"].get("activate_before_action", True)):
             return
         if window_info is None:
             window_info = self._wait_for_window(profile["window_title_keyword"])
-        matched = _import_pygetwindow().getWindowsWithTitle(window_info["title"])
-        if not matched:
-            raise RuntimeError(f"Window disappeared before activation: {window_info['title']}")
-        window = matched[0]
-        if hasattr(window, "isMinimized") and getattr(window, "isMinimized", False):
-            try:
-                window.restore()
-            except Exception:
-                pass
-        window.activate()
-        time.sleep(0.2)
+        hwnd = self._window_handle_from_info(window_info)
+        if hwnd is None:
+            logger.warning("Skipping FRAP window activation because no native handle was found: %s", window_info["title"])
+            return
+
+        win32gui = _import_win32gui()
+        if win32gui is None:
+            logger.warning("Skipping FRAP window activation because pywin32 is unavailable: %s", window_info["title"])
+            return
+
+        try:
+            if win32gui.IsIconic(hwnd):
+                win32gui.ShowWindow(hwnd, 9)
+            else:
+                win32gui.ShowWindow(hwnd, 5)
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetForegroundWindow(hwnd)
+            time.sleep(0.2)
+        except Exception as exc:
+            logger.warning("Best-effort FRAP window activation failed for %s: %s", window_info["title"], exc, exc_info=True)
+            return
+
+        foreground_hwnd = None
+        try:
+            foreground_hwnd = int(win32gui.GetForegroundWindow())
+        except Exception:
+            foreground_hwnd = None
+        if foreground_hwnd != int(hwnd):
+            logger.warning(
+                "FRAP window foreground verification did not match after activation attempt: expected hwnd=%s, got hwnd=%s",
+                hwnd,
+                foreground_hwnd,
+            )
+
+    @staticmethod
+    def _window_handle_from_info(window_info: dict) -> int | None:
+        hwnd = window_info.get("hwnd")
+        try:
+            return int(hwnd) if hwnd is not None else None
+        except Exception:
+            return None
 
     def _run_control_sequence(
         self,

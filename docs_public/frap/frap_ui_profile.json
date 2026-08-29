@@ -18,6 +18,21 @@
       "x": 3796,
       "y": 14
     },
+    "live_preview_button": {
+      "type": "point",
+      "x": 110,
+      "y": 232
+    },
+    "auto_contrast_button": {
+      "type": "point",
+      "x": 470,
+      "y": 621
+    },
+    "cf488_button": {
+      "type": "point",
+      "x": 2093,
+      "y": 95
+    },
     "bottom_frap_tab_button": {
       "type": "point",
       "x": 3684,
@@ -72,9 +87,9 @@
       "pre_click": {
         "image": "references/pre_click.png",
         "region": {
-          "left": 1270,
+          "left": 1526,
           "top": 70,
-          "right": 3720,
+          "right": 3416,
           "bottom": 115
         }
       },
@@ -89,6 +104,7 @@
       }
     },
     "click_interval_sec": 1.5,
+    "pre_laser_on_step_settle_seconds": 10.0,
     "move_duration_sec": 0.1,
     "flip_x": false,
     "flip_y": false,
