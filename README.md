@@ -111,10 +111,16 @@ cd Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy
 - Fiji/ImageJ for image-analysis `real` mode
 - An NVIDIA GPU with CUDA is recommended for Cellpose and MMDetection
 
-The default Quick Start profile is `demo / mock / mock`, so real Fiji/ImageJ,
-detector weights, Cellpose, and a CUDA GPU are not required for the first demo
-run. Install those mode-dependent assets only when enabling real image-analysis,
-segmentation, or workflows that need them; see [Mode-dependent Components](#mode-dependent-components).
+The default Quick Start profile uses the Micro-Manager DemoCamera with mocked image
+analysis and segmentation. It does not require physical microscope hardware,
+Fiji/ImageJ, detector checkpoint files, Cellpose, or a CUDA-capable GPU at runtime.
+The standard environment setup may still install CUDA/PyTorch and MMDetection
+dependencies. Install the other mode-dependent assets only when enabling real
+image-analysis, segmentation, or workflows that need them; see [Mode-dependent
+Components](#mode-dependent-components).
+Demo mode still requires a working local Micro-Manager installation with `MM_DIR`
+pointing to it. EIMS uses the managed `demo_cfg/MMConfig_demo.cfg` for `CONFIG_PATH`;
+no physical microscope or hardware-specific `.cfg` is required.
 
 ### 3. Install Python Dependencies
 
@@ -162,18 +168,23 @@ started. These tests do not require saving the form first.
 
 ### 5. Install Micro-Manager
 
-Install a compatible Micro-Manager build:
+Install or reuse a compatible Micro-Manager build:
 
-```bash
+```powershell
+uv run python system_config_wizard.py --install-mmcore --reuse-existing
+```
+
+This reuses the most recently modified existing local installation when available. If no
+existing installation is available, it installs a new compatible build.
+
+For a clean reinstall, use the default command:
+
+```powershell
 uv run python system_config_wizard.py --install-mmcore
 ```
 
-If the default destination already contains `Micro-Manager*` directories, the installer
-cleans and reinstalls them by default. To reuse the latest compatible local installation:
-
-```bash
-uv run python system_config_wizard.py --install-mmcore --reuse-existing
-```
+The default command removes existing `Micro-Manager*` directories in the destination
+before reinstalling. Use it only when a clean reinstall is intended.
 
 By default, `--install-mmcore` uses `%LOCALAPPDATA%\EIMS\Micro-Manager` as the parent
 installation directory and writes the detected Micro-Manager install root back to
@@ -308,9 +319,9 @@ illumination, and basic acquisition work before involving EIMS.
 ### 2. Configure EIMS to Match Micro-Manager
 
 Do not rename labels in an existing working Micro-Manager `.cfg` to match EIMS defaults.
-The `.cfg` is the hardware source of truth. Update the EIMS mappings in
-`config/runtime_config.json` so EIMS matches the existing Micro-Manager device names and
-labels.
+Import the validated `.cfg` in Real mode. EIMS parses it and generates an editable
+mapping draft; review the mappings and save the confirmed values to
+`config/runtime_config.json`.
 
 EIMS uses stable semantic keys such as `"40x"`, `"brightfield"`, and `"fitc"`. At runtime,
 it injects the mapped real Micro-Manager labels into the microscope prompt and executes
@@ -320,22 +331,25 @@ the user-confirmed plan with those real labels.
 Working Micro-Manager cfg
           |
           v
-Local cfg inventory       device names, Core roles, state labels, properties
+cfg parser and inventory  device names, Core roles, state labels, properties
           |
           v
-Rule parsing              fills unambiguous bindings and semantic labels
+Optional MMCore inspection runtime property metadata when requested
           |
           v
-AI recommendation        recommends or corrects uncertain cfg-backed values
+Rule mapping              fills unambiguous bindings and semantic labels
           |
           v
-Editable Web form         user reviews or changes every proposed mapping
+Optional AI recommendation corrects uncertain cfg-backed values
           |
           v
-Save Configuration       writes the confirmed values to runtime_config.json
+Editable Web form         user reviews or changes the mapping draft
+          |
+          v
+Save Configuration        writes the confirmed values to runtime_config.json
 ```
 
-Example objective and channel mappings:
+The following is a partial example of objective and channel mappings:
 
 ```json
 {
@@ -369,12 +383,15 @@ Example objective and channel mappings:
 }
 ```
 
-### 3. Use AI-Assisted cfg Mapping
+### 3. Review the cfg Mapping
 
-The Web configuration page provides an editable import workflow for real microscopes:
+The Web configuration page provides an editable cfg import workflow for real microscopes.
+AI recommendations are optional; without a configured Main LLM, EIMS can still parse the
+cfg and produce a rule-based mapping draft:
 
-1. Configure the Main LLM under **AI Services** and use **Test LLM** to verify it.
-2. Switch `Microscope Mode` to **Real**.
+1. Switch `Microscope Mode` to **Real**.
+2. Configure the Main LLM under **AI Services** if AI recommendations are desired, and use
+   **Test LLM** to verify it.
 3. Choose a copy of the already validated `.cfg`.
 4. Click **Import, Inspect & AI Map**, confirm the hardware connection, and wait for the
    inspection indicator to finish.
@@ -386,7 +403,8 @@ The Web configuration page provides an editable import workflow for real microsc
 The import has deliberately narrow behavior:
 
 - The current unsaved Main LLM key, endpoint, and model values in the form are used for
-  this request only; importing does not persist them.
+  this request only; importing does not persist them. If they are not configured, the
+  draft uses deterministic cfg parsing and rule-based mapping.
 - EIMS parses the `.cfg` locally, then loads the uploaded copy in an isolated MMCore
   instance to inspect the Device Adapters. This initializes those adapters and may cause
   vendor-defined hardware activity, so the Web UI requires explicit confirmation. An
@@ -422,11 +440,11 @@ The backend rejects external cfg imports in both Demo and Mock modes.
 
 #### CLI: ai-map
 
-The same AI-assisted mapping is available from the terminal through the `ai-map`
+The same cfg parsing and mapping workflow is available from the terminal through the `ai-map`
 subcommand of `system_config_wizard.py`:
 
-```bash
-# Preview an AI-recommended mapping draft (nothing is written):
+```powershell
+# Preview a mapping draft (nothing is written):
 uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg
 
 # Inspect Device Adapters first and save the draft JSON:
@@ -449,10 +467,11 @@ uv run python system_config_wizard.py ai-map --cfg /path/to/your.cfg --apply
   rule-based draft without calling the LLM.
 - AI output is a recommendation. Review `REVIEW`-marked, low-confidence, and
   `manual_required` fields before applying.
-- Like the Web UI, `ai-map` is available only while `microscope_mode` is `real`.
+- Use `ai-map` for a validated real-hardware cfg; Demo mode uses the managed cfg and does
+  not accept external cfg mapping.
 
-AI output is a recommendation, not hardware verification. Test the resulting mapping with
-low-risk operations before automated acquisition.
+The mapping draft is a recommendation, not hardware verification. Test the resulting
+mapping with low-risk operations before automated acquisition.
 
 ### 4. Configure Transmitted-Light Control When Needed
 
@@ -468,12 +487,14 @@ PreInit, allowed-value, and limit metadata. Only writable, runtime-settable nume
 properties can become automatic intensity controls. A unique strong candidate is filled
 directly; multiple candidates are ranked by AI and remain editable.
 
-The inspection draft is available before the first save. Startup revalidates the saved
-selection with `hasProperty()` and repeats runtime discovery when the property remains
-empty, so inspection failure does not create a second persistence path. For real
-microscopes with transmitted illumination, configure this mapping before fluorescence
-workflows; EIMS turns transmitted light off when switching away from brightfield and
-will fail fast if no writable control is available.
+The inspection draft is available before the first save. At startup, EIMS validates the
+saved property against the loaded Micro-Manager device adapter. If a configured device
+has no `intensity_property`, initialization fails and the mapping must be completed in
+the configuration workflow. For real microscopes with transmitted illumination, configure
+this mapping before fluorescence workflows; EIMS turns transmitted light off when
+switching away from brightfield and will skip that step with a warning when no software
+control is available, so the operator should turn off a manual brightfield illuminator
+before fluorescence imaging.
 
 ```json
 {
@@ -495,9 +516,13 @@ brightness changes remain visible in generated bead images.
 
 Before the first real run on a machine:
 
-- Confirm that `config/runtime_config.json` contains valid paths for this machine.
-- Confirm that `FIJI_PATH`, `MM_DIR`, model paths, and other dependency paths exist and
-  are accessible.
+- Confirm that `MM_DIR` and `CONFIG_PATH` in `config/runtime_config.json` point to the
+  intended Micro-Manager installation and validated real-hardware cfg.
+- If `image_analysis_mode=real`, confirm that `FIJI_PATH`, detector configuration files,
+  detector checkpoints, and their dependencies exist and are accessible. See
+  [Detector Weights](#detector-weights) for the checkpoint download instructions.
+- If `segmentation_mode=real`, confirm that the Cellpose runtime and its required
+  dependencies are available.
 - Confirm required API keys in `.env` when the workflow calls external APIs.
 - Use Micro-Manager Demo mode first whenever hardware or configuration state is uncertain.
 
@@ -521,8 +546,9 @@ model-backed segmentation assets are required when `segmentation_mode=real`.
 
 ### Detector Weights
 
-Detector weights are distributed through the `detector-weights` prerelease. Restore them
-locally with:
+Detector weights are distributed through the
+[`detector-weights` GitHub Release](https://github.com/ICS-MR/Embodied-Intelligence-Enables-Agentic-Exploration-in-Microscopy/releases/tag/detector-weights).
+Restore them locally with:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/download_detector_weights.ps1

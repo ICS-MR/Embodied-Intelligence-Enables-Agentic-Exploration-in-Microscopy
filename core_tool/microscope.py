@@ -2367,7 +2367,7 @@ class MicroscopeController(BaseTool):
         params["settle_time_sec"] = 0.10 if is_fluorescence else 0.05
         return params
 
-    # ====== Auto focus and auto brightness ======
+    # ====== Auto focus, auto brightness, and auto exposure ======
     @tool_func
     def perform_autofocus(
         self,
@@ -2951,6 +2951,220 @@ class MicroscopeController(BaseTool):
                 progress_total=max_iterations,
             )
             raise
+
+    def _autoexposure_search(
+        self,
+        *,
+        deadline: float,
+        target_high_percentile: float = 0.82,
+        high_percentile: float = 99.5,
+        max_saturation_ratio: float = 0.002,
+        min_median_ratio: float = 0.08,
+        max_iterations: int = 8,
+        settle_time_sec: float = 0.15,
+    ) -> Tuple[float, Dict[str, float]]:
+        state = self._capture_runtime_state(include_xy=False, include_preview=True)
+        autofocus_completed = False
+        min_exp = float(self.Min_exposure)
+        max_exp = float(self.Max_exposure)
+        if min_exp > max_exp:
+            raise RuntimeError(
+                f"Invalid configured exposure range [{min_exp:.3f}, {max_exp:.3f}]"
+            )
+
+        original_exposure = float(max(min_exp, min(self.get_exposure(), max_exp)))
+        samples: Dict[float, Dict[str, float]] = {}
+        self._emit_task_progress(
+            task_kind="autoexposure",
+            status="started",
+            title="Auto Exposure",
+            detail=f"Searching exposure between {min_exp:.3f} and {max_exp:.3f}",
+            stage_key="start",
+            stage_label="Initialize exposure search",
+            progress_current=0,
+            progress_total=max_iterations,
+        )
+
+        def capture_metrics(exposure: float) -> Dict[str, float]:
+            exp = float(max(min_exp, min(exposure, max_exp)))
+            cache_key = round(exp, 4)
+            if cache_key in samples:
+                return samples[cache_key]
+            self._raise_if_long_task_timed_out(
+                deadline=deadline,
+                task_kind="autoexposure",
+                stage_label="exposure sampling",
+                detail=f"exposure={exp:.3f}",
+            )
+            self.set_exposure(exp)
+            if settle_time_sec > 0:
+                time.sleep(settle_time_sec)
+            img = self._snap_image_preserving_preview()
+            metrics = brightness_metrics(
+                img,
+                intensity_max=self._get_image_intensity_max(img),
+                high_percentile=high_percentile,
+            )
+            samples[cache_key] = metrics
+            logger.info(
+                "Autoexposure sample exposure=%.3f p50=%.3f p95=%.3f p%s=%.3f saturation=%.4f dark=%.4f",
+                exp,
+                metrics["p50"],
+                metrics["p95"],
+                high_percentile,
+                metrics["p_high"],
+                metrics["saturation_ratio"],
+                metrics["dark_ratio"],
+            )
+            return metrics
+
+        def candidate_key(item: Tuple[float, Dict[str, float]]) -> Tuple[int, float, float]:
+            exp, metrics = item
+            is_overexposed = (
+                metrics["saturation_ratio"] > max_saturation_ratio
+                or metrics["p_high"] >= 0.98
+            )
+            if is_overexposed:
+                return (
+                    1,
+                    metrics["saturation_ratio"] + abs(metrics["p_high"] - target_high_percentile),
+                    abs(exp - original_exposure),
+                )
+            dark_penalty = max(0.0, min_median_ratio - metrics["p50"]) * 0.25
+            return (
+                0,
+                abs(metrics["p_high"] - target_high_percentile) + dark_penalty,
+                abs(exp - original_exposure),
+            )
+
+        try:
+            original_metrics = capture_metrics(original_exposure)
+            if (
+                original_metrics["saturation_ratio"] > max_saturation_ratio
+                or original_metrics["p_high"] > target_high_percentile
+            ):
+                low, high = min_exp, original_exposure
+            else:
+                low, high = original_exposure, max_exp
+
+            capture_metrics(low)
+            capture_metrics(high)
+            sample_count = len(samples)
+            self._emit_task_progress(
+                task_kind="autoexposure",
+                status="running",
+                title="Auto Exposure",
+                detail=f"Collected {sample_count} exposure samples",
+                stage_key="initial_samples",
+                stage_label="Capture initial samples",
+                progress_current=min(sample_count, max_iterations),
+                progress_total=max_iterations,
+            )
+
+            for _ in range(max_iterations):
+                self._raise_if_long_task_timed_out(
+                    deadline=deadline,
+                    task_kind="autoexposure",
+                    stage_label="exposure search loop",
+                    detail=f"range={low:.3f}-{high:.3f}",
+                )
+                if high - low <= 1:
+                    break
+                mid = float(round((low + high) / 2))
+                mid_key = round(mid, 4)
+                if mid_key in samples:
+                    break
+                self._emit_task_progress(
+                    task_kind="autoexposure",
+                    status="running",
+                    title="Auto Exposure",
+                    detail=f"Sampling exposure {mid:.3f}",
+                    stage_key="sample",
+                    stage_label="Sample exposure",
+                    progress_current=min(len(samples) + 1, max_iterations),
+                    progress_total=max_iterations,
+                )
+                metrics = capture_metrics(mid)
+                if metrics["saturation_ratio"] > max_saturation_ratio or metrics["p_high"] > target_high_percentile:
+                    high = mid
+                else:
+                    low = mid
+
+            best_exposure, best_metrics = min(samples.items(), key=candidate_key)
+            logger.info(
+                "Autoexposure selected exposure=%.3f p%s=%.3f saturation=%.4f",
+                best_exposure,
+                high_percentile,
+                best_metrics["p_high"],
+                best_metrics["saturation_ratio"],
+            )
+            self._emit_task_progress(
+                task_kind="autoexposure",
+                status="completed",
+                title="Auto Exposure",
+                detail=f"Selected exposure {best_exposure:.3f}",
+                stage_key="completed",
+                stage_label="Exposure search complete",
+                progress_current=max(len(samples), 1),
+                progress_total=max_iterations,
+            )
+            self.set_exposure(best_exposure)
+            autofocus_completed = True
+            return float(best_exposure), best_metrics
+        except TimeoutError as exc:
+            self._emit_task_progress(
+                task_kind="autoexposure",
+                status="timeout",
+                title="Auto Exposure",
+                detail=str(exc),
+                stage_key="timeout",
+                stage_label="Exposure search timed out",
+                progress_current=min(len(samples), max_iterations),
+                progress_total=max_iterations,
+            )
+            raise
+        except Exception as exc:
+            self._emit_task_progress(
+                task_kind="autoexposure",
+                status="failed",
+                title="Auto Exposure",
+                detail=str(exc) or type(exc).__name__,
+                stage_key="failed",
+                stage_label="Exposure search failed",
+                progress_current=min(len(samples), max_iterations),
+                progress_total=max_iterations,
+            )
+            raise
+        finally:
+            if not autofocus_completed:
+                try:
+                    self._restore_runtime_state(state, restore_xy=False, restore_preview=True)
+                except Exception:
+                    logger.exception("Failed to restore microscope state after autoexposure failure")
+
+    @tool_func
+    def perform_autoexposure(
+        self,
+        tolerance: Optional[float] = None,
+        target_high_percentile: float = 0.82,
+        high_percentile: float = 99.5,
+        max_saturation_ratio: float = 0.002,
+        min_median_ratio: float = 0.08,
+        max_iterations: int = 8,
+        settle_time_sec: float = 0.15,
+    ) -> float:
+        del tolerance  # Kept for compatibility with older prompt signatures.
+        autoexposure_deadline = time.monotonic() + self.autobrightness_timeout_seconds
+        exposure, _metrics = self._autoexposure_search(
+            deadline=autoexposure_deadline,
+            target_high_percentile=target_high_percentile,
+            high_percentile=high_percentile,
+            max_saturation_ratio=max_saturation_ratio,
+            min_median_ratio=min_median_ratio,
+            max_iterations=max_iterations,
+            settle_time_sec=settle_time_sec,
+        )
+        return float(exposure)
 
     # ====== System control ======
 

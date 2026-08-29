@@ -17,10 +17,33 @@ def _build_no_brightness_prompt(full_prompt: str) -> str:
     text = full_prompt
     text = _remove_block(text, "def set_brightness(brightness: int):", "def set_objective(objective_label: str):")
     text = _remove_block(text, "def perform_autobrightness() -> int:", "# -------------------------- System Control --------------------------")
+    autoexposure_block = (
+        "\n"
+        "def perform_autoexposure(tolerance: float = 0.5, target_high_percentile: float = 0.82, high_percentile: float = 99.5, max_saturation_ratio: float = 0.002, min_median_ratio: float = 0.08, max_iterations: int = 8, settle_time_sec: float = 0.15) -> float:\n"
+        "    \"\"\"\n"
+        "    Automatically searches for a suitable camera exposure when transmitted-light brightness\n"
+        "    control is unavailable. Use this as the exposure-based fallback for no-light-source\n"
+        "    microscopes.\n"
+        "\n"
+        "    Returns:\n"
+        "        Optimal exposure time (ms) for set_exposure().\n"
+        "    \"\"\"\n"
+    )
+    text = text.replace(
+        "# -------------------------- Auto Focus / Auto Brightness Adjustment --------------------------",
+        "# -------------------------- Auto Focus / Auto Exposure Adjustment --------------------------",
+    )
+    text = text.replace(
+        "# -------------------------- System Control --------------------------",
+        f"{autoexposure_block}# -------------------------- System Control --------------------------",
+        1,
+    )
 
     replacements = {
-        "# -------------------------- Auto Focus / Auto Brightness Adjustment --------------------------":
+        "# -------------------------- Auto Focus / Auto Exposure Adjustment --------------------------":
             "# -------------------------- Auto Focus --------------------------",
+        "- Automatically adjust the halogen lamp brightness.\n":
+            "- Automatically adjust the camera exposure.\n",
         "- Improve image quality by automatically focusing and adjusting brightness before capturing images.":
             "- Improve image quality by automatically focusing before capturing images.",
         "- In brightfield mode, use transmitted illumination with appropriate halogen brightness and relatively low exposure.":

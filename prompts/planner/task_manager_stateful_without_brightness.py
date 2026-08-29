@@ -18,7 +18,8 @@ def _build_no_brightness_prompt() -> str:
             "- Configure the camera's exposure time, the currently used objective lens (4×, 10×, 20×, 40×, 60×), and the filter set.",
         "- Obtain the camera's current exposure time, currently used objective lens, filter set, and the brightness of the halogen lamp for brightfield illumination.":
             "- Obtain the camera's current exposure time, currently used objective lens, and filter set.",
-        "- Automatically adjust the halogen lamp brightness.\n": "",
+        "- Automatically adjust the halogen lamp brightness.\n":
+            "- Automatically adjust the camera exposure.\n",
         "- Dynamically adjust brightness and focus to ensure images are clear. The current brightness and focus should not be assumed to be already appropriate.":
             "- Dynamically adjust exposure and focus to ensure images are clear. The current exposure and focus should not be assumed to be already appropriate.",
         "- After replacing the objective lens of a microscope, the target may be lost due to the difference in magnification. Therefore, it is necessary to move to the target position and recalibrate the brightness and focus.":
@@ -32,11 +33,11 @@ def _build_no_brightness_prompt() -> str:
         "- In fluorescent channels, the filter set should be set to the corresponding fluorescent mode, brightness should be set to 0, and high exposure parameters used.":
             "- In fluorescent channels, the filter set should be set to the corresponding fluorescent mode, with exposure adjusted appropriately while avoiding saturation.",
         '"command": "Auxiliary Operation: Firstly, Perform automatic brightness adjustment ; Secondly, Perform auto-focus;"':
-            '"command": "Auxiliary Operation: Perform auto-focus;"',
+            '"command": "Auxiliary Operation: Firstly, Perform automatic exposure adjustment ; Secondly, Perform auto-focus;"',
         '"command": "Auxiliary Operation: Firstly, Perform automatic brightness adjustment ; Secondly, Perform auto-focus; "':
-            '"command": "Auxiliary Operation: Perform auto-focus; "',
+            '"command": "Auxiliary Operation: Firstly, Perform automatic exposure adjustment ; Secondly, Perform auto-focus; "',
         '"command": "Auxiliary operation: Firstly, Perform automatic brightness adjustment ; Secondly, Perform auto-focus;"':
-            '"command": "Auxiliary operation: Perform auto-focus;"',
+            '"command": "Auxiliary operation: Firstly, Perform automatic exposure adjustment ; Secondly, Perform auto-focus;"',
         '"command": "Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0, and finally perform automatic focusing on the current field of view containing organoids."':
             '"command": "Auxiliary Operation: First automatically configure the camera exposure time, and then perform automatic focusing on the current field of view containing organoids."',
         '"command": "Parameter Setting: Set the filter set to FITC fluorescence mode; \\n#Auxiliary Operation: First automatically configure the camera exposure time, then set the light source brightness to 0."':
