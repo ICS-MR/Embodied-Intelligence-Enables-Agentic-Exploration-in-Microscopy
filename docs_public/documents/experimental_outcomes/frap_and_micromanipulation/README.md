@@ -15,15 +15,15 @@ FRAP + micromanipulation driving tasks and tools.
     - `frap/prompts/frap.executor_prompt.txt`
     - `frap/prompts/frap.planner_summary.txt`
 
-- `micromanipulation_system/` - processed micromanipulation-system interaction records
+- `micromanipulation_system/test/` - processed micromanipulation-system interaction records
   (movement, spheroid localization, pump aspiration/dispensing, and MP285-based
   spheroid-transfer / -release / -grasping execution records):
-  - `micromanipulation_system/01_move_row_3_column_4.md` - stage movement to a specified grid position.
-  - `micromanipulation_system/02_aspirate_and_dispense_10_ml.md` - pump aspiration and dispensing.
-  - `micromanipulation_system/03_locate_microsphere.md` - microsphere localization.
-  - `micromanipulation_system/04_spheroid_transfer.md` - end-to-end EIMS spheroid-transfer workflow (MP285).
-  - `micromanipulation_system/05_release_three_balls_stage_alignment.md` - releasing three balls with stage alignment (MP285).
-  - `micromanipulation_system/06_grasp_green_balls_pump_velocity_setup.md` - grasping green balls with pump velocity setup (MP285).
+  - `micromanipulation_system/test/01_move_row_3_column_4.md` - stage movement to a specified grid position.
+  - `micromanipulation_system/test/02_aspirate_and_dispense_10_ml.md` - pump aspiration and dispensing.
+  - `micromanipulation_system/test/03_locate_microsphere.md` - microsphere localization.
+  - `micromanipulation_system/test/04_spheroid_transfer.md` - end-to-end EIMS spheroid-transfer workflow (MP285).
+  - `micromanipulation_system/test/05_release_three_balls_stage_alignment.md` - releasing three balls with stage alignment (MP285).
+  - `micromanipulation_system/test/06_grasp_green_balls_pump_velocity_setup.md` - grasping green balls with pump velocity setup (MP285).
   - `micromanipulation_system/prompts/` - archived MP285 prompt snapshots used for the published replay.
     - `micromanipulation_system/prompts/mp285_controller.executor_prompt.txt`
     - `micromanipulation_system/prompts/mp285_controller.planner_summary.txt`

@@ -86,7 +86,7 @@ Primary index: [documents/README.md](documents/README.md).
 | `prompt_component_ablation/` | Fig. 4b | Prompt component constraint ablation. |
 | `model_size_comparison/` | Fig. 4b | Model-size performance comparison. |
 | `model_comparison/` | Fig. 4b, 4c | Foundation-model performance comparison. |
-| `frap_and_micromanipulation/` | Fig. 5c, 5d, S2 | FRAP test display MDs (`frap/frap_test/`), archived FRAP / MP285 prompt snapshots (`frap/prompts/`, `micromanipulation_system/prompts/`), and micromanipulation-system interaction records (`micromanipulation_system/`). VLA/ACT baseline code and assets live under `docs_public/different_low_level_policy/ACT_VLA/`. |
+| `frap_and_micromanipulation/` | Fig. 5c, 5d, S2 | FRAP test display MDs (`frap/frap_test/`), archived FRAP / MP285 prompt snapshots (`frap/prompts/`, `micromanipulation_system/prompts/`), and micromanipulation-system interaction records (`micromanipulation_system/test/`). VLA/ACT baseline code and assets live under `docs_public/different_low_level_policy/ACT_VLA/`. |
 | `different_disturbance_detection/` | Fig. 7c | Environmental/imaging perturbation detection outcomes. |
 | `sparse_organoid_scanning/` | Fig. 7f | Organoid collection workflow dialogue (display). |
 | `mitotic_cell_collection/` | Fig. 8a | Mitosis skill before/after comparison dialogues (display). |

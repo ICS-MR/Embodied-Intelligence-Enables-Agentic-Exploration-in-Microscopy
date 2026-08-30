@@ -92,7 +92,7 @@ This folder contains organized dataset and experimental outcome files.
 
 12. `frap_and_micromanipulation/`
 
-    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`), archived FRAP / MP285 prompt snapshots (`frap/prompts/`, `micromanipulation_system/prompts/`), and micromanipulation-system interaction records (`micromanipulation_system/`).
+    Fig. 5c, Fig. 5d, Fig. S2: FRAP test display MDs (`frap/frap_test/`), archived FRAP / MP285 prompt snapshots (`frap/prompts/`, `micromanipulation_system/prompts/`), and micromanipulation-system interaction records (`micromanipulation_system/test/`).
 
     Note: the FRAP runtime dependency (`frap_ui_profile.json` + `record_frap_click_once.py`) lives at `docs_public/frap/` and is not duplicated here.
 
