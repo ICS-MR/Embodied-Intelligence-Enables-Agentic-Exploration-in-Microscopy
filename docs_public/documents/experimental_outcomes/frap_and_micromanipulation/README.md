@@ -11,7 +11,9 @@ FRAP + micromanipulation driving tasks and tools.
   - `frap/frap_test/04_spiral_drawing.md` - spiral pattern drawing.
   - `frap/frap_test/05_circle_36_points_installed.md` - 36-point circle with objective installed.
   - `frap/frap_test/06_circle_36_points_uninstalled.md` - 36-point circle with objective uninstalled.
-  - `frap.executor_prompt.txt` / `frap.planner_summary.txt` - archived FRAP prompt snapshots used for the published replay.
+  - `frap/prompts/` - archived FRAP prompt snapshots used for the published replay.
+    - `frap/prompts/frap.executor_prompt.txt`
+    - `frap/prompts/frap.planner_summary.txt`
 
 - `micromanipulation_system/` - processed micromanipulation-system interaction records
   (movement, spheroid localization, pump aspiration/dispensing, and MP285-based
@@ -22,5 +24,7 @@ FRAP + micromanipulation driving tasks and tools.
   - `micromanipulation_system/04_spheroid_transfer.md` - end-to-end EIMS spheroid-transfer workflow (MP285).
   - `micromanipulation_system/05_release_three_balls_stage_alignment.md` - releasing three balls with stage alignment (MP285).
   - `micromanipulation_system/06_grasp_green_balls_pump_velocity_setup.md` - grasping green balls with pump velocity setup (MP285).
-  - `mp285_controller.executor_prompt.txt` / `mp285_controller.planner_summary.txt` - archived MP285 prompt snapshots used for the published replay.
+  - `micromanipulation_system/prompts/` - archived MP285 prompt snapshots used for the published replay.
+    - `micromanipulation_system/prompts/mp285_controller.executor_prompt.txt`
+    - `micromanipulation_system/prompts/mp285_controller.planner_summary.txt`
 
