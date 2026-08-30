@@ -4,13 +4,13 @@ FRAP + micromanipulation driving tasks and tools.
 
 ## Structure
 
-- `frap/frap_test/` - processed FRAP test session display MDs:
-  - `frap/frap_test/01_cell_bleaching.md` - single-cell photobleaching.
-  - `frap/frap_test/02_writing_letters.md` - letter drawing with FRAP laser.
-  - `frap/frap_test/03_geometric_patterns.md` - geometric pattern drawing.
-  - `frap/frap_test/04_spiral_drawing.md` - spiral pattern drawing.
-  - `frap/frap_test/05_circle_36_points_installed.md` - 36-point circle with objective installed.
-  - `frap/frap_test/06_circle_36_points_uninstalled.md` - 36-point circle with objective uninstalled.
+- `frap/test/` - processed FRAP test session display MDs:
+  - `frap/test/01_cell_bleaching.md` - single-cell photobleaching.
+  - `frap/test/02_writing_letters.md` - letter drawing with FRAP laser.
+  - `frap/test/03_geometric_patterns.md` - geometric pattern drawing.
+  - `frap/test/04_spiral_drawing.md` - spiral pattern drawing.
+  - `frap/test/05_circle_36_points_installed.md` - 36-point circle with objective installed.
+  - `frap/test/06_circle_36_points_uninstalled.md` - 36-point circle with objective uninstalled.
   - `frap/prompts/` - archived FRAP prompt snapshots used for the published replay.
     - `frap/prompts/frap.executor_prompt.txt`
     - `frap/prompts/frap.planner_summary.txt`
