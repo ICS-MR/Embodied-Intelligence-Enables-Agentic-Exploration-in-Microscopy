@@ -2506,7 +2506,7 @@ class ImageJProcessor(BaseTool):
         print(f"Finding {target_type} target positions in image")
 
         spec = _resolve_target_detection_spec(target_type, self.detection_targets)
-        resolved_score_thr = float(spec.get("score_thr", 0.2) if score_thr is None else score_thr)
+        resolved_score_thr = float(spec.get("score_thr", 0.5) if score_thr is None else score_thr)
         final_output_filename = self._validate_detection_output_filename(
             spec["output_filename"] if output_filename is None else output_filename
         )

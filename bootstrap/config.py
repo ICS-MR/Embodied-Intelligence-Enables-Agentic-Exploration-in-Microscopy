@@ -269,7 +269,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "2Dcell": {
         "target_class_id": 0,
         "target_class_name": "2Dcell",
-        "score_thr": 0.2,
+        "score_thr": 0.5,
         "output_filename": "2Dcell_locations_list.json",
         "model_config": "detector_models/cell2d/config.py",
         "model_checkpoint": "detector_models/cell2d/weights.pth",
@@ -277,7 +277,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "organoid": {
         "target_class_id": 0,
         "target_class_name": "organoid",
-        "score_thr": 0.2,
+        "score_thr": 0.5,
         "output_filename": "organoid_locations_list.json",
         "model_config": "detector_models/organoid/config.py",
         "model_checkpoint": "detector_models/organoid/weights.pth",
@@ -285,7 +285,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "mitosis": {
         "target_class_id": 0,
         "target_class_name": "mitosis",
-        "score_thr": 0.2,
+        "score_thr": 0.5,
         "output_filename": "mitosis_locations_list.json",
         "model_config": "detector_models/mitosis/config.py",
         "model_checkpoint": "detector_models/mitosis/weights.pth",
@@ -293,7 +293,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "2Dcell_brightfield": {
         "target_class_id": 0,
         "target_class_name": "2D_cell",
-        "score_thr": 0.2,
+        "score_thr": 0.5,
         "output_filename": "2Dcell_brightfield_locations_list.json",
         "model_config": "detector_models/cell2d_brightfield/config.py",
         "model_checkpoint": "detector_models/cell2d_brightfield/weights.pth",
@@ -301,7 +301,7 @@ DEFAULT_DETECTION_TARGETS: Dict[str, Dict[str, Any]] = {
     "organoid_fluorescence": {
         "target_class_id": 0,
         "target_class_name": "Organoids",
-        "score_thr": 0.2,
+        "score_thr": 0.5,
         "output_filename": "organoid_fluorescence_locations_list.json",
         "model_config": "detector_models/organoid_fluorescence/config.py",
         "model_checkpoint": "detector_models/organoid_fluorescence/weights.pth",
